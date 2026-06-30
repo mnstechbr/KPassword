@@ -6,7 +6,6 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 
-const INACTIVITY_LIMIT_MS = 3 * 60 * 1000;
 const MINIMIZED_CHECK_INTERVAL_MS = 800;
 
 type TrayReason = "minimized" | "closed" | "inactive";
@@ -18,6 +17,31 @@ let notificationPermissionChecked = false;
 let notificationAllowed = false;
 let audioContext: AudioContext | null = null;
 let audioUnlocked = false;
+
+function getBooleanSetting(key: string, fallback: boolean) {
+  try {
+    const value = localStorage.getItem(key);
+    if (value === null) return fallback;
+    return value === "true";
+  } catch {
+    return fallback;
+  }
+}
+
+function getNumberSetting(key: string, fallback: number, min: number, max: number) {
+  try {
+    const value = Number(localStorage.getItem(key));
+    if (!Number.isFinite(value)) return fallback;
+    return Math.min(max, Math.max(min, value));
+  } catch {
+    return fallback;
+  }
+}
+
+function getAutoLockLimitMs() {
+  return getNumberSetting("kpassword:auto-lock-minutes", 3, 1, 120) * 60 * 1000;
+}
+
 
 function getNotificationBody(reason: TrayReason) {
   switch (reason) {
@@ -172,10 +196,16 @@ async function hideToTray(reason: TrayReason) {
 
   try {
     window.dispatchEvent(new CustomEvent("kpassword:lock"));
-    await playMetroChime();
-    await new Promise((resolve) => window.setTimeout(resolve, 120));
+    if (getBooleanSetting("kpassword:tray-sound", true)) {
+      await playMetroChime();
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+    }
+
     await invoke("hide_to_tray", { reason });
-    await showTrayNotification(reason);
+
+    if (getBooleanSetting("kpassword:tray-notifications", true)) {
+      await showTrayNotification(reason);
+    }
   } catch (error) {
     console.error("Erro ao enviar KPassword para a bandeja:", error);
   }
@@ -188,9 +218,13 @@ function resetInactivityTimer() {
     clearTimeout(inactivityTimer);
   }
 
+  if (!getBooleanSetting("kpassword:lock-on-inactive", true)) {
+    return;
+  }
+
   inactivityTimer = setTimeout(() => {
     void hideToTray("inactive");
-  }, INACTIVITY_LIMIT_MS);
+  }, getAutoLockLimitMs());
 }
 
 function startActivityListeners() {
@@ -220,6 +254,10 @@ async function startCloseProtection() {
   const appWindow = getCurrentWindow();
 
   await appWindow.onCloseRequested(async (event) => {
+    if (!getBooleanSetting("kpassword:lock-on-close", true)) {
+      return;
+    }
+
     event.preventDefault();
     await hideToTray("closed");
   });
@@ -237,7 +275,7 @@ function startMinimizeProtection() {
       try {
         const minimized = await appWindow.isMinimized();
 
-        if (minimized) {
+        if (minimized && getBooleanSetting("kpassword:lock-on-minimize", true)) {
           await hideToTray("minimized");
         }
       } catch (error) {

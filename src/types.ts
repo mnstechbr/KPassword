@@ -15,6 +15,10 @@ export type CredentialRecord = {
   category: CredentialCategory;
   notes: string;
   favorite: boolean;
+  deletedAt?: string;
+  passwordChangedAt?: string;
+  passwordExpiresInDays?: number;
+  passwordExpiryNoticeDays?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -25,6 +29,11 @@ export type VaultSettings = {
   clipboardClearSeconds: number;
   masterPasswordChangedAt?: string;
   lastPasswordRotationReminderAt?: string;
+  lockOnMinimize?: boolean;
+  lockOnClose?: boolean;
+  lockOnInactive?: boolean;
+  notifyOnTray?: boolean;
+  soundOnTray?: boolean;
 };
 
 export type PlainVault = {

@@ -1,4 +1,4 @@
-import {
+﻿import {
   useCallback,
   useEffect,
   useMemo,
@@ -13,7 +13,7 @@ import {
   parseEncryptedVault,
   validateMasterPassword,
 } from "./crypto";
-import { generateStrongPassword, getPasswordLabel, getPasswordScore } from "./password";
+import { generatePassword, getPasswordLabel, getPasswordScore, type PasswordGeneratorMode } from "./password";
 import {
   getStorageInfo,
   listBackupFiles,
@@ -47,6 +47,9 @@ const EMPTY_FORM: Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> = {
   category: "Trabalho",
   notes: "",
   favorite: false,
+  passwordChangedAt: "",
+  passwordExpiresInDays: 90,
+  passwordExpiryNoticeDays: 15,
 };
 
 const CATEGORIES: CredentialCategory[] = [
@@ -59,15 +62,20 @@ const CATEGORIES: CredentialCategory[] = [
 ];
 
 const CLIPBOARD_CLEAR_SECONDS = 60;
-const APP_VERSION = "0.3.2";
+const APP_VERSION = "0.3.3";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
 
-type Screen = "credentials" | "dashboard" | "settings" | "preferences";
+type Screen = "credentials" | "dashboard" | "trash" | "settings" | "preferences";
 
 type AppTheme = "dark" | "light" | "mixed";
 type FontScale = "normal" | "large";
+
+const PASSWORD_EXPIRY_OPTIONS = [0, 30, 60, 90, 180, 365];
+const PASSWORD_NOTICE_OPTIONS = [7, 15, 30, 60];
+
+type PasswordExpiryStatus = "never" | "valid" | "soon" | "expired";
 
 type ConfirmDialog = {
   title: string;
@@ -190,18 +198,91 @@ function daysBetween(startIso: string | undefined, end = new Date()) {
   return Math.floor((end.getTime() - start) / (24 * 60 * 60 * 1000));
 }
 
+function getActiveCredentials(credentials: CredentialRecord[]) {
+  return credentials.filter((credential) => !credential.deletedAt);
+}
+
+function getDeletedCredentials(credentials: CredentialRecord[]) {
+  return credentials.filter((credential) => Boolean(credential.deletedAt));
+}
+
+function getCredentialPasswordChangedAt(credential: CredentialRecord) {
+  return credential.passwordChangedAt ?? credential.updatedAt ?? credential.createdAt;
+}
+
+function getPasswordExpiryInfo(credential: CredentialRecord) {
+  const expiresInDays = Number(credential.passwordExpiresInDays ?? 0);
+  const noticeDays = Number(credential.passwordExpiryNoticeDays ?? 15);
+
+  if (!expiresInDays || expiresInDays <= 0) {
+    return {
+      status: "never" as PasswordExpiryStatus,
+      daysLeft: null as number | null,
+    };
+  }
+
+  const changedAt = new Date(getCredentialPasswordChangedAt(credential)).getTime();
+
+  if (Number.isNaN(changedAt)) {
+    return {
+      status: "never" as PasswordExpiryStatus,
+      daysLeft: null as number | null,
+    };
+  }
+
+  const expiresAt = changedAt + expiresInDays * 24 * 60 * 60 * 1000;
+  const daysLeft = Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+
+  if (daysLeft < 0) {
+    return {
+      status: "expired" as PasswordExpiryStatus,
+      daysLeft,
+    };
+  }
+
+  if (daysLeft <= noticeDays) {
+    return {
+      status: "soon" as PasswordExpiryStatus,
+      daysLeft,
+    };
+  }
+
+  return {
+    status: "valid" as PasswordExpiryStatus,
+    daysLeft,
+  };
+}
+
+function getExpiryBadgeClass(status: PasswordExpiryStatus) {
+  if (status === "expired") return "expiryBadge expired";
+  if (status === "soon") return "expiryBadge soon";
+  if (status === "valid") return "expiryBadge valid";
+  return "expiryBadge never";
+}
+
 function normalizeVault(vault: PlainVault): PlainVault {
   const now = new Date().toISOString();
 
   return {
     ...vault,
+    credentials: (vault.credentials ?? []).map((credential) => ({
+      ...credential,
+      passwordChangedAt: credential.passwordChangedAt ?? credential.updatedAt ?? credential.createdAt ?? now,
+      passwordExpiresInDays: credential.passwordExpiresInDays ?? 0,
+      passwordExpiryNoticeDays: credential.passwordExpiryNoticeDays ?? 15,
+    })),
     settings: {
       autoLockMinutes: vault.settings?.autoLockMinutes ?? 3,
       backupIntervalHours: vault.settings?.backupIntervalHours ?? 4,
-      clipboardClearSeconds: CLIPBOARD_CLEAR_SECONDS,
+      clipboardClearSeconds: vault.settings?.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS,
       masterPasswordChangedAt:
         vault.settings?.masterPasswordChangedAt ?? vault.createdAt ?? now,
       lastPasswordRotationReminderAt: vault.settings?.lastPasswordRotationReminderAt,
+      lockOnMinimize: vault.settings?.lockOnMinimize ?? true,
+      lockOnClose: vault.settings?.lockOnClose ?? true,
+      lockOnInactive: vault.settings?.lockOnInactive ?? true,
+      notifyOnTray: vault.settings?.notifyOnTray ?? true,
+      soundOnTray: vault.settings?.soundOnTray ?? true,
     },
   };
 }
@@ -248,6 +329,13 @@ export default function App() {
   const [restorePopupOpen, setRestorePopupOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState("");
   const [appLanguage, setAppLanguage] = useState<AppLanguage>(getInitialLanguage);
+  const [generatorMode, setGeneratorMode] = useState<PasswordGeneratorMode>("random");
+  const [generatorLength, setGeneratorLength] = useState(24);
+  const [generatorLowercase, setGeneratorLowercase] = useState(true);
+  const [generatorUppercase, setGeneratorUppercase] = useState(true);
+  const [generatorNumbers, setGeneratorNumbers] = useState(true);
+  const [generatorSymbols, setGeneratorSymbols] = useState(true);
+  const [generatorAvoidAmbiguous, setGeneratorAvoidAmbiguous] = useState(true);
 
   const t = useCallback(
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
@@ -288,6 +376,18 @@ export default function App() {
     localStorage.setItem("kpassword:reduce-motion", String(reduceMotion));
     localStorage.setItem("kpassword:compact-mode", String(compactMode));
   }, [appTheme, fontScale, reduceMotion, compactMode]);
+
+  useEffect(() => {
+    if (!vault) return;
+
+    localStorage.setItem("kpassword:auto-lock-minutes", String(vault.settings.autoLockMinutes ?? 3));
+    localStorage.setItem("kpassword:lock-on-minimize", String(vault.settings.lockOnMinimize ?? true));
+    localStorage.setItem("kpassword:lock-on-close", String(vault.settings.lockOnClose ?? true));
+    localStorage.setItem("kpassword:lock-on-inactive", String(vault.settings.lockOnInactive ?? true));
+    localStorage.setItem("kpassword:tray-notifications", String(vault.settings.notifyOnTray ?? true));
+    localStorage.setItem("kpassword:tray-sound", String(vault.settings.soundOnTray ?? true));
+    localStorage.setItem("kpassword:clipboard-clear-seconds", String(vault.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS));
+  }, [vault]);
 
   const refreshStorageInfo = useCallback(async () => {
     try {
@@ -455,6 +555,7 @@ export default function App() {
       setMessage("");
       await refreshStorageInfo();
       void maybeShowPasswordRotationReminder(plainVault);
+      void maybeShowPasswordExpiryReminder(plainVault);
     } catch (error) {
       console.error(error);
       setMessage(t("errors.unlock"));
@@ -482,6 +583,36 @@ export default function App() {
 
     if (confirmed) {
       setScreen("settings");
+    }
+  }
+
+  async function maybeShowPasswordExpiryReminder(currentVault: PlainVault) {
+    const activeCredentials = getActiveCredentials(currentVault.credentials);
+    const expired = activeCredentials.filter(
+      (credential) => getPasswordExpiryInfo(credential).status === "expired",
+    );
+    const soon = activeCredentials.filter(
+      (credential) => getPasswordExpiryInfo(credential).status === "soon",
+    );
+
+    if (expired.length === 0 && soon.length === 0) return;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const lastReminder = localStorage.getItem("kpassword:last-expiry-reminder");
+
+    if (lastReminder === today) return;
+
+    localStorage.setItem("kpassword:last-expiry-reminder", today);
+
+    const confirmed = await askConfirmation({
+      title: t("expiry.reminderTitle"),
+      message: t("expiry.reminderMessage", { expired: expired.length, soon: soon.length }),
+      confirmText: t("expiry.openDashboard"),
+      cancelText: t("dialog.remindLater"),
+    });
+
+    if (confirmed) {
+      setScreen("dashboard");
     }
   }
 
@@ -645,7 +776,54 @@ export default function App() {
       const detail = error instanceof Error ? error.message : String(error);
       setUpdateStatus(t("updates.error", { detail }));
     }
-  }  function openNewCredentialForm() {
+  }  async function updateVaultSettings(nextSettings: Partial<PlainVault["settings"]>) {
+    if (!vault) return;
+
+    const nextVault = normalizeVault({
+      ...vault,
+      settings: {
+        ...vault.settings,
+        ...nextSettings,
+      },
+      updatedAt: new Date().toISOString(),
+    });
+
+    try {
+      await persistVault(nextVault);
+      setMessage(t("success.settingsUpdated"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("errors.saveSettings"));
+    }
+  }
+
+  function getExpiryLabel(credential: CredentialRecord) {
+    const info = getPasswordExpiryInfo(credential);
+
+    if (info.status === "never") return t("expiry.never");
+    if (info.status === "expired") return t("expiry.expired");
+    if (info.status === "soon") return t("expiry.soon", { days: Math.max(info.daysLeft ?? 0, 0) });
+    return t("expiry.valid", { days: info.daysLeft ?? 0 });
+  }
+
+  function generateCredentialPassword() {
+    const nextPassword = generatePassword({
+      mode: generatorMode,
+      length: generatorLength,
+      includeLowercase: generatorLowercase,
+      includeUppercase: generatorUppercase,
+      includeNumbers: generatorNumbers,
+      includeSymbols: generatorSymbols,
+      avoidAmbiguous: generatorAvoidAmbiguous,
+    });
+
+    setCredentialForm((current) => ({
+      ...current,
+      password: nextPassword,
+    }));
+  }
+
+  function openNewCredentialForm() {
     setEditingId(null);
     setCredentialForm(getEmptyCredential());
     setFormOpen(true);
@@ -661,6 +839,9 @@ export default function App() {
       category: credential.category,
       notes: credential.notes,
       favorite: credential.favorite,
+      passwordChangedAt: getCredentialPasswordChangedAt(credential),
+      passwordExpiresInDays: credential.passwordExpiresInDays ?? 0,
+      passwordExpiryNoticeDays: credential.passwordExpiryNoticeDays ?? 15,
     });
     setFormOpen(true);
   }
@@ -694,12 +875,23 @@ export default function App() {
     }
 
     const now = new Date().toISOString();
+    const previousCredential = editingId
+      ? vault.credentials.find((credential) => credential.id === editingId)
+      : null;
+    const passwordChanged =
+      !previousCredential || previousCredential.password !== credentialForm.password;
+
     const cleanForm = {
       ...credentialForm,
       title: credentialForm.title.trim(),
       username: credentialForm.username.trim(),
       url: normalizeUrl(credentialForm.url),
       notes: credentialForm.notes.trim(),
+      passwordChangedAt: passwordChanged
+        ? now
+        : previousCredential?.passwordChangedAt ?? previousCredential?.updatedAt ?? now,
+      passwordExpiresInDays: Number(credentialForm.passwordExpiresInDays ?? 0),
+      passwordExpiryNoticeDays: Number(credentialForm.passwordExpiryNoticeDays ?? 15),
     };
 
     const createdId = createId();
@@ -753,8 +945,8 @@ export default function App() {
     const target = vault.credentials.find((credential) => credential.id === id);
     const confirmed = await askConfirmation({
       title: t("dialog.deleteCredentialTitle"),
-      message: t("dialog.deleteCredentialMessage", { title: target?.title ?? t("dialog.selectedCredential") }),
-      confirmText: t("dialog.delete"),
+      message: t("dialog.moveToTrashMessage", { title: target?.title ?? t("dialog.selectedCredential") }),
+      confirmText: t("trash.moveToTrash"),
       cancelText: t("dialog.cancel"),
       tone: "danger",
     });
@@ -764,22 +956,121 @@ export default function App() {
     setBusy(true);
 
     try {
+      const now = new Date().toISOString();
+
       await persistVault({
         ...vault,
-        credentials: vault.credentials.filter((credential) => credential.id !== id),
-        updatedAt: new Date().toISOString(),
+        credentials: vault.credentials.map((credential) =>
+          credential.id === id
+            ? {
+                ...credential,
+                deletedAt: now,
+                favorite: false,
+                updatedAt: now,
+              }
+            : credential,
+        ),
+        updatedAt: now,
       });
 
       if (detailCredentialId === id) {
         setDetailCredentialId(null);
       }
 
-      setMessage(t("success.credentialDeleted"));
+      setMessage(t("trash.moved"));
     } catch (error) {
       console.error(error);
       setMessage(t("errors.deleteCredential"));
     } finally {
       setBusy(false);
+    }
+  }
+
+
+  async function handleRestoreCredential(id: string) {
+    if (!vault) return;
+
+    const now = new Date().toISOString();
+
+    try {
+      await persistVault({
+        ...vault,
+        credentials: vault.credentials.map((credential) =>
+          credential.id === id
+            ? {
+                ...credential,
+                deletedAt: undefined,
+                updatedAt: now,
+              }
+            : credential,
+        ),
+        updatedAt: now,
+      });
+
+      setMessage(t("trash.restored"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("trash.restoreError"));
+    }
+  }
+
+  async function handlePermanentDeleteCredential(id: string) {
+    if (!vault) return;
+
+    const target = vault.credentials.find((credential) => credential.id === id);
+
+    const confirmed = await askConfirmation({
+      title: t("trash.deleteForeverTitle"),
+      message: t("trash.deleteForeverMessage", { title: target?.title ?? t("dialog.selectedCredential") }),
+      confirmText: t("trash.deleteForever"),
+      cancelText: t("dialog.cancel"),
+      tone: "danger",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await persistVault({
+        ...vault,
+        credentials: vault.credentials.filter((credential) => credential.id !== id),
+        updatedAt: new Date().toISOString(),
+      });
+
+      setMessage(t("trash.deletedForever"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("trash.deleteForeverError"));
+    }
+  }
+
+  async function handleEmptyTrash() {
+    if (!vault) return;
+
+    const deletedCredentials = getDeletedCredentials(vault.credentials);
+
+    if (deletedCredentials.length === 0) return;
+
+    const confirmed = await askConfirmation({
+      title: t("trash.emptyTitle"),
+      message: t("trash.emptyMessage", { count: deletedCredentials.length }),
+      confirmText: t("trash.empty"),
+      cancelText: t("dialog.cancel"),
+      tone: "danger",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await persistVault({
+        ...vault,
+        credentials: getActiveCredentials(vault.credentials),
+        updatedAt: new Date().toISOString(),
+      });
+
+      setMessage(t("trash.emptySuccess"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("trash.emptyError"));
     }
   }
 
@@ -808,7 +1099,7 @@ export default function App() {
   async function moveCredentialByOffset(id: string, offset: -1 | 1) {
     if (!vault || search.trim()) return;
 
-    const orderedCredentials = getOrderedCredentials(vault.credentials);
+    const orderedCredentials = getOrderedCredentials(getActiveCredentials(vault.credentials));
     const sourceIndex = orderedCredentials.findIndex((credential) => credential.id === id);
 
     if (sourceIndex < 0) return;
@@ -828,7 +1119,7 @@ export default function App() {
 
     await persistVault({
       ...vault,
-      credentials: reordered,
+      credentials: [...reordered, ...getDeletedCredentials(vault.credentials)],
       updatedAt: new Date().toISOString(),
     });
   }
@@ -855,7 +1146,7 @@ export default function App() {
       }
 
       setCopiedField("");
-    }, CLIPBOARD_CLEAR_SECONDS * 1000);
+    }, (vault?.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS) * 1000);
   }
 
   const filteredCredentials = useMemo(() => {
@@ -867,7 +1158,7 @@ export default function App() {
       .split(/\s+/)
       .filter(Boolean);
 
-    return getOrderedCredentials(vault.credentials).filter((credential) => {
+    return getOrderedCredentials(getActiveCredentials(vault.credentials)).filter((credential) => {
       if (terms.length === 0) return true;
 
       const searchable = [
@@ -892,7 +1183,8 @@ export default function App() {
   }, [detailCredentialId, vault]);
 
   const stats = useMemo(() => {
-    const credentials = vault?.credentials ?? [];
+    const credentials = getActiveCredentials(vault?.credentials ?? []);
+    const deleted = getDeletedCredentials(vault?.credentials ?? []);
     const repeatedPasswords = new Map<string, number>();
 
     credentials.forEach((credential) => {
@@ -908,14 +1200,53 @@ export default function App() {
     const repeated = credentials.filter(
       (credential) => (repeatedPasswords.get(credential.password) ?? 0) > 1,
     ).length;
+    const expired = credentials.filter(
+      (credential) => getPasswordExpiryInfo(credential).status === "expired",
+    ).length;
+    const expiringSoon = credentials.filter(
+      (credential) => getPasswordExpiryInfo(credential).status === "soon",
+    ).length;
+    const missingUrl = credentials.filter((credential) => !credential.url).length;
+    const missingUser = credentials.filter((credential) => !credential.username).length;
+    const oldPasswords = credentials.filter(
+      (credential) => daysBetween(getCredentialPasswordChangedAt(credential)) >= 180,
+    ).length;
 
     return {
       total: credentials.length,
+      deleted: deleted.length,
       favorites: credentials.filter((credential) => credential.favorite).length,
       weak,
       repeated,
+      expired,
+      expiringSoon,
+      missingUrl,
+      missingUser,
+      oldPasswords,
     };
   }, [vault]);
+
+  const activeCredentials = getActiveCredentials(vault?.credentials ?? []);
+  const deletedCredentials = getDeletedCredentials(vault?.credentials ?? []);
+  const expiredCredentials = activeCredentials.filter(
+    (credential) => getPasswordExpiryInfo(credential).status === "expired",
+  );
+  const expiringSoonCredentials = activeCredentials.filter(
+    (credential) => getPasswordExpiryInfo(credential).status === "soon",
+  );
+  const weakCredentials = activeCredentials.filter(
+    (credential) => getPasswordScore(credential.password) < 60,
+  );
+  const repeatedPasswordCounts = new Map<string, number>();
+  activeCredentials.forEach((credential) => {
+    repeatedPasswordCounts.set(credential.password, (repeatedPasswordCounts.get(credential.password) ?? 0) + 1);
+  });
+  const repeatedCredentials = activeCredentials.filter(
+    (credential) => (repeatedPasswordCounts.get(credential.password) ?? 0) > 1,
+  );
+  const incompleteCredentials = activeCredentials.filter(
+    (credential) => !credential.url || !credential.username || !credential.category,
+  );
 
   const canReorderCredentials = search.trim().length === 0;
   const masterIssues = validateMasterPassword(setupPassword);
@@ -1170,6 +1501,15 @@ export default function App() {
             <span className="navLabel">{t("nav.dashboard")}</span>
           </button>
           <button
+            className={screen === "trash" ? "active" : ""}
+            onClick={() => setScreen("trash")}
+            title={t("nav.trash")}
+            aria-label={t("nav.trash")}
+          >
+            <span className="navIcon" aria-hidden="true">🗑️</span>
+            <span className="navLabel">{t("nav.trash")}</span>
+          </button>
+          <button
             className={screen === "settings" ? "active" : ""}
             onClick={() => setScreen("settings")}
             title={t("nav.securityBackup")}
@@ -1206,6 +1546,7 @@ export default function App() {
               <h1>
                 {screen === "credentials" && t("nav.credentials")}
                 {screen === "dashboard" && t("topbar.vaultDashboard")}
+                {screen === "trash" && t("nav.trash")}
                 {screen === "settings" && t("nav.securityBackup")}
                 {screen === "preferences" && t("nav.preferences")}
               </h1>
@@ -1214,9 +1555,11 @@ export default function App() {
 
           <div className="topbarActions">
             <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
-            <button className="primaryButton" onClick={openNewCredentialForm}>
-              {t("topbar.addCredential")}
-            </button>
+            {screen !== "trash" && (
+              <button className="primaryButton" onClick={openNewCredentialForm}>
+                {t("topbar.addCredential")}
+              </button>
+            )}
           </div>
         </header>
 
@@ -1248,7 +1591,7 @@ export default function App() {
                     className="credentialRow"
                     key={credential.id}
                     onClick={() => setDetailCredentialId(credential.id)}
-                    title="Clique para ver detalhes. Use as setas para reorganizar."
+                    title={t("credential.clickTitle")}
                   >
                     <span className="reorderControls" aria-label={t("credential.reorder")}>
                       <button
@@ -1294,8 +1637,11 @@ export default function App() {
 
                     <span className="rowCategory">{getCategoryLabel(credential.category, appLanguage)}</span>
 
-                    <span className="rowStrength">
-                      {translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} · {passwordScore}%
+                    <span className="rowHealth">
+                      <span>{translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} · {passwordScore}%</span>
+                      <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
+                        {getExpiryLabel(credential)}
+                      </span>
                     </span>
 
                     <span className="rowActions">
@@ -1358,15 +1704,78 @@ export default function App() {
               <strong>{stats.favorites}</strong>
               <small>{t("dashboard.quickAccess")}</small>
             </article>
-            <article className="metricCard warning">
+            <article className={stats.expired > 0 ? "metricCard danger" : "metricCard"}>
+              <span>{t("dashboard.expired")}</span>
+              <strong>{stats.expired}</strong>
+              <small>{t("dashboard.expiredDescription")}</small>
+            </article>
+            <article className={stats.expiringSoon > 0 ? "metricCard warning" : "metricCard"}>
+              <span>{t("dashboard.expiringSoon")}</span>
+              <strong>{stats.expiringSoon}</strong>
+              <small>{t("dashboard.expiringSoonDescription")}</small>
+            </article>
+            <article className={stats.weak > 0 ? "metricCard warning" : "metricCard"}>
               <span>{t("dashboard.weak")}</span>
               <strong>{stats.weak}</strong>
               <small>{t("dashboard.reviewNeeded")}</small>
             </article>
-            <article className="metricCard warning">
+            <article className={stats.repeated > 0 ? "metricCard warning" : "metricCard"}>
               <span>{t("dashboard.repeated")}</span>
               <strong>{stats.repeated}</strong>
               <small>{t("dashboard.reuseRisk")}</small>
+            </article>
+            <article className={stats.oldPasswords > 0 ? "metricCard warning" : "metricCard"}>
+              <span>{t("dashboard.oldPasswords")}</span>
+              <strong>{stats.oldPasswords}</strong>
+              <small>{t("dashboard.oldPasswordsDescription")}</small>
+            </article>
+            <article className={stats.deleted > 0 ? "metricCard" : "metricCard"}>
+              <span>{t("nav.trash")}</span>
+              <strong>{stats.deleted}</strong>
+              <small>{t("trash.items")}</small>
+            </article>
+
+            <article className="wideCard">
+              <h2>{t("dashboard.securityHealth")}</h2>
+              <div className="securityGrid">
+                <span>{t("dashboard.weakCount", { count: stats.weak })}</span>
+                <span>{t("dashboard.repeatedCount", { count: stats.repeated })}</span>
+                <span>{t("dashboard.expiredCount", { count: stats.expired })}</span>
+                <span>{t("dashboard.expiringSoonCount", { count: stats.expiringSoon })}</span>
+                <span>{t("dashboard.missingUrlCount", { count: stats.missingUrl })}</span>
+                <span>{t("dashboard.missingUserCount", { count: stats.missingUser })}</span>
+                <span>{t("dashboard.oldPasswordCount", { count: stats.oldPasswords })}</span>
+                <span>{t("dashboard.deletedCount", { count: stats.deleted })}</span>
+              </div>
+            </article>
+
+            <article className="wideCard">
+              <h2>{t("dashboard.attentionList")}</h2>
+              <div className="miniList">
+                {[...expiredCredentials, ...expiringSoonCredentials, ...weakCredentials, ...repeatedCredentials, ...incompleteCredentials]
+                  .filter((credential, index, list) => list.findIndex((item) => item.id === credential.id) === index)
+                  .slice(0, 8)
+                  .map((credential) => (
+                    <button
+                      key={credential.id}
+                      onClick={() => {
+                        setDetailCredentialId(credential.id);
+                        setScreen("credentials");
+                      }}
+                    >
+                      <strong>{credential.title}</strong>
+                      <span>{getExpiryLabel(credential)} · {translatePasswordLabel(getPasswordLabel(getPasswordScore(credential.password)), appLanguage)}</span>
+                    </button>
+                  ))}
+
+                {expiredCredentials.length === 0 &&
+                  expiringSoonCredentials.length === 0 &&
+                  weakCredentials.length === 0 &&
+                  repeatedCredentials.length === 0 &&
+                  incompleteCredentials.length === 0 && (
+                    <p className="emptyText">{t("dashboard.noAttentionItems")}</p>
+                  )}
+              </div>
             </article>
 
             <article className="wideCard">
@@ -1382,25 +1791,51 @@ export default function App() {
                 <span>{t("security.offline")}</span>
               </div>
             </article>
+          </div>
+        )}
 
+        {screen === "trash" && (
+          <div className="settingsGrid">
             <article className="wideCard">
-              <h2>{t("dashboard.latestCredentials")}</h2>
-              <div className="miniList">
-                {filteredCredentials.slice(0, 6).map((credential) => (
-                  <button
-                    key={credential.id}
-                    onClick={() => {
-                      setDetailCredentialId(credential.id);
-                      setScreen("credentials");
-                    }}
-                  >
-                    <strong>{credential.title}</strong>
-                    <span>{credential.username || credential.category}</span>
-                  </button>
+              <div className="cardTitleRow">
+                <div>
+                  <h2>{t("trash.title")}</h2>
+                  <p>{t("trash.description")}</p>
+                </div>
+                <button
+                  className="dangerConfirmButton"
+                  disabled={deletedCredentials.length === 0}
+                  onClick={() => void handleEmptyTrash()}
+                >
+                  {t("trash.empty")}
+                </button>
+              </div>
+
+              <div className="trashList">
+                {deletedCredentials.map((credential) => (
+                  <article key={credential.id} className="trashItem">
+                    <div>
+                      <strong>{credential.title}</strong>
+                      <span>
+                        {credential.username || t("credential.noUser")} · {t("trash.deletedAt")} {formatDate(credential.deletedAt, appLanguage)}
+                      </span>
+                    </div>
+                    <div className="trashActions">
+                      <button className="secondaryButton" onClick={() => void handleRestoreCredential(credential.id)}>
+                        {t("trash.restore")}
+                      </button>
+                      <button className="dangerButton" onClick={() => void handlePermanentDeleteCredential(credential.id)}>
+                        {t("trash.deleteForever")}
+                      </button>
+                    </div>
+                  </article>
                 ))}
 
-                {filteredCredentials.length === 0 && (
-                  <p className="emptyText">{t("dashboard.noCredentials")}</p>
+                {deletedCredentials.length === 0 && (
+                  <div className="emptyState">
+                    <h2>{t("trash.emptyListTitle")}</h2>
+                    <p>{t("trash.emptyListDescription")}</p>
+                  </div>
                 )}
               </div>
             </article>
@@ -1557,12 +1992,108 @@ export default function App() {
               </label>
             </article>
 
-            <article className="wideCard">
+            <article className="wideCard securityActionCard">
               <h2>{t("settings.securitySettings")}</h2>
+              <p>{t("settings.securitySettingsDescription")}</p>
+
+              <div className="settingsControlGrid">
+                <label>
+                  {t("settings.autoLockLabel")}
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={vault?.settings.autoLockMinutes ?? 3}
+                    onChange={(event) => void updateVaultSettings({ autoLockMinutes: Number(event.target.value) })}
+                  />
+                </label>
+
+                <label>
+                  {t("settings.clipboardLabel")}
+                  <input
+                    type="number"
+                    min={10}
+                    max={300}
+                    value={vault?.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS}
+                    onChange={(event) => void updateVaultSettings({ clipboardClearSeconds: Number(event.target.value) })}
+                  />
+                </label>
+
+                <label>
+                  {t("settings.backupIntervalLabel")}
+                  <input
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={vault?.settings.backupIntervalHours ?? 4}
+                    onChange={(event) => void updateVaultSettings({ backupIntervalHours: Number(event.target.value) })}
+                  />
+                </label>
+              </div>
+
+              <div className="toggleList">
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.lockOnInactive")}</strong>
+                    <small>{t("settings.lockOnInactiveDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.lockOnInactive ?? true}
+                    onChange={(event) => void updateVaultSettings({ lockOnInactive: event.target.checked })}
+                  />
+                </label>
+
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.lockOnMinimize")}</strong>
+                    <small>{t("settings.lockOnMinimizeDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.lockOnMinimize ?? true}
+                    onChange={(event) => void updateVaultSettings({ lockOnMinimize: event.target.checked })}
+                  />
+                </label>
+
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.lockOnClose")}</strong>
+                    <small>{t("settings.lockOnCloseDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.lockOnClose ?? true}
+                    onChange={(event) => void updateVaultSettings({ lockOnClose: event.target.checked })}
+                  />
+                </label>
+
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.notifyOnTray")}</strong>
+                    <small>{t("settings.notifyOnTrayDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.notifyOnTray ?? true}
+                    onChange={(event) => void updateVaultSettings({ notifyOnTray: event.target.checked })}
+                  />
+                </label>
+
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.soundOnTray")}</strong>
+                    <small>{t("settings.soundOnTrayDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.soundOnTray ?? true}
+                    onChange={(event) => void updateVaultSettings({ soundOnTray: event.target.checked })}
+                  />
+                </label>
+              </div>
+
               <div className="securityGrid">
-                <span>{t("settings.autoLockMinutes", { minutes: vault?.settings.autoLockMinutes ?? 3 })}</span>
-                <span>{t("settings.backupEvery", { hours: vault?.settings.backupIntervalHours ?? 4 })}</span>
-                <span>{t("settings.ctrlVClear", { seconds: CLIPBOARD_CLEAR_SECONDS })}</span>
                 <span>{t("settings.winV")}</span>
                 <span>{t("settings.autostart")}</span>
                 <span>{t("settings.tray")}</span>
@@ -1720,7 +2251,7 @@ export default function App() {
           <aside className="detailPopup" onMouseDown={(event) => event.stopPropagation()}>
             <div className="detailHeader">
               <div>
-                <span>{detailCredential.category}</span>
+                <span>{getCategoryLabel(detailCredential.category, appLanguage)}</span>
                 <h2>{detailCredential.title}</h2>
               </div>
               <button className="iconButton" onClick={() => setDetailCredentialId(null)}>
@@ -1753,6 +2284,18 @@ export default function App() {
                 <strong>
                   {translatePasswordLabel(getPasswordLabel(getPasswordScore(detailCredential.password)), appLanguage)} ·{" "}
                   {getPasswordScore(detailCredential.password)}%
+                </strong>
+              </div>
+
+              <div>
+                <span>{t("expiry.changedAt")}</span>
+                <strong>{formatDate(getCredentialPasswordChangedAt(detailCredential), appLanguage)}</strong>
+              </div>
+
+              <div>
+                <span>{t("expiry.status")}</span>
+                <strong className={getExpiryBadgeClass(getPasswordExpiryInfo(detailCredential).status)}>
+                  {getExpiryLabel(detailCredential)}
                 </strong>
               </div>
 
@@ -1880,6 +2423,44 @@ export default function App() {
                 />
               </label>
 
+              <label>
+                {t("expiry.expiresIn")}
+                <select
+                  value={credentialForm.passwordExpiresInDays ?? 0}
+                  onChange={(event) =>
+                    setCredentialForm((current) => ({
+                      ...current,
+                      passwordExpiresInDays: Number(event.target.value),
+                    }))
+                  }
+                >
+                  {PASSWORD_EXPIRY_OPTIONS.map((days) => (
+                    <option key={days} value={days}>
+                      {days === 0 ? t("expiry.never") : t("expiry.days", { days })}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                {t("expiry.noticeDays")}
+                <select
+                  value={credentialForm.passwordExpiryNoticeDays ?? 15}
+                  onChange={(event) =>
+                    setCredentialForm((current) => ({
+                      ...current,
+                      passwordExpiryNoticeDays: Number(event.target.value),
+                    }))
+                  }
+                >
+                  {PASSWORD_NOTICE_OPTIONS.map((days) => (
+                    <option key={days} value={days}>
+                      {t("expiry.daysBefore", { days })}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               <label className="full">
                 {t("form.password")}
                 <div className="passwordInput">
@@ -1893,25 +2474,87 @@ export default function App() {
                     }
                     placeholder={t("form.passwordPlaceholder")}
                   />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCredentialForm((current) => ({
-                        ...current,
-                        password: generateStrongPassword(24),
-                      }))
-                    }
-                  >
+                  <button type="button" onClick={generateCredentialPassword}>
                     {t("form.generateStrong")}
                   </button>
                 </div>
                 <span className="strength">
                   {t("form.strength", { label: translatePasswordLabel(getPasswordLabel(score), appLanguage), score })}
                 </span>
+
+                <div className="generatorPanel">
+                  <label>
+                    {t("generator.mode")}
+                    <select
+                      value={generatorMode}
+                      onChange={(event) => setGeneratorMode(event.target.value as PasswordGeneratorMode)}
+                    >
+                      <option value="random">{t("generator.random")}</option>
+                      <option value="memorable">{t("generator.memorable")}</option>
+                      <option value="pin">{t("generator.pin")}</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    {generatorMode === "pin" ? t("generator.pinLength") : t("generator.length")}
+                    <input
+                      type="number"
+                      min={generatorMode === "pin" ? 4 : 8}
+                      max={generatorMode === "pin" ? 16 : 96}
+                      value={generatorLength}
+                      onChange={(event) => setGeneratorLength(Number(event.target.value))}
+                    />
+                  </label>
+
+                  {generatorMode === "random" && (
+                    <div className="generatorOptions">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={generatorLowercase}
+                          onChange={(event) => setGeneratorLowercase(event.target.checked)}
+                        />
+                        {t("generator.lowercase")}
+                      </label>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={generatorUppercase}
+                          onChange={(event) => setGeneratorUppercase(event.target.checked)}
+                        />
+                        {t("generator.uppercase")}
+                      </label>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={generatorNumbers}
+                          onChange={(event) => setGeneratorNumbers(event.target.checked)}
+                        />
+                        {t("generator.numbers")}
+                      </label>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={generatorSymbols}
+                          onChange={(event) => setGeneratorSymbols(event.target.checked)}
+                        />
+                        {t("generator.symbols")}
+                      </label>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={generatorAvoidAmbiguous}
+                          onChange={(event) => setGeneratorAvoidAmbiguous(event.target.checked)}
+                        />
+                        {t("generator.avoidAmbiguous")}
+                      </label>
+                    </div>
+                  )}
+                </div>
               </label>
 
               <label className="full">
-                Observações
+                {t("form.notes")}
                 <textarea
                   value={credentialForm.notes}
                   onChange={(event) =>
@@ -1938,7 +2581,7 @@ export default function App() {
 
             <div className="modalActions">
               <button type="button" className="ghostButton" onClick={() => setFormOpen(false)}>
-                Cancelar
+                {t("dialog.cancel")}
               </button>
               <button disabled={busy} className="primaryButton">
                 {busy ? t("form.saving") : t("form.saveCredential")}
@@ -1953,5 +2596,6 @@ export default function App() {
     </main>
   );
 }
+
 
 

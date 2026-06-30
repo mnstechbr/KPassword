@@ -153,6 +153,11 @@ export function createEmptyVault(): PlainVault {
       clipboardClearSeconds: 60,
       masterPasswordChangedAt: now,
       lastPasswordRotationReminderAt: now,
+      lockOnMinimize: true,
+      lockOnClose: true,
+      lockOnInactive: true,
+      notifyOnTray: true,
+      soundOnTray: true,
     },
   };
 }

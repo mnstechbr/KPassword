@@ -2,11 +2,65 @@ const LOWER = "abcdefghijkmnopqrstuvwxyz";
 const UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 const NUMBERS = "23456789";
 const SYMBOLS = "!@#$%&*()-_=+[]{};:,.?";
+const AMBIGUOUS = "Il1O0o";
+
+const WORDS = [
+  "rio",
+  "sol",
+  "casa",
+  "nuvem",
+  "pedra",
+  "vento",
+  "foco",
+  "luz",
+  "trilha",
+  "campo",
+  "chave",
+  "cofre",
+  "ponte",
+  "mapa",
+  "porto",
+  "verde",
+  "azul",
+  "forte",
+  "rapido",
+  "seguro",
+];
+
+export type PasswordGeneratorMode = "random" | "memorable" | "pin";
+
+export type PasswordGeneratorOptions = {
+  mode?: PasswordGeneratorMode;
+  length?: number;
+  includeLowercase?: boolean;
+  includeUppercase?: boolean;
+  includeNumbers?: boolean;
+  includeSymbols?: boolean;
+  avoidAmbiguous?: boolean;
+};
 
 function pick(chars: string) {
   const array = new Uint32Array(1);
   crypto.getRandomValues(array);
   return chars[array[0] % chars.length];
+}
+
+function pickIndex(length: number) {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return array[0] % length;
+}
+
+function clamp(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.floor(value)));
+}
+
+function removeAmbiguous(chars: string) {
+  return chars
+    .split("")
+    .filter((char) => !AMBIGUOUS.includes(char))
+    .join("");
 }
 
 function shuffle(value: string[]) {
@@ -22,15 +76,71 @@ function shuffle(value: string[]) {
   return result.join("");
 }
 
-export function generateStrongPassword(length = 24) {
-  const all = LOWER + UPPER + NUMBERS + SYMBOLS;
-  const required = [pick(LOWER), pick(UPPER), pick(NUMBERS), pick(SYMBOLS)];
+function generateRandomPassword(options: PasswordGeneratorOptions) {
+  const length = clamp(options.length ?? 24, 8, 96);
+  const groups = [
+    options.includeLowercase !== false ? LOWER : "",
+    options.includeUppercase !== false ? UPPER : "",
+    options.includeNumbers !== false ? NUMBERS : "",
+    options.includeSymbols !== false ? SYMBOLS : "",
+  ]
+    .filter(Boolean)
+    .map((group) => (options.avoidAmbiguous ? removeAmbiguous(group) : group))
+    .filter(Boolean);
+
+  const safeGroups = groups.length > 0 ? groups : [LOWER, UPPER, NUMBERS, SYMBOLS];
+  const all = safeGroups.join("");
+  const required = safeGroups.map((group) => pick(group));
 
   while (required.length < length) {
     required.push(pick(all));
   }
 
   return shuffle(required);
+}
+
+function generateMemorablePassword(options: PasswordGeneratorOptions) {
+  const wordCount = clamp(Math.round((options.length ?? 24) / 6), 3, 8);
+  const words: string[] = [];
+
+  for (let index = 0; index < wordCount; index += 1) {
+    const word = WORDS[pickIndex(WORDS.length)] ?? "seguro";
+    words.push(index % 2 === 0 ? word : `${word.charAt(0).toUpperCase()}${word.slice(1)}`);
+  }
+
+  const suffix = `${pick(NUMBERS)}${pick(NUMBERS)}`;
+  const symbol = options.includeSymbols === false ? "" : pick("-_+@#");
+
+  return `${words.join("-")}${symbol}${suffix}`;
+}
+
+function generatePin(options: PasswordGeneratorOptions) {
+  const length = clamp(options.length ?? 6, 4, 16);
+  let pin = "";
+
+  while (pin.length < length) {
+    pin += pick(NUMBERS + "0");
+  }
+
+  return pin;
+}
+
+export function generatePassword(options: PasswordGeneratorOptions = {}) {
+  if (options.mode === "memorable") return generateMemorablePassword(options);
+  if (options.mode === "pin") return generatePin(options);
+  return generateRandomPassword(options);
+}
+
+export function generateStrongPassword(length = 24) {
+  return generatePassword({
+    mode: "random",
+    length,
+    includeLowercase: true,
+    includeUppercase: true,
+    includeNumbers: true,
+    includeSymbols: true,
+    avoidAmbiguous: true,
+  });
 }
 
 export function getPasswordScore(password: string) {
