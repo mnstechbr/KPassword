@@ -23,6 +23,8 @@ import {
   listBackupFiles,
   listVaultFiles,
   loadVaultFile,
+  openBackupFolder,
+  openVaultFolder,
   saveVaultFile,
   unlockWithWindowsHello,
 } from "./vault-storage";
@@ -94,7 +96,7 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "0.6.1";
+const APP_VERSION = "0.7.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -303,6 +305,37 @@ function AppLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   );
 }
 
+const localizedLanguageNames: Record<AppLanguage, Record<AppLanguage, string>> = {
+  pt: {
+    pt: "Português",
+    en: "Inglês",
+    es: "Espanhol",
+    tr: "Turco",
+  },
+  en: {
+    pt: "Portuguese",
+    en: "English",
+    es: "Spanish",
+    tr: "Turkish",
+  },
+  es: {
+    pt: "Portugués",
+    en: "Inglés",
+    es: "Español",
+    tr: "Turco",
+  },
+  tr: {
+    pt: "Portekizce",
+    en: "İngilizce",
+    es: "İspanyolca",
+    tr: "Türkçe",
+  },
+};
+
+function getLanguageOptionLabel(code: AppLanguage, currentLanguage: AppLanguage) {
+  return localizedLanguageNames[currentLanguage]?.[code] ?? localizedLanguageNames.pt[code];
+}
+
 function LanguageSelector({
   language,
   onChange,
@@ -324,7 +357,7 @@ function LanguageSelector({
       >
         {LANGUAGES.map((item) => (
           <option key={item.code} value={item.code}>
-            {compact ? item.shortLabel : item.label}
+            {compact ? item.shortLabel : getLanguageOptionLabel(item.code, language)}
           </option>
         ))}
       </select>
@@ -839,7 +872,6 @@ export default function App() {
   );
   const [windowsHelloStatus, setWindowsHelloStatus] = useState<WindowsHelloStatus>(DEFAULT_WINDOWS_HELLO_STATUS);
   const [windowsHelloBusy, setWindowsHelloBusy] = useState(false);
-  const [showDashboardMore, setShowDashboardMore] = useState(false);
   const [vaultFiles, setVaultFiles] = useState<VaultFileInfo[]>([]);
   const [newVaultName, setNewVaultName] = useState("");
   const [totpTick, setTotpTick] = useState(Date.now());
@@ -938,22 +970,6 @@ export default function App() {
     localStorage.setItem("kpassword:tray-sound", String(vault.settings.soundOnTray ?? true));
     localStorage.setItem("kpassword:clipboard-clear-seconds", String(vault.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS));
   }, [vault]);
-
-  useEffect(() => {
-    if (screen !== "dashboard" && showDashboardMore) {
-      setShowDashboardMore(false);
-    }
-  }, [screen, showDashboardMore]);
-
-  useEffect(() => {
-    if (!showDashboardMore) return;
-
-    const timer = window.setTimeout(() => {
-      setShowDashboardMore(false);
-    }, 60000);
-
-    return () => window.clearTimeout(timer);
-  }, [showDashboardMore]);
 
   const refreshVaultFiles = useCallback(async () => {
     try {
@@ -2326,6 +2342,24 @@ export default function App() {
     }
   }
 
+  async function handleOpenVaultFolder() {
+    try {
+      await openVaultFolder(activeVaultName);
+    } catch (error) {
+      console.error(error);
+      setMessage(t("folders.openVaultError"));
+    }
+  }
+
+  async function handleOpenBackupFolder() {
+    try {
+      await openBackupFolder(activeVaultName);
+    } catch (error) {
+      console.error(error);
+      setMessage(t("folders.openBackupError"));
+    }
+  }
+
 
   const filteredCredentials = useMemo(() => {
     if (!vault) return [];
@@ -2623,6 +2657,13 @@ export default function App() {
             <h1>{t("auth.createMasterTitle")}</h1>
             <p>{t("auth.createMasterDescription")}</p>
 
+            <div className="firstUseGuide">
+              <strong>{t("onboarding.title")}</strong>
+              <span>{t("onboarding.step1")}</span>
+              <span>{t("onboarding.step2")}</span>
+              <span>{t("onboarding.step3")}</span>
+            </div>
+
             <form onSubmit={handleCreateVault} className="authForm">
               <label>
                 {t("auth.masterPassword")}
@@ -2821,8 +2862,8 @@ export default function App() {
             <div>
               <p className="eyebrow">{t("topbar.localProtection")}</p>
               <h1>
-                {screen === "credentials" && t("nav.items")}
-                {screen === "dashboard" && t("topbar.vaultDashboard")}
+                {screen === "credentials" && t("nav.credentials")}
+                {screen === "dashboard" && t("nav.dashboard")}
                 {screen === "trash" && t("nav.trash")}
                 {screen === "settings" && t("nav.securityBackup")}
                 {screen === "preferences" && t("nav.preferences")}
@@ -2831,10 +2872,24 @@ export default function App() {
           </div>
 
           <div className="topbarActions">
+            <button
+              type="button"
+              className="vaultIndicator"
+              onClick={() => setScreen("preferences")}
+              title={t("vault.current")}
+            >
+              <span>{t("vault.current")}</span>
+              <strong>{getVaultDisplayName(activeVaultName, vaultFiles)}</strong>
+            </button>
             <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
             {screen !== "trash" && (
-              <button className="primaryButton" onClick={openNewCredentialForm}>
-                {t("topbar.addItem")}
+              <button
+                className="primaryButton addItemIconButton"
+                onClick={openNewCredentialForm}
+                title={t("topbar.addItem")}
+                aria-label={t("topbar.addItem")}
+              >
+                <span aria-hidden="true">+</span>
               </button>
             )}
           </div>
@@ -2989,81 +3044,14 @@ export default function App() {
         )}
 
         {screen === "dashboard" && (
-          <div className="dashboardGrid compactDashboard">
-            <article className="metricCard dashboardTotalCard">
+          <div className="dashboardGrid compactDashboard cleanDashboard">
+            <article className="metricCard dashboardTotalCard static">
               <span>{t("dashboard.total")}</span>
               <strong>{stats.total}</strong>
-              <small>{t("dashboard.savedItems")}</small>
+              <small>{getVaultDisplayName(activeVaultName, vaultFiles)}</small>
             </article>
 
-            <div className="dashboardMoreControl">
-              <button
-                className="secondaryButton"
-                type="button"
-                aria-expanded={showDashboardMore}
-                onClick={() => setShowDashboardMore((current) => !current)}
-              >
-                {showDashboardMore ? t("dashboard.hideMore") : t("dashboard.showMore")}
-              </button>
-              <small>{t("dashboard.moreAutoCollapse")}</small>
-            </div>
-
-            {showDashboardMore && (
-              <div className="dashboardMorePanel dashboardStatsPanel">
-                <article className="metricCard">
-                  <span>{t("itemType.credential")}</span>
-                  <strong>{stats.credentialItems}</strong>
-                  <small>{t("dashboard.credentialsOnly")}</small>
-                </article>
-                <article className="metricCard">
-                  <span>{t("itemType.secure_note")}</span>
-                  <strong>{stats.secureNotes}</strong>
-                  <small>{t("dashboard.secureNotes")}</small>
-                </article>
-                <article className="metricCard">
-                  <span>{t("itemType.card")}</span>
-                  <strong>{stats.cards}</strong>
-                  <small>{t("dashboard.cards")}</small>
-                </article>
-                <article className="metricCard">
-                  <span>{t("dashboard.favorites")}</span>
-                  <strong>{stats.favorites}</strong>
-                  <small>{t("dashboard.quickAccess")}</small>
-                </article>
-                <article className={stats.expired > 0 ? "metricCard danger" : "metricCard"}>
-                  <span>{t("dashboard.expired")}</span>
-                  <strong>{stats.expired}</strong>
-                  <small>{t("dashboard.expiredDescription")}</small>
-                </article>
-                <article className={stats.expiringSoon > 0 ? "metricCard warning" : "metricCard"}>
-                  <span>{t("dashboard.expiringSoon")}</span>
-                  <strong>{stats.expiringSoon}</strong>
-                  <small>{t("dashboard.expiringSoonDescription")}</small>
-                </article>
-                <article className={stats.weak > 0 ? "metricCard warning" : "metricCard"}>
-                  <span>{t("dashboard.weak")}</span>
-                  <strong>{stats.weak}</strong>
-                  <small>{t("dashboard.reviewNeeded")}</small>
-                </article>
-                <article className={stats.repeated > 0 ? "metricCard warning" : "metricCard"}>
-                  <span>{t("dashboard.repeated")}</span>
-                  <strong>{stats.repeated}</strong>
-                  <small>{t("dashboard.reuseRisk")}</small>
-                </article>
-                <article className={stats.oldPasswords > 0 ? "metricCard warning" : "metricCard"}>
-                  <span>{t("dashboard.oldPasswords")}</span>
-                  <strong>{stats.oldPasswords}</strong>
-                  <small>{t("dashboard.oldPasswordsDescription")}</small>
-                </article>
-                <article className="metricCard">
-                  <span>{t("nav.trash")}</span>
-                  <strong>{stats.deleted}</strong>
-                  <small>{t("trash.items")}</small>
-                </article>
-              </div>
-            )}
-
-            <article className="wideCard">
+            <article className="wideCard dashboardHealthCard">
               <h2>{t("dashboard.securityHealth")}</h2>
               <div className="securityGrid">
                 <span>{t("dashboard.weakCount", { count: stats.weak })}</span>
@@ -3077,7 +3065,7 @@ export default function App() {
               </div>
             </article>
 
-            <article className="wideCard">
+            <article className="wideCard dashboardAttentionCard">
               <h2>{t("dashboard.attentionList")}</h2>
               <div className="miniList">
                 {[...expiredCredentials, ...expiringSoonCredentials, ...weakCredentials, ...repeatedCredentials, ...incompleteCredentials]
@@ -3106,7 +3094,7 @@ export default function App() {
               </div>
             </article>
 
-            <article className="wideCard">
+            <article className="wideCard dashboardProtectionCard">
               <h2>{t("dashboard.protectionTitle")}</h2>
               <div className="securityGrid">
                 <span>{t("security.aes")}</span>
@@ -3207,6 +3195,15 @@ export default function App() {
                   <span>{t("settings.hiddenPathsDescription")}</span>
                 </div>
               )}
+
+              <div className="folderActionGrid">
+                <button className="secondaryButton" type="button" onClick={() => void handleOpenVaultFolder()}>
+                  {t("folders.openVault")}
+                </button>
+                <button className="secondaryButton" type="button" onClick={() => void handleOpenBackupFolder()}>
+                  {t("folders.openBackups")}
+                </button>
+              </div>
             </article>
 
             <article className="wideCard">
@@ -3531,6 +3528,36 @@ export default function App() {
               </div>
             </article>
 
+            <article className="wideCard preferenceCard helpAboutCompactCard">
+              <div className="cardTitleRow">
+                <div>
+                  <h2>{t("helpAbout.title")}</h2>
+                  <p>{t("helpAbout.description")}</p>
+                </div>
+                <span className="versionBadge">v{APP_VERSION}</span>
+              </div>
+
+              <div className="compactInfoGrid">
+                <div>
+                  <strong>{t("helpAbout.example1Title")}</strong>
+                  <span>{t("helpAbout.example1Text")}</span>
+                </div>
+                <div>
+                  <strong>{t("helpAbout.example2Title")}</strong>
+                  <span>{t("helpAbout.example2Text")}</span>
+                </div>
+                <div>
+                  <strong>{t("helpAbout.example3Title")}</strong>
+                  <span>{t("helpAbout.example3Text")}</span>
+                </div>
+              </div>
+
+              <div className="localSecurityNotice">
+                <strong>{t("helpAbout.securityTitle")}</strong>
+                <span>{t("helpAbout.securityText")}</span>
+              </div>
+            </article>
+
             <article className="wideCard preferenceCard">
               <h2>{t("preferences.theme")}</h2>
               <p>{t("preferences.themeDescription")}</p>
@@ -3659,7 +3686,6 @@ export default function App() {
             </article>
           </div>
         )}
-
 
       </section>
 

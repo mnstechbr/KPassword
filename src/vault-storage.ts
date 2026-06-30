@@ -44,6 +44,14 @@ export async function readBackupFile(filename: string, vaultName = "vault") {
   return invoke<string>("read_backup_file", { filename, vaultName });
 }
 
+export async function openVaultFolder(vaultName = "vault") {
+  return invoke<void>("open_vault_folder", { vaultName });
+}
+
+export async function openBackupFolder(vaultName = "vault") {
+  return invoke<void>("open_backup_folder", { vaultName });
+}
+
 
 export async function getWindowsHelloStatus(vaultName = "vault") {
   return withCommandTimeout(

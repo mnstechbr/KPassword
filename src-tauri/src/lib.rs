@@ -1,6 +1,7 @@
 use std::{
     fs,
     path::PathBuf,
+    process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -180,6 +181,59 @@ fn show_main_window(app: &AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
+}
+
+
+fn open_folder(path: PathBuf) -> Result<(), String> {
+    fs::create_dir_all(&path)
+        .map_err(|error| format!("Erro ao preparar pasta para abrir: {error}"))?;
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(path)
+            .spawn()
+            .map_err(|error| format!("Erro ao abrir pasta no Explorer: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(path)
+            .spawn()
+            .map_err(|error| format!("Erro ao abrir pasta no Finder: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map_err(|error| format!("Erro ao abrir pasta: {error}"))?;
+        return Ok(());
+    }
+
+    #[allow(unreachable_code)]
+    Err("Abrir pasta não é suportado nesta plataforma.".to_string())
+}
+
+#[tauri::command]
+fn open_vault_folder(app: AppHandle, vault_name: Option<String>) -> Result<(), String> {
+    let (vault_path, _, _) = storage_paths(&app, vault_name)?;
+    let folder = vault_path
+        .parent()
+        .ok_or_else(|| "Erro ao localizar pasta do cofre.".to_string())?
+        .to_path_buf();
+
+    open_folder(folder)
+}
+
+#[tauri::command]
+fn open_backup_folder(app: AppHandle, vault_name: Option<String>) -> Result<(), String> {
+    let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
+    open_folder(backup_dir)
 }
 
 #[tauri::command]
@@ -896,6 +950,8 @@ pub fn run() {
             list_vault_files,
             list_backup_files,
             read_backup_file,
+            open_vault_folder,
+            open_backup_folder,
             windows_hello_status,
             enable_windows_hello,
             disable_windows_hello,

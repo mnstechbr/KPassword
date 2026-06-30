@@ -4276,3 +4276,729 @@ textarea {
   }
 }
 /* === KPassword v0.6.1 taskbar + dashboard compact END === */
+
+
+/* === KPassword v0.7.0 product polish, help, about, folders START === */
+.vaultIndicator {
+  display: inline-grid;
+  gap: 2px;
+  min-width: 0;
+  max-width: min(260px, 34vw);
+  padding: 8px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.56);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.vaultIndicator span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vaultIndicator strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vaultIndicator:hover {
+  border-color: rgba(96, 165, 250, 0.38);
+  transform: translateY(-1px);
+}
+
+button.metricCard {
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboardTotalCard {
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboardTotalCard::after {
+  content: "▾";
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 1.1rem;
+  transition: transform 0.18s ease;
+}
+
+.dashboardTotalCard.expanded::after {
+  transform: rotate(180deg);
+}
+
+.reportCard {
+  grid-column: span 4 !important;
+}
+
+.reportCard p,
+.warningCard p,
+.helpHeroCard p,
+.aboutHeroCard p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.folderActionGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.folderActionGrid button {
+  flex: 1 1 220px;
+}
+
+.helpGrid,
+.aboutGrid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: clamp(14px, 1.8vw, 20px);
+  align-items: start;
+}
+
+.helpGrid > .wideCard,
+.aboutGrid > .wideCard {
+  grid-column: span 6;
+  min-width: 0;
+}
+
+.helpHeroCard,
+.aboutHeroCard {
+  grid-column: 1 / -1 !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.16), transparent 36%),
+    linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(15, 23, 42, 0.78)) !important;
+}
+
+.guideSteps,
+.exampleGrid,
+.checklistGrid,
+.aboutVersionGrid {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.guideSteps {
+  grid-template-columns: 1fr;
+}
+
+.guideSteps div {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.20);
+}
+
+.guideSteps strong {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(96, 165, 250, 0.16);
+  color: #bfdbfe;
+}
+
+.guideSteps span,
+.exampleGrid span,
+.checklistGrid span {
+  min-width: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.exampleGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.exampleGrid div,
+.checklistGrid span,
+.aboutVersionGrid div {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.20);
+}
+
+.exampleGrid strong {
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.checklistGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.checklistGrid span::before {
+  content: "✓ ";
+  color: #86efac;
+  font-weight: 900;
+}
+
+.aboutVersionGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.aboutVersionGrid span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.aboutVersionGrid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.warningCard {
+  border-color: rgba(251, 191, 36, 0.26) !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(251, 191, 36, 0.12), transparent 35%),
+    rgba(15, 23, 42, 0.76) !important;
+}
+
+.firstUseGuide {
+  display: grid;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 14px;
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  border-radius: 18px;
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.firstUseGuide strong {
+  color: var(--text);
+}
+
+.firstUseGuide span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.firstUseGuide span::before {
+  content: "• ";
+  color: #7dd3fc;
+  font-weight: 900;
+}
+
+.authCard > .firstUseGuide {
+  grid-column: 1 !important;
+  grid-row: 6 !important;
+  align-self: start !important;
+  max-width: 390px !important;
+}
+
+.authCard .authForm {
+  grid-row: 2 / span 5 !important;
+}
+
+@media (max-width: 1180px) {
+  .reportCard {
+    grid-column: span 6 !important;
+  }
+
+  .topbarActions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .vaultIndicator {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 860px) {
+  .helpGrid > .wideCard,
+  .aboutGrid > .wideCard,
+  .reportCard {
+    grid-column: 1 / -1 !important;
+  }
+
+  .exampleGrid,
+  .checklistGrid,
+  .aboutVersionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .authCard > .firstUseGuide {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+    max-width: 100% !important;
+  }
+
+  .authCard .authForm {
+    grid-row: auto !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .topbarActions {
+    align-items: stretch;
+  }
+
+  .vaultIndicator,
+  .topbarActions .primaryButton,
+  .topbarActions .languageSelect {
+    width: 100%;
+  }
+}
+/* === KPassword v0.7.0 product polish, help, about, folders END === */
+
+
+/* === KPassword v0.7.0 enxuto: navegação, ajuda e controles START === */
+select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  padding-right: 46px !important;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(226, 232, 240, 0.82) 50%), linear-gradient(135deg, rgba(226, 232, 240, 0.82) 50%, transparent 50%) !important;
+  background-position: calc(100% - 20px) calc(50% - 3px), calc(100% - 14px) calc(50% - 3px) !important;
+  background-size: 6px 6px, 6px 6px !important;
+  background-repeat: no-repeat !important;
+}
+
+select option {
+  background: #10131d !important;
+  color: #f3f7ff !important;
+}
+
+select option:checked {
+  background: #1f2a44 !important;
+  color: #f8fbff !important;
+}
+
+.languageSelect select {
+  padding: 10px 44px 10px 13px !important;
+}
+
+.languageSelect.compact select {
+  min-width: 82px !important;
+  max-width: 104px !important;
+  padding: 10px 38px 10px 12px !important;
+}
+
+.optionButton.active {
+  border-color: rgba(125, 211, 252, 0.34) !important;
+  background: rgba(125, 211, 252, 0.075) !important;
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.045) inset !important;
+}
+
+.optionButton:hover {
+  border-color: rgba(125, 211, 252, 0.42) !important;
+  background: rgba(255, 255, 255, 0.072) !important;
+}
+
+.toggleRow input[type="checkbox"] {
+  accent-color: #7dd3fc !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.helpAboutCompactCard {
+  gap: 16px !important;
+}
+
+.versionBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  border-radius: 999px;
+  background: rgba(125, 211, 252, 0.075);
+  color: #dff7ff;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.compactInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.compactInfoGrid div,
+.localSecurityNotice {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 14px;
+}
+
+.compactInfoGrid strong,
+.localSecurityNotice strong {
+  color: #f8fbff;
+  line-height: 1.25;
+}
+
+.compactInfoGrid span,
+.localSecurityNotice span {
+  color: #aab0c5;
+  line-height: 1.5;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.localSecurityNotice {
+  border-color: rgba(251, 191, 36, 0.18);
+  background: rgba(251, 191, 36, 0.065);
+}
+
+@media (max-width: 980px) {
+  .compactInfoGrid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+:root[data-theme="light"] select option,
+:root[data-theme="mixed"] select option {
+  background: #f8fafc !important;
+  color: #111827 !important;
+}
+
+:root[data-theme="light"] select option:checked,
+:root[data-theme="mixed"] select option:checked {
+  background: #dbeafe !important;
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .versionBadge,
+:root[data-theme="mixed"] .versionBadge {
+  color: #0f172a;
+  background: rgba(14, 165, 233, 0.10);
+  border-color: rgba(14, 165, 233, 0.20);
+}
+
+:root[data-theme="light"] .compactInfoGrid div,
+:root[data-theme="light"] .localSecurityNotice,
+:root[data-theme="mixed"] .compactInfoGrid div,
+:root[data-theme="mixed"] .localSecurityNotice {
+  background: rgba(15, 23, 42, 0.045);
+  border-color: rgba(15, 23, 42, 0.10);
+}
+
+:root[data-theme="light"] .compactInfoGrid strong,
+:root[data-theme="light"] .localSecurityNotice strong,
+:root[data-theme="mixed"] .compactInfoGrid strong,
+:root[data-theme="mixed"] .localSecurityNotice strong {
+  color: #111827;
+}
+
+:root[data-theme="light"] .compactInfoGrid span,
+:root[data-theme="light"] .localSecurityNotice span,
+:root[data-theme="mixed"] .compactInfoGrid span,
+:root[data-theme="mixed"] .localSecurityNotice span {
+  color: #475569;
+}
+/* === KPassword v0.7.0 enxuto: navegação, ajuda e controles END === */
+
+/* === KPassword v0.7.0 hotfix idiomas e detalhe do item START === */
+.languageSelect.compact select {
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+  padding: 10px 27px 10px 13px !important;
+  background-position: calc(100% - 15px) calc(50% - 3px), calc(100% - 9px) calc(50% - 3px) !important;
+}
+
+.languageSelect select {
+  border-color: rgba(125, 211, 252, 0.20) !important;
+  background-color: rgba(255, 255, 255, 0.066) !important;
+}
+
+.languageSelect select:focus {
+  border-color: rgba(125, 211, 252, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.11) !important;
+}
+
+select option {
+  background: #151925 !important;
+  color: #e8eefc !important;
+}
+
+select option:checked {
+  background: #202940 !important;
+  color: #f8fbff !important;
+}
+
+.optionButton.active {
+  border-color: rgba(125, 211, 252, 0.26) !important;
+  background: rgba(125, 211, 252, 0.055) !important;
+  box-shadow: none !important;
+}
+
+.optionButton.active::after {
+  opacity: 0.78 !important;
+}
+
+.detailPopup .detailHeader {
+  position: static !important;
+  top: auto !important;
+  z-index: auto !important;
+  margin: 0 0 12px !important;
+  padding: 0 0 16px !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12) !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
+.detailPopup .detailHeader h2 {
+  margin-top: 8px !important;
+}
+
+.detailPopup .detailHeader .iconButton {
+  flex: 0 0 auto !important;
+}
+
+.detailPopup {
+  scroll-padding-top: 0 !important;
+}
+
+@media (max-width: 520px) {
+  .languageSelect.compact select {
+    width: 70px !important;
+    min-width: 70px !important;
+    max-width: 70px !important;
+    padding-right: 25px !important;
+  }
+}
+/* === KPassword v0.7.0 hotfix idiomas e detalhe do item END === */
+
+/* === KPassword v0.7.0 hotfix analitico limpo e add compacto START === */
+.addItemIconButton {
+  width: 46px !important;
+  min-width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  padding: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border-radius: 16px !important;
+  font-size: 1.75rem !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+}
+
+.addItemIconButton span {
+  display: block !important;
+  transform: translateY(-1px) !important;
+}
+
+.cleanDashboard {
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+}
+
+.cleanDashboard .dashboardTotalCard {
+  grid-column: 1 / -1 !important;
+  min-height: 148px !important;
+  cursor: default !important;
+}
+
+.cleanDashboard .dashboardTotalCard::after {
+  display: none !important;
+}
+
+.cleanDashboard .dashboardTotalCard small {
+  color: rgba(203, 213, 225, 0.72) !important;
+}
+
+.cleanDashboard .wideCard {
+  min-height: auto !important;
+}
+
+.cleanDashboard .dashboardHealthCard,
+.cleanDashboard .dashboardAttentionCard,
+.cleanDashboard .dashboardProtectionCard {
+  grid-column: span 4 !important;
+}
+
+.cleanDashboard .dashboardHealthCard .securityGrid,
+.cleanDashboard .dashboardProtectionCard .securityGrid {
+  grid-template-columns: 1fr !important;
+}
+
+.cleanDashboard .dashboardHealthCard .securityGrid span,
+.cleanDashboard .dashboardProtectionCard .securityGrid span {
+  min-height: 40px !important;
+  overflow-wrap: anywhere !important;
+}
+
+.cleanDashboard .dashboardAttentionCard .miniList button {
+  min-height: 54px !important;
+}
+
+.reportCard {
+  display: none !important;
+}
+
+@media (max-width: 1180px) {
+  .cleanDashboard .dashboardHealthCard,
+  .cleanDashboard .dashboardAttentionCard,
+  .cleanDashboard .dashboardProtectionCard {
+    grid-column: span 6 !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .cleanDashboard .dashboardTotalCard,
+  .cleanDashboard .dashboardHealthCard,
+  .cleanDashboard .dashboardAttentionCard,
+  .cleanDashboard .dashboardProtectionCard {
+    grid-column: 1 / -1 !important;
+  }
+
+  .addItemIconButton {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 14px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .topbarActions .addItemIconButton {
+    order: -1 !important;
+  }
+}
+/* === KPassword v0.7.0 hotfix analitico limpo e add compacto END === */
+
+/* === KPassword v0.7.0 hotfix cabeçalho modal novo item START === */
+.credentialModal .modalHeader {
+  position: static !important;
+  top: auto !important;
+  z-index: auto !important;
+  margin: 0 0 16px !important;
+  padding: 0 0 16px !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12) !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
+.credentialModal {
+  scroll-padding-top: 0 !important;
+}
+
+.credentialModal .modalHeader > div {
+  min-width: 0 !important;
+}
+
+.credentialModal .modalHeader h2 {
+  margin-top: 8px !important;
+  overflow-wrap: anywhere !important;
+}
+
+.credentialModal .modalHeader .iconButton {
+  flex: 0 0 auto !important;
+}
+/* === KPassword v0.7.0 hotfix cabeçalho modal novo item END === */
+
+/* === KPassword v0.7.0 hotfix gerador sem baloes START === */
+.credentialModal .generatorPanel {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+  margin-top: 12px !important;
+  padding: 16px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.040), rgba(255, 255, 255, 0.020)) !important;
+}
+
+.credentialModal .generatorPanel > label {
+  min-width: 0 !important;
+}
+
+.credentialModal .generatorPanel > label span {
+  line-height: 1.35 !important;
+}
+
+.credentialModal .generatorOptions {
+  grid-column: 1 / -1 !important;
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  padding-top: 2px !important;
+}
+
+.credentialModal .generatorOptions label {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 9px !important;
+  min-height: 44px !important;
+  min-width: 0 !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  background: rgba(15, 23, 42, 0.28) !important;
+  font-size: 0.86rem !important;
+  line-height: 1.25 !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+.credentialModal .generatorOptions label:hover {
+  border-color: rgba(125, 211, 252, 0.26) !important;
+  background: rgba(15, 23, 42, 0.42) !important;
+}
+
+.credentialModal .generatorOptions input[type="checkbox"] {
+  flex: 0 0 auto !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  margin: 0 !important;
+  accent-color: #38bdf8 !important;
+}
+
+@media (max-width: 1120px) {
+  .credentialModal .generatorOptions {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .credentialModal .generatorPanel {
+    grid-template-columns: 1fr !important;
+  }
+
+  .credentialModal .generatorOptions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .credentialModal .generatorOptions label {
+    min-height: 42px !important;
+  }
+}
+/* === KPassword v0.7.0 hotfix gerador sem baloes END === */
