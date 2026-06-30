@@ -1,4 +1,4 @@
-﻿* {
+* {
   box-sizing: border-box;
 }
 
@@ -1900,3 +1900,126 @@ textarea:focus {
   transform: none !important;
 }
 
+
+
+/* Global language selector and long-text layout safety */
+.authLanguageRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.languageSelect {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  color: #dfe5ff;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.languageSelect > span {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.languageSelect select {
+  width: auto;
+  min-width: 112px;
+  max-width: 180px;
+  padding: 9px 34px 9px 11px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.075);
+  font-weight: 800;
+}
+
+.languageSelect.compact select {
+  min-width: 72px;
+  max-width: 86px;
+  padding-inline: 10px;
+}
+
+.topbarActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.languagePreferenceBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 14px;
+}
+
+.languagePreferenceBox > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #9ca3af;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+button,
+.primaryButton,
+.secondaryButton,
+.ghostButton,
+.dangerConfirmButton,
+.detailActions button,
+.rowActions button,
+.optionButton,
+.lockButton,
+.navList button {
+  overflow-wrap: anywhere;
+}
+
+.wideCard,
+.preferenceCard,
+.securityGrid span,
+.optionButton,
+.toggleRow,
+.updateSummary div,
+.pathBox,
+.notesBox,
+.detailGrid div,
+.message,
+.confirmCard,
+.restoreDialog,
+.credentialModal,
+.detailPopup {
+  min-width: 0;
+}
+
+:root[data-theme="light"] .languagePreferenceBox,
+:root[data-theme="mixed"] .languagePreferenceBox {
+  background: rgba(15, 23, 42, 0.055);
+}
+
+@media (max-width: 720px) {
+  .authLanguageRow,
+  .topbarActions,
+  .languagePreferenceBox {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .languageSelect,
+  .languageSelect select,
+  .topbarActions .primaryButton {
+    width: 100%;
+  }
+}

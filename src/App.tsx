@@ -28,6 +28,16 @@ import type {
   PlainVault,
   StorageInfo,
 } from "./types";
+import {
+  LANGUAGES,
+  getCategoryLabel,
+  getDateLocale,
+  getInitialLanguage,
+  translate,
+  translatePasswordLabel,
+  translateValidationIssue,
+  type AppLanguage,
+} from "./i18n";
 
 const EMPTY_FORM: Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> = {
   title: "",
@@ -49,7 +59,7 @@ const CATEGORIES: CredentialCategory[] = [
 ];
 
 const CLIPBOARD_CLEAR_SECONDS = 60;
-const APP_VERSION = "0.3.0";
+const APP_VERSION = "0.3.2";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -72,10 +82,10 @@ function createId() {
   return crypto.randomUUID();
 }
 
-function formatDate(value?: string | number) {
+function formatDate(value?: string | number, language: AppLanguage = "pt") {
   if (!value) return "—";
 
-  return new Intl.DateTimeFormat("pt-BR", {
+  return new Intl.DateTimeFormat(getDateLocale(language), {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
@@ -134,6 +144,35 @@ function AppLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
       />
       <span hidden>KP</span>
     </span>
+  );
+}
+
+function LanguageSelector({
+  language,
+  onChange,
+  label,
+  compact = false,
+}: {
+  language: AppLanguage;
+  onChange: (language: AppLanguage) => void;
+  label: string;
+  compact?: boolean;
+}) {
+  return (
+    <label className={compact ? "languageSelect compact" : "languageSelect"}>
+      <span>{compact ? "🌐" : label}</span>
+      <select
+        value={language}
+        aria-label={label}
+        onChange={(event) => onChange(event.target.value as AppLanguage)}
+      >
+        {LANGUAGES.map((item) => (
+          <option key={item.code} value={item.code}>
+            {compact ? item.shortLabel : item.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -208,6 +247,13 @@ export default function App() {
   const [restorePassword, setRestorePassword] = useState("");
   const [restorePopupOpen, setRestorePopupOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState("");
+  const [appLanguage, setAppLanguage] = useState<AppLanguage>(getInitialLanguage);
+
+  const t = useCallback(
+    (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
+      translate(appLanguage, key, values),
+    [appLanguage],
+  );
 
 
   const askConfirmation = useCallback(
@@ -225,6 +271,11 @@ export default function App() {
     confirmDialog?.resolve(confirmed);
     setConfirmDialog(null);
   }
+
+  useEffect(() => {
+    document.documentElement.lang = appLanguage;
+    localStorage.setItem("kpassword:language", appLanguage);
+  }, [appLanguage]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = appTheme;
@@ -265,7 +316,7 @@ export default function App() {
         await refreshStorageInfo();
       } catch (error) {
         console.error(error);
-        setMessage("Não foi possível carregar o cofre local.");
+        setMessage(t("errors.loadVault"));
         setMode("setup");
       }
     })();
@@ -296,7 +347,7 @@ export default function App() {
       const password = passwordOverride ?? masterPassword;
 
       if (!password) {
-        throw new Error("Senha mestra indisponível.");
+        throw new Error(t("errors.masterPasswordUnavailable"));
       }
 
       const file = await encryptVault(nextVault, password, encryptedVault);
@@ -341,16 +392,16 @@ export default function App() {
     }
 
     if (setupPassword !== confirmPassword) {
-      setMessage("A confirmação não confere com a senha mestra.");
+      setMessage(t("errors.confirmPasswordMismatch"));
       return;
     }
 
     const confirmed = await askConfirmation({
-      title: "Criar cofre local",
+      title: t("dialog.createVaultTitle"),
       message:
-        "Criar o cofre local criptografado? Guarde bem a senha mestra, porque ela não poderá ser recuperada.",
-      confirmText: "Criar cofre",
-      cancelText: "Cancelar",
+        t("dialog.createVaultMessage"),
+      confirmText: t("dialog.createVaultConfirm"),
+      cancelText: t("dialog.cancel"),
     });
 
     if (!confirmed) {
@@ -376,7 +427,7 @@ export default function App() {
       setMessage("");
     } catch (error) {
       console.error(error);
-      setMessage("Erro ao criar o cofre.");
+      setMessage(t("errors.createVault"));
     } finally {
       setBusy(false);
     }
@@ -406,7 +457,7 @@ export default function App() {
       void maybeShowPasswordRotationReminder(plainVault);
     } catch (error) {
       console.error(error);
-      setMessage("Senha mestra incorreta ou cofre corrompido.");
+      setMessage(t("errors.unlock"));
     } finally {
       setBusy(false);
     }
@@ -422,11 +473,11 @@ export default function App() {
     localStorage.setItem("kpassword:last-password-rotation-reminder", new Date().toISOString());
 
     const confirmed = await askConfirmation({
-      title: "Revisar senha mestra",
+      title: t("dialog.reviewMasterTitle"),
       message:
-        "Já se passaram 30 dias ou mais desde a última alteração registrada da senha mestra. Não é obrigatório, mas é recomendado revisar e trocar a senha periodicamente.",
-      confirmText: "Abrir segurança",
-      cancelText: "Lembrar depois",
+        t("dialog.reviewMasterMessage"),
+      confirmText: t("dialog.openSecurity"),
+      cancelText: t("dialog.remindLater"),
     });
 
     if (confirmed) {
@@ -441,7 +492,7 @@ export default function App() {
     if (!vault || !encryptedVault) return;
 
     if (!currentMasterPassword) {
-      setMessage("Informe a senha mestra atual.");
+      setMessage(t("errors.currentPasswordRequired"));
       return;
     }
 
@@ -453,16 +504,16 @@ export default function App() {
     }
 
     if (newMasterPassword !== newMasterConfirm) {
-      setMessage("A confirmação da nova senha não confere.");
+      setMessage(t("errors.newPasswordMismatch"));
       return;
     }
 
     const confirmed = await askConfirmation({
-      title: "Alterar senha mestra",
+      title: t("dialog.changeMasterTitle"),
       message:
-        "Confirmar alteração da senha mestra? Todos os dados e backups futuros serão protegidos pela nova senha. Backups antigos continuam exigindo a senha usada na época em que foram criados.",
-      confirmText: "Alterar senha",
-      cancelText: "Cancelar",
+        t("dialog.changeMasterMessage"),
+      confirmText: t("dialog.changeMasterConfirm"),
+      cancelText: t("dialog.cancel"),
     });
 
     if (!confirmed) return;
@@ -493,10 +544,10 @@ export default function App() {
       setNewMasterConfirm("");
       setStorageInfo(info);
       setBackups(info.backups);
-      setMessage("Senha mestra alterada com sucesso.");
+      setMessage(t("success.masterPasswordChanged"));
     } catch (error) {
       console.error(error);
-      setMessage("Senha atual incorreta ou erro ao alterar a senha mestra.");
+      setMessage(t("errors.changeMaster"));
     } finally {
       setBusy(false);
     }
@@ -504,7 +555,7 @@ export default function App() {
 
   async function restoreBackupFromText(raw: string, password: string) {
     if (!password) {
-      setMessage("Informe a senha mestra usada no backup.");
+      setMessage(t("errors.backupPasswordRequired"));
       return;
     }
 
@@ -515,11 +566,11 @@ export default function App() {
       const restoredVault = normalizeVault(await decryptVault(parsed, password));
 
       const confirmed = await askConfirmation({
-        title: "Restaurar backup",
+        title: t("dialog.restoreBackupTitle"),
         message:
-          "Confirmar restauração deste backup? O cofre atual será substituído pelo conteúdo do arquivo selecionado. Um backup criptografado do estado atual será mantido na pasta de backups quando possível.",
-        confirmText: "Restaurar backup",
-        cancelText: "Cancelar",
+          t("dialog.restoreBackupMessage"),
+        confirmText: t("dialog.restoreBackupTitle"),
+        cancelText: t("dialog.cancel"),
         tone: "danger",
       });
 
@@ -536,10 +587,10 @@ export default function App() {
       setBackups(info.backups);
       setScreen("credentials");
       setMode("unlocked");
-      setMessage("Backup restaurado com sucesso.");
+      setMessage(t("success.backupRestored"));
     } catch (error) {
       console.error(error);
-      setMessage("Não foi possível restaurar o backup. Verifique o arquivo e a senha mestra.");
+      setMessage(t("errors.restoreBackup"));
     }
   }
 
@@ -551,7 +602,7 @@ export default function App() {
   }
 
   async function handleCheckUpdates() {
-    setUpdateStatus("Verificando atualizações...");
+    setUpdateStatus(t("updates.checking"));
 
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
@@ -560,15 +611,15 @@ export default function App() {
       const update = await check();
 
       if (!update) {
-        setUpdateStatus(`KPassword ${APP_VERSION}: nenhuma atualização encontrada.`);
+        setUpdateStatus(t("updates.none", { version: APP_VERSION }));
         return;
       }
 
-      setUpdateStatus(`Atualização ${update.version} encontrada. Baixando...`);
+      setUpdateStatus(t("updates.found", { version: update.version }));
 
       await update.downloadAndInstall((event) => {
         if (event.event === "Started") {
-          setUpdateStatus("Download da atualização iniciado...");
+          setUpdateStatus(t("updates.started"));
           return;
         }
 
@@ -578,21 +629,21 @@ export default function App() {
             : 0;
 
           if (loaded > 0) {
-            setUpdateStatus("Baixando e instalando atualização...");
+            setUpdateStatus(t("updates.progress"));
           }
           return;
         }
 
         if (event.event === "Finished") {
-          setUpdateStatus("Download concluído. Instalando atualização...");
+          setUpdateStatus(t("updates.finished"));
         }
       });
 
-      setUpdateStatus("Atualização instalada. Reiniciando o KPassword...");
+      setUpdateStatus(t("updates.restarting"));
       await relaunch();
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      setUpdateStatus(`Falha ao verificar ou instalar atualização: ${detail}`);
+      setUpdateStatus(t("updates.error", { detail }));
     }
   }  function openNewCredentialForm() {
     setEditingId(null);
@@ -620,22 +671,22 @@ export default function App() {
     if (!vault) return;
 
     if (!credentialForm.title.trim()) {
-      setMessage("Informe um nome para a credencial.");
+      setMessage(t("errors.credentialNameRequired"));
       return;
     }
 
     if (!credentialForm.password.trim()) {
-      setMessage("Informe ou gere uma senha.");
+      setMessage(t("errors.credentialPasswordRequired"));
       return;
     }
 
     const confirmed = await askConfirmation({
-      title: editingId ? "Salvar edição" : "Criar credencial",
+      title: editingId ? t("dialog.saveEditTitle") : t("dialog.createCredentialTitle"),
       message: editingId
-        ? "Confirmar a edição desta credencial?"
-        : "Confirmar a criação desta nova credencial?",
-      confirmText: editingId ? "Salvar edição" : "Criar credencial",
-      cancelText: "Cancelar",
+        ? t("dialog.saveEditMessage")
+        : t("dialog.createCredentialMessage"),
+      confirmText: editingId ? t("dialog.saveEditTitle") : t("dialog.createCredentialTitle"),
+      cancelText: t("dialog.cancel"),
     });
 
     if (!confirmed) {
@@ -687,10 +738,10 @@ export default function App() {
       setCredentialForm(getEmptyCredential());
       setDetailCredentialId(editingId ?? createdId);
       setScreen("credentials");
-      setMessage(editingId ? "Credencial atualizada." : "Credencial criada.");
+      setMessage(editingId ? t("success.credentialUpdated") : t("success.credentialCreated"));
     } catch (error) {
       console.error(error);
-      setMessage("Erro ao salvar a credencial.");
+      setMessage(t("errors.saveCredential"));
     } finally {
       setBusy(false);
     }
@@ -701,10 +752,10 @@ export default function App() {
 
     const target = vault.credentials.find((credential) => credential.id === id);
     const confirmed = await askConfirmation({
-      title: "Excluir credencial",
-      message: `Confirmar exclusão da credencial "${target?.title ?? "selecionada"}"? Esta ação não remove backups antigos.`,
-      confirmText: "Excluir",
-      cancelText: "Cancelar",
+      title: t("dialog.deleteCredentialTitle"),
+      message: t("dialog.deleteCredentialMessage", { title: target?.title ?? t("dialog.selectedCredential") }),
+      confirmText: t("dialog.delete"),
+      cancelText: t("dialog.cancel"),
       tone: "danger",
     });
 
@@ -723,10 +774,10 @@ export default function App() {
         setDetailCredentialId(null);
       }
 
-      setMessage("Credencial excluída.");
+      setMessage(t("success.credentialDeleted"));
     } catch (error) {
       console.error(error);
-      setMessage("Erro ao excluir a credencial.");
+      setMessage(t("errors.deleteCredential"));
     } finally {
       setBusy(false);
     }
@@ -882,13 +933,13 @@ export default function App() {
         </div>
         <div className="confirmActions">
           <button className="ghostButton" onClick={() => closeConfirmDialog(false)}>
-            {confirmDialog.cancelText ?? "Cancelar"}
+            {confirmDialog.cancelText ?? t("dialog.cancel")}
           </button>
           <button
             className={confirmDialog.tone === "danger" ? "dangerConfirmButton" : "primaryButton"}
             onClick={() => closeConfirmDialog(true)}
           >
-            {confirmDialog.confirmText ?? "Confirmar"}
+            {confirmDialog.confirmText ?? t("dialog.confirm")}
           </button>
         </div>
       </section>
@@ -906,7 +957,7 @@ export default function App() {
       <section className="restoreDialog" onMouseDown={(event) => event.stopPropagation()}>
         <div className="detailHeader">
           <div>
-            <span>Backup criptografado</span>
+            <span>{t("restore.encryptedBackup")}</span>
             <h2>Restaurar backup</h2>
           </div>
           <button
@@ -920,24 +971,21 @@ export default function App() {
           </button>
         </div>
 
-        <p>
-          Selecione um arquivo .kpvault e digite a senha mestra usada naquele backup.
-          Sem essa senha, o backup não pode ser recuperado.
-        </p>
+        <p>{t("restore.description")}</p>
 
         <label>
-          Senha mestra do backup
+          {t("restore.backupPassword")}
           <input
             type="password"
             value={restorePassword}
             onChange={(event) => setRestorePassword(event.target.value)}
-            placeholder="Senha usada no backup"
+            placeholder={t("restore.backupPasswordPlaceholder")}
             autoFocus
           />
         </label>
 
         <label className="fileImportButton inlineFileButton">
-          Selecionar backup .kpvault
+          {t("settings.selectBackup")}
           <input
             type="file"
             accept=".kpvault,application/json"
@@ -956,9 +1004,12 @@ export default function App() {
       <>
         <main className="authShell">
           <section className="authCard">
+            <div className="authLanguageRow">
+              <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+            </div>
             <AppLogo size="lg" />
             <h1>KPassword</h1>
-            <p>Carregando cofre local...</p>
+            <p>{t("status.loadingVault")}</p>
           </section>
         </main>
         {confirmDialogElement}
@@ -972,42 +1023,42 @@ export default function App() {
       <>
         <main className="authShell">
           <section className="authCard">
+            <div className="authLanguageRow">
+              <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+            </div>
             <AppLogo size="lg" />
-            <p className="eyebrow">Primeiro acesso</p>
-            <h1>Crie sua senha mestra</h1>
-            <p>
-              O cofre será salvo somente neste computador. A senha mestra não será
-              armazenada e não poderá ser recuperada.
-            </p>
+            <p className="eyebrow">{t("auth.firstAccess")}</p>
+            <h1>{t("auth.createMasterTitle")}</h1>
+            <p>{t("auth.createMasterDescription")}</p>
 
             <form onSubmit={handleCreateVault} className="authForm">
               <label>
-                Senha mestra
+                {t("auth.masterPassword")}
                 <input
                   type="password"
                   value={setupPassword}
                   onChange={(event) => setSetupPassword(event.target.value)}
-                  placeholder="Mínimo 12 caracteres"
+                  placeholder={t("auth.masterPlaceholder")}
                   autoFocus
                 />
               </label>
 
               <label>
-                Confirmar senha mestra
+                {t("auth.confirmMasterPassword")}
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder="Repita a senha"
+                  placeholder={t("auth.repeatPassword")}
                 />
               </label>
 
               {setupPassword && (
                 <div className="securityNotes">
                   {masterIssues.length === 0 ? (
-                    <span>Senha mestra atende aos requisitos.</span>
+                    <span>{t("auth.validMasterPassword")}</span>
                   ) : (
-                    masterIssues.map((issue) => <span key={issue}>{issue}</span>)
+                    masterIssues.map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
                   )}
                 </div>
               )}
@@ -1015,7 +1066,7 @@ export default function App() {
               {message && <div className="message error">{message}</div>}
 
               <button disabled={busy} className="primaryButton">
-                {busy ? "Criando cofre..." : "Criar cofre criptografado"}
+                {busy ? t("auth.creatingVault") : t("auth.createEncryptedVault")}
               </button>
             </form>
 
@@ -1024,7 +1075,7 @@ export default function App() {
               className="authTextButton"
               onClick={() => setRestorePopupOpen(true)}
             >
-              Restaurar backup
+              {t("auth.restoreBackup")}
             </button>
           </section>
         </main>
@@ -1039,22 +1090,22 @@ export default function App() {
       <>
         <main className="authShell">
           <section className="authCard">
+            <div className="authLanguageRow">
+              <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+            </div>
             <AppLogo size="lg" />
-            <p className="eyebrow">Cofre bloqueado</p>
-            <h1>Desbloquear KPassword</h1>
-            <p>
-              Digite sua senha mestra. Ela será usada apenas para descriptografar o
-              cofre local.
-            </p>
+            <p className="eyebrow">{t("auth.vaultLocked")}</p>
+            <h1>{t("auth.unlockTitle")}</h1>
+            <p>{t("auth.unlockDescription")}</p>
 
             <form onSubmit={handleUnlock} className="authForm">
               <label>
-                Senha mestra
+                {t("auth.masterPassword")}
                 <input
                   type="password"
                   value={unlockPassword}
                   onChange={(event) => setUnlockPassword(event.target.value)}
-                  placeholder="Digite sua senha mestra"
+                  placeholder={t("auth.unlockPlaceholder")}
                   autoFocus
                 />
               </label>
@@ -1062,7 +1113,7 @@ export default function App() {
               {message && <div className="message error">{message}</div>}
 
               <button disabled={busy} className="primaryButton">
-                {busy ? "Desbloqueando..." : "Desbloquear"}
+                {busy ? t("auth.unlocking") : t("auth.unlock")}
               </button>
             </form>
 
@@ -1071,7 +1122,7 @@ export default function App() {
               className="authTextButton"
               onClick={() => setRestorePopupOpen(true)}
             >
-              Restaurar backup
+              {t("auth.restoreBackup")}
             </button>
           </section>
         </main>
@@ -1088,60 +1139,60 @@ export default function App() {
           <button
             className="sidebarToggle"
             onClick={() => setSidebarExpanded((current) => !current)}
-            title={sidebarExpanded ? "Fechar menu lateral" : "Abrir menu lateral"}
-            aria-label={sidebarExpanded ? "Fechar menu lateral" : "Abrir menu lateral"}
+            title={sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
+            aria-label={sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
           >
             <AppLogo size="md" />
           </button>
 
           <div className="brandText">
             <strong>KPassword</strong>
-            <span>Cofre local</span>
+            <span>{t("app.localVault")}</span>
           </div>
         </div>
 
         <nav className="navList"><button
             className={screen === "credentials" ? "active" : ""}
             onClick={() => setScreen("credentials")}
-            title="Credenciais"
-            aria-label="Credenciais"
+            title={t("nav.credentials")}
+            aria-label={t("nav.credentials")}
           >
             <span className="navIcon" aria-hidden="true">🔑</span>
-            <span className="navLabel">Credenciais</span>
+            <span className="navLabel">{t("nav.credentials")}</span>
           </button>
           <button
             className={screen === "dashboard" ? "active" : ""}
             onClick={() => setScreen("dashboard")}
-            title="Dashboard"
-            aria-label="Dashboard"
+            title={t("nav.dashboard")}
+            aria-label={t("nav.dashboard")}
           >
             <span className="navIcon" aria-hidden="true">📊</span>
-            <span className="navLabel">Dashboard</span>
+            <span className="navLabel">{t("nav.dashboard")}</span>
           </button>
           <button
             className={screen === "settings" ? "active" : ""}
             onClick={() => setScreen("settings")}
-            title="Segurança & backup"
-            aria-label="Segurança & backup"
+            title={t("nav.securityBackup")}
+            aria-label={t("nav.securityBackup")}
           >
             <span className="navIcon" aria-hidden="true">🛡️</span>
-            <span className="navLabel">Segurança & backup</span>
+            <span className="navLabel">{t("nav.securityBackup")}</span>
           </button>
           <button
             className={screen === "preferences" ? "active" : ""}
             onClick={() => setScreen("preferences")}
-            title="Configurações"
-            aria-label="Configurações"
+            title={t("nav.preferences")}
+            aria-label={t("nav.preferences")}
           >
             <span className="navIcon" aria-hidden="true">⚙️</span>
-            <span className="navLabel">Configurações</span>
+            <span className="navLabel">{t("nav.preferences")}</span>
           </button>
         </nav>
 
         <div className="sidebarFooter">
-          <button className="lockButton" onClick={lockVault} title="Bloquear cofre" aria-label="Bloquear cofre">
+          <button className="lockButton" onClick={lockVault} title={t("nav.lockVault")} aria-label={t("nav.lockVault")}>
             <span className="navIcon" aria-hidden="true">🔒</span>
-            <span className="navLabel">Bloquear cofre</span>
+            <span className="navLabel">{t("nav.lockVault")}</span>
           </button>
         </div>
       </aside>
@@ -1151,19 +1202,22 @@ export default function App() {
           <div className="topbarTitle">
             <AppLogo size="md" />
             <div>
-              <p className="eyebrow">Proteção local</p>
+              <p className="eyebrow">{t("topbar.localProtection")}</p>
               <h1>
-                {screen === "credentials" && "Credenciais"}
-                {screen === "dashboard" && "Painel do cofre"}
-                {screen === "settings" && "Segurança & backup"}
-                {screen === "preferences" && "Configurações"}
+                {screen === "credentials" && t("nav.credentials")}
+                {screen === "dashboard" && t("topbar.vaultDashboard")}
+                {screen === "settings" && t("nav.securityBackup")}
+                {screen === "preferences" && t("nav.preferences")}
               </h1>
             </div>
           </div>
 
-          <button className="primaryButton" onClick={openNewCredentialForm}>
-            Adicionar nova credencial
-          </button>
+          <div className="topbarActions">
+            <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+            <button className="primaryButton" onClick={openNewCredentialForm}>
+              {t("topbar.addCredential")}
+            </button>
+          </div>
         </header>
 
         {message && <div className="message success">{message}</div>}
@@ -1174,9 +1228,9 @@ export default function App() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar em nome, usuário, senha, site, categoria, favorito ou observação..."
+                placeholder={t("search.placeholder")}
               />
-              <span>{filteredCredentials.length} resultado(s)</span>
+              <span>{t("search.results", { count: filteredCredentials.length })}</span>
             </div>
 
             <section className="credentialRows">
@@ -1196,11 +1250,11 @@ export default function App() {
                     onClick={() => setDetailCredentialId(credential.id)}
                     title="Clique para ver detalhes. Use as setas para reorganizar."
                   >
-                    <span className="reorderControls" aria-label="Reordenar credencial">
+                    <span className="reorderControls" aria-label={t("credential.reorder")}>
                       <button
                         type="button"
                         disabled={!canMoveUp}
-                        title={canReorderCredentials ? "Subir credencial" : "Limpe a busca para reorganizar"}
+                        title={canReorderCredentials ? t("credential.moveUp") : t("credential.clearSearchToReorder")}
                         onClick={(event) => {
                           stopAction(event);
                           void moveCredentialByOffset(credential.id, -1);
@@ -1211,7 +1265,7 @@ export default function App() {
                       <button
                         type="button"
                         disabled={!canMoveDown}
-                        title={canReorderCredentials ? "Descer credencial" : "Limpe a busca para reorganizar"}
+                        title={canReorderCredentials ? t("credential.moveDown") : t("credential.clearSearchToReorder")}
                         onClick={(event) => {
                           stopAction(event);
                           void moveCredentialByOffset(credential.id, 1);
@@ -1226,22 +1280,22 @@ export default function App() {
                         stopAction(event);
                         void toggleFavorite(credential.id);
                       }}
-                      title={credential.favorite ? "Remover favorito" : "Favoritar"}
+                      title={credential.favorite ? t("credential.removeFavorite") : t("credential.favorite")}
                     >
                       ★
                     </span>
 
                     <span className="rowMain">
                       <strong>{credential.title}</strong>
-                      <small>{credential.username || "Sem usuário"}</small>
+                      <small>{credential.username || t("credential.noUser")}</small>
                     </span>
 
                     <span className="rowPassword">{maskPassword(credential.password)}</span>
 
-                    <span className="rowCategory">{credential.category}</span>
+                    <span className="rowCategory">{getCategoryLabel(credential.category, appLanguage)}</span>
 
                     <span className="rowStrength">
-                      {getPasswordLabel(passwordScore)} · {passwordScore}%
+                      {translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} · {passwordScore}%
                     </span>
 
                     <span className="rowActions">
@@ -1252,7 +1306,7 @@ export default function App() {
                           void copySecure(credential.username, `user-${credential.id}`);
                         }}
                       >
-                        {copiedField === `user-${credential.id}` ? "Copiado" : "Copiar usuário"}
+                        {copiedField === `user-${credential.id}` ? t("credential.copied") : t("credential.copyUser")}
                       </button>
 
                       <button
@@ -1262,7 +1316,7 @@ export default function App() {
                           void copySecure(credential.password, `pass-${credential.id}`);
                         }}
                       >
-                        {copiedField === `pass-${credential.id}` ? "Copiada" : "Copiar senha"}
+                        {copiedField === `pass-${credential.id}` ? t("credential.copiedFemale") : t("credential.copyPassword")}
                       </button>
 
                       <button
@@ -1272,7 +1326,7 @@ export default function App() {
                           openEditCredentialForm(credential);
                         }}
                       >
-                        Editar
+                        {t("credential.edit")}
                       </button>
                     </span>
                   </article>
@@ -1281,10 +1335,10 @@ export default function App() {
 
               {filteredCredentials.length === 0 && (
                 <div className="emptyState">
-                  <h2>Nenhuma credencial encontrada</h2>
-                  <p>Cadastre sua primeira credencial para iniciar o cofre.</p>
+                  <h2>{t("credential.emptyTitle")}</h2>
+                  <p>{t("credential.emptyDescription")}</p>
                   <button className="primaryButton" onClick={openNewCredentialForm}>
-                    Adicionar nova credencial
+                    {t("topbar.addCredential")}
                   </button>
                 </div>
               )}
@@ -1295,42 +1349,42 @@ export default function App() {
         {screen === "dashboard" && (
           <div className="dashboardGrid">
             <article className="metricCard">
-              <span>Total</span>
+              <span>{t("dashboard.total")}</span>
               <strong>{stats.total}</strong>
-              <small>credenciais salvas</small>
+              <small>{t("dashboard.savedCredentials")}</small>
             </article>
             <article className="metricCard">
-              <span>Favoritas</span>
+              <span>{t("dashboard.favorites")}</span>
               <strong>{stats.favorites}</strong>
-              <small>acesso rápido</small>
+              <small>{t("dashboard.quickAccess")}</small>
             </article>
             <article className="metricCard warning">
-              <span>Fracas</span>
+              <span>{t("dashboard.weak")}</span>
               <strong>{stats.weak}</strong>
-              <small>merecem revisão</small>
+              <small>{t("dashboard.reviewNeeded")}</small>
             </article>
             <article className="metricCard warning">
-              <span>Repetidas</span>
+              <span>{t("dashboard.repeated")}</span>
               <strong>{stats.repeated}</strong>
-              <small>risco de reutilização</small>
+              <small>{t("dashboard.reuseRisk")}</small>
             </article>
 
             <article className="wideCard">
-              <h2>Como o KPassword está protegido</h2>
+              <h2>{t("dashboard.protectionTitle")}</h2>
               <div className="securityGrid">
-                <span>Criptografia AES-GCM 256-bit</span>
-                <span>Derivação PBKDF2-SHA-256 com 450.000 iterações</span>
-                <span>Salt individual de 32 bytes</span>
-                <span>IV novo em cada salvamento</span>
-                <span>Backups locais criptografados</span>
-                <span>Bloqueio ao minimizar, fechar ou ficar inativo</span>
-                <span>Clipboard atual limpo após 1 minuto</span>
-                <span>Sem servidor, sem nuvem e sem telemetria</span>
+                <span>{t("security.aes")}</span>
+                <span>{t("security.pbkdf2")}</span>
+                <span>{t("security.salt")}</span>
+                <span>{t("security.iv")}</span>
+                <span>{t("security.encryptedBackups")}</span>
+                <span>{t("security.autolock")}</span>
+                <span>{t("security.clipboard")}</span>
+                <span>{t("security.offline")}</span>
               </div>
             </article>
 
             <article className="wideCard">
-              <h2>Últimas credenciais</h2>
+              <h2>{t("dashboard.latestCredentials")}</h2>
               <div className="miniList">
                 {filteredCredentials.slice(0, 6).map((credential) => (
                   <button
@@ -1346,7 +1400,7 @@ export default function App() {
                 ))}
 
                 {filteredCredentials.length === 0 && (
-                  <p className="emptyText">Nenhuma credencial cadastrada ainda.</p>
+                  <p className="emptyText">{t("dashboard.noCredentials")}</p>
                 )}
               </div>
             </article>
@@ -1358,11 +1412,8 @@ export default function App() {
             <article className="wideCard storageCard">
               <div className="cardTitleRow">
                 <div>
-                  <h2>Armazenamento local</h2>
-                  <p>
-                    Os caminhos do cofre e dos backups ficam ocultos por padrão para não expor
-                    informações locais na tela.
-                  </p>
+                  <h2>{t("settings.localStorage")}</h2>
+                  <p>{t("settings.localStorageDescription")}</p>
                 </div>
 
                 <button
@@ -1372,35 +1423,32 @@ export default function App() {
                     window.setTimeout(() => setShowStoragePaths(false), 30000);
                   }}
                 >
-                  Mostrar por 30s
+                  {t("settings.show30s")}
                 </button>
               </div>
 
               {showStoragePaths ? (
                 <div className="pathGrid">
                   <div className="pathBox">
-                    <span>Cofre criptografado</span>
-                    <strong>{storageInfo?.vault_path ?? "Carregando..."}</strong>
+                    <span>{t("settings.encryptedVault")}</span>
+                    <strong>{storageInfo?.vault_path ?? t("settings.loading")}</strong>
                   </div>
                   <div className="pathBox">
-                    <span>Backups criptografados</span>
-                    <strong>{storageInfo?.backup_dir ?? "Carregando..."}</strong>
+                    <span>{t("settings.encryptedBackups")}</span>
+                    <strong>{storageInfo?.backup_dir ?? t("settings.loading")}</strong>
                   </div>
                 </div>
               ) : (
                 <div className="hiddenPathsBox">
-                  <strong>Caminhos ocultos</strong>
-                  <span>Clique em “Mostrar por 30s” apenas quando precisar conferir o local dos arquivos.</span>
+                  <strong>{t("settings.hiddenPaths")}</strong>
+                  <span>{t("settings.hiddenPathsDescription")}</span>
                 </div>
               )}
             </article>
 
             <article className="wideCard">
-              <h2>Backups automáticos</h2>
-              <p>
-                O KPassword cria snapshots criptografados do cofre. Mesmo que alguém
-                acesse os arquivos, o conteúdo continua protegido pela senha mestra.
-              </p>
+              <h2>{t("settings.autoBackups")}</h2>
+              <p>{t("settings.autoBackupsDescription")}</p>
 
               <div className="backupList">
                 {backups.slice(0, 8).map((backup) => (
@@ -1412,7 +1460,7 @@ export default function App() {
                   </div>
                 ))}
 
-                {backups.length === 0 && <p className="emptyText">Nenhum backup criado ainda.</p>}
+                {backups.length === 0 && <p className="emptyText">{t("settings.noBackups")}</p>}
               </div>
 
               <button
@@ -1424,7 +1472,7 @@ export default function App() {
                     title: "Criar backup",
                     message: "Criar um novo backup criptografado agora?",
                     confirmText: "Criar backup",
-                    cancelText: "Cancelar",
+                    cancelText: t("dialog.cancel"),
                   }).then((confirmed) => {
                     if (!confirmed) return;
 
@@ -1440,7 +1488,7 @@ export default function App() {
             </article>
 
             <article className="wideCard securityActionCard">
-              <h2>Senha mestra</h2>
+              <h2>{t("settings.masterPasswordTitle")}</h2>
               <p>
                 Não existe recuperação da senha mestra atual. Se ela for perdida, o cofre e os backups criptografados não podem ser descriptografados. Troque a senha periodicamente e guarde-a em local seguro.
               </p>
@@ -1461,7 +1509,7 @@ export default function App() {
                     type="password"
                     value={newMasterPassword}
                     onChange={(event) => setNewMasterPassword(event.target.value)}
-                    placeholder="Mínimo 12 caracteres"
+                    placeholder={t("auth.masterPlaceholder")}
                   />
                 </label>
                 <label>
@@ -1477,9 +1525,9 @@ export default function App() {
                 {newMasterPassword && (
                   <div className="securityNotes inlineNotes">
                     {validateMasterPassword(newMasterPassword).length === 0 ? (
-                      <span>Nova senha atende aos requisitos.</span>
+                      <span>{t("settings.newPasswordValid")}</span>
                     ) : (
-                      validateMasterPassword(newMasterPassword).map((issue) => <span key={issue}>{issue}</span>)
+                      validateMasterPassword(newMasterPassword).map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
                     )}
                   </div>
                 )}
@@ -1491,13 +1539,13 @@ export default function App() {
             </article>
 
             <article className="wideCard securityActionCard">
-              <h2>Importar backup</h2>
+              <h2>{t("settings.importBackup")}</h2>
               <p>
                 Importe um arquivo .kpvault para restaurar o cofre. O arquivo continua exigindo a senha mestra usada quando o backup foi criado.
               </p>
 
               <label className="fileImportButton inlineFileButton">
-                Selecionar backup .kpvault
+                {t("settings.selectBackup")}
                 <input
                   type="file"
                   accept=".kpvault,application/json"
@@ -1510,15 +1558,15 @@ export default function App() {
             </article>
 
             <article className="wideCard">
-              <h2>Configurações de segurança</h2>
+              <h2>{t("settings.securitySettings")}</h2>
               <div className="securityGrid">
-                <span>Bloqueio por inatividade: {vault?.settings.autoLockMinutes ?? 3} min</span>
-                <span>Backup automático: a cada {vault?.settings.backupIntervalHours ?? 4}h</span>
-                <span>Limpeza do Ctrl+V: {CLIPBOARD_CLEAR_SECONDS}s</span>
-                <span>Win+V: histórico controlado pelo Windows</span>
-                <span>Autostart com Windows: ativo</span>
-                <span>Bandeja do sistema: ativa</span>
-                <span>Instância única: ativa</span>
+                <span>{t("settings.autoLockMinutes", { minutes: vault?.settings.autoLockMinutes ?? 3 })}</span>
+                <span>{t("settings.backupEvery", { hours: vault?.settings.backupIntervalHours ?? 4 })}</span>
+                <span>{t("settings.ctrlVClear", { seconds: CLIPBOARD_CLEAR_SECONDS })}</span>
+                <span>{t("settings.winV")}</span>
+                <span>{t("settings.autostart")}</span>
+                <span>{t("settings.tray")}</span>
+                <span>{t("settings.singleInstance")}</span>
               </div>
             </article>
           </div>
@@ -1527,8 +1575,17 @@ export default function App() {
         {screen === "preferences" && (
           <div className="preferencesGrid">
             <article className="wideCard preferenceCard">
-              <h2>Tema</h2>
-              <p>Escolha uma aparência confortável. As cores de fundo, textos, campos e containers mudam juntas.</p>
+              <h2>{t("language.title")}</h2>
+              <p>{t("language.description")}</p>
+              <div className="languagePreferenceBox">
+                <span>{t("language.current")}</span>
+                <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} />
+              </div>
+            </article>
+
+            <article className="wideCard preferenceCard">
+              <h2>{t("preferences.theme")}</h2>
+              <p>{t("preferences.themeDescription")}</p>
 
               <div className="optionGrid">
                 <button
@@ -1536,8 +1593,8 @@ export default function App() {
                   onClick={() => setAppTheme("dark")}
                 >
                   <span>🌙</span>
-                  <strong>Escuro</strong>
-                  <small>Menos brilho e mais contraste.</small>
+                  <strong>{t("preferences.dark")}</strong>
+                  <small>{t("preferences.darkDescription")}</small>
                 </button>
 
                 <button
@@ -1545,8 +1602,8 @@ export default function App() {
                   onClick={() => setAppTheme("light")}
                 >
                   <span>☀️</span>
-                  <strong>Claro</strong>
-                  <small>Fundo claro com letras escuras.</small>
+                  <strong>{t("preferences.light")}</strong>
+                  <small>{t("preferences.lightDescription")}</small>
                 </button>
 
                 <button
@@ -1554,21 +1611,21 @@ export default function App() {
                   onClick={() => setAppTheme("mixed")}
                 >
                   <span>🌓</span>
-                  <strong>Misto</strong>
-                  <small>Menu escuro e conteúdo mais claro.</small>
+                  <strong>{t("preferences.mixed")}</strong>
+                  <small>{t("preferences.mixedDescription")}</small>
                 </button>
               </div>
             </article>
 
             <article className="wideCard preferenceCard">
-              <h2>Acessibilidade</h2>
-              <p>Ajustes visuais para deixar o uso mais confortável sem pesar o app.</p>
+              <h2>{t("preferences.accessibility")}</h2>
+              <p>{t("preferences.accessibilityDescription")}</p>
 
               <div className="toggleList">
                 <label className="toggleRow">
                   <span>
-                    <strong>Fonte maior</strong>
-                    <small>Aumenta levemente textos, botões e campos.</small>
+                    <strong>{t("preferences.largeFont")}</strong>
+                    <small>{t("preferences.largeFontDescription")}</small>
                   </span>
                   <input
                     type="checkbox"
@@ -1579,8 +1636,8 @@ export default function App() {
 
                 <label className="toggleRow">
                   <span>
-                    <strong>Reduzir animações</strong>
-                    <small>Diminui transições e efeitos visuais.</small>
+                    <strong>{t("preferences.reduceMotion")}</strong>
+                    <small>{t("preferences.reduceMotionDescription")}</small>
                   </span>
                   <input
                     type="checkbox"
@@ -1591,8 +1648,8 @@ export default function App() {
 
                 <label className="toggleRow">
                   <span>
-                    <strong>Lista compacta</strong>
-                    <small>Reduz a altura das linhas para caber mais credenciais.</small>
+                    <strong>{t("preferences.compactList")}</strong>
+                    <small>{t("preferences.compactListDescription")}</small>
                   </span>
                   <input
                     type="checkbox"
@@ -1604,42 +1661,39 @@ export default function App() {
             </article>
 
             <article className="wideCard preferenceCard">
-              <h2>Procurar por atualizações</h2>
-              <p>
-                Quando o GitHub Releases estiver configurado, o KPassword verificará a última versão oficial publicada.
-              </p>
+              <h2>{t("preferences.updates")}</h2>
+              <p>{t("preferences.updatesDescription")}</p>
 
               <div className="updateSummary">
                 <div>
-                  <span>Versão instalada</span>
+                  <span>{t("preferences.installedVersion")}</span>
                   <strong>{APP_VERSION}</strong>
                 </div>
                 <div>
-                  <span>Canal</span>
-                  <strong>{UPDATE_GITHUB_OWNER && UPDATE_GITHUB_REPO ? "GitHub Releases" : "Não configurado"}</strong>
+                  <span>{t("preferences.channel")}</span>
+                  <strong>{UPDATE_GITHUB_OWNER && UPDATE_GITHUB_REPO ? t("preferences.githubReleases") : t("preferences.notConfigured")}</strong>
                 </div>
               </div>
 
               <button className="secondaryButton" onClick={() => void handleCheckUpdates()}>
-                Verificar atualização
+                {t("preferences.checkUpdate")}
               </button>
 
               {updateStatus && <div className="updateStatus">{updateStatus}</div>}
             </article>
 
             <article className="wideCard preferenceCard">
-              <h2>Ações sensíveis</h2>
-              <p>Use apenas se quiser voltar a aparência do app para o padrão inicial.</p>
+              <h2>{t("preferences.sensitiveActions")}</h2>
+              <p>{t("preferences.sensitiveActionsDescription")}</p>
 
               <button
                 className="dangerConfirmButton"
                 onClick={() => {
                   void askConfirmation({
-                    title: "Restaurar aparência",
-                    message:
-                      "Restaurar tema, fonte, animações e densidade para o padrão? Isso não altera suas credenciais.",
-                    confirmText: "Restaurar",
-                    cancelText: "Cancelar",
+                    title: t("dialog.restoreAppearanceTitle"),
+                    message: t("dialog.restoreAppearanceMessage"),
+                    confirmText: t("dialog.restore"),
+                    cancelText: t("dialog.cancel"),
                     tone: "danger",
                   }).then((confirmed) => {
                     if (!confirmed) return;
@@ -1648,11 +1702,11 @@ export default function App() {
                     setFontScale("normal");
                     setReduceMotion(false);
                     setCompactMode(false);
-                    setMessage("Configurações visuais restauradas.");
+                    setMessage(t("success.appearanceRestored"));
                   });
                 }}
               >
-                Restaurar aparência padrão
+                {t("preferences.restoreAppearance")}
               </button>
             </article>
           </div>
@@ -1676,12 +1730,12 @@ export default function App() {
 
             <div className="detailGrid">
               <div>
-                <span>Usuário</span>
+                <span>{t("detail.user")}</span>
                 <strong>{detailCredential.username || "—"}</strong>
               </div>
 
               <div>
-                <span>Senha</span>
+                <span>{t("detail.password")}</span>
                 <strong>
                   {visiblePasswords[detailCredential.id]
                     ? detailCredential.password
@@ -1690,41 +1744,41 @@ export default function App() {
               </div>
 
               <div>
-                <span>Site</span>
+                <span>{t("detail.site")}</span>
                 <strong>{detailCredential.url || "—"}</strong>
               </div>
 
               <div>
-                <span>Força</span>
+                <span>{t("detail.strength")}</span>
                 <strong>
-                  {getPasswordLabel(getPasswordScore(detailCredential.password))} ·{" "}
+                  {translatePasswordLabel(getPasswordLabel(getPasswordScore(detailCredential.password)), appLanguage)} ·{" "}
                   {getPasswordScore(detailCredential.password)}%
                 </strong>
               </div>
 
               <div>
-                <span>Criada em</span>
-                <strong>{formatDate(detailCredential.createdAt)}</strong>
+                <span>{t("detail.createdAt")}</span>
+                <strong>{formatDate(detailCredential.createdAt, appLanguage)}</strong>
               </div>
 
               <div>
-                <span>Atualizada em</span>
-                <strong>{formatDate(detailCredential.updatedAt)}</strong>
+                <span>{t("detail.updatedAt")}</span>
+                <strong>{formatDate(detailCredential.updatedAt, appLanguage)}</strong>
               </div>
             </div>
 
             <div className="notesBox">
-              <span>Observações</span>
-              <p>{detailCredential.notes || "Nenhuma observação cadastrada."}</p>
+              <span>{t("detail.notes")}</span>
+              <p>{detailCredential.notes || t("detail.noNotes")}</p>
             </div>
 
             <div className="detailActions">
               <button onClick={() => void copySecure(detailCredential.username, `user-${detailCredential.id}`)}>
-                {copiedField === `user-${detailCredential.id}` ? "Usuário copiado" : "Copiar usuário"}
+                {copiedField === `user-${detailCredential.id}` ? t("credential.userCopied") : t("credential.copyUser")}
               </button>
 
               <button onClick={() => void copySecure(detailCredential.password, `pass-${detailCredential.id}`)}>
-                {copiedField === `pass-${detailCredential.id}` ? "Senha copiada" : "Copiar senha"}
+                {copiedField === `pass-${detailCredential.id}` ? t("credential.passwordCopied") : t("credential.copyPassword")}
               </button>
 
               <button
@@ -1735,26 +1789,26 @@ export default function App() {
                   }))
                 }
               >
-                {visiblePasswords[detailCredential.id] ? "Ocultar senha" : "Mostrar senha"}
+                {visiblePasswords[detailCredential.id] ? t("credential.hidePassword") : t("credential.showPassword")}
               </button>
 
               <button onClick={() => void toggleFavorite(detailCredential.id)}>
-                {detailCredential.favorite ? "Remover favorito" : "Favoritar"}
+                {detailCredential.favorite ? t("credential.removeFavorite") : t("credential.favorite")}
               </button>
 
               {detailCredential.url && (
                 <button onClick={() => window.open(detailCredential.url, "_blank")}>
-                  Abrir site
+                  {t("credential.openSite")}
                 </button>
               )}
 
-              <button onClick={() => openEditCredentialForm(detailCredential)}>Editar</button>
+              <button onClick={() => openEditCredentialForm(detailCredential)}>{t("credential.edit")}</button>
 
               <button
                 className="dangerButton"
                 onClick={() => void handleDeleteCredential(detailCredential.id)}
               >
-                Excluir
+                {t("credential.delete")}
               </button>
             </div>
           </aside>
@@ -1766,8 +1820,8 @@ export default function App() {
           <form className="credentialModal" onSubmit={handleSaveCredential} onMouseDown={(event) => event.stopPropagation()}>
             <div className="modalHeader">
               <div>
-                <p className="eyebrow">{editingId ? "Editar" : "Nova"}</p>
-                <h2>{editingId ? "Editar credencial" : "Adicionar credencial"}</h2>
+                <p className="eyebrow">{editingId ? t("form.editing") : t("form.new")}</p>
+                <h2>{editingId ? t("form.editCredential") : t("form.addCredential")}</h2>
               </div>
               <button type="button" className="iconButton" onClick={() => setFormOpen(false)}>
                 ×
@@ -1776,19 +1830,19 @@ export default function App() {
 
             <div className="formGrid">
               <label>
-                Nome
+                {t("form.name")}
                 <input
                   value={credentialForm.title}
                   onChange={(event) =>
                     setCredentialForm((current) => ({ ...current, title: event.target.value }))
                   }
-                  placeholder="Ex: Portal Kyndryl"
+                  placeholder={t("form.namePlaceholder")}
                   autoFocus
                 />
               </label>
 
               <label>
-                Categoria
+                {t("form.category")}
                 <select
                   value={credentialForm.category}
                   onChange={(event) =>
@@ -1799,13 +1853,13 @@ export default function App() {
                   }
                 >
                   {CATEGORIES.map((category) => (
-                    <option key={category}>{category}</option>
+                    <option key={category} value={category}>{getCategoryLabel(category, appLanguage)}</option>
                   ))}
                 </select>
               </label>
 
               <label>
-                Usuário / e-mail
+                {t("form.userEmail")}
                 <input
                   value={credentialForm.username}
                   onChange={(event) =>
@@ -1816,7 +1870,7 @@ export default function App() {
               </label>
 
               <label>
-                Site
+                {t("form.site")}
                 <input
                   value={credentialForm.url}
                   onChange={(event) =>
@@ -1827,7 +1881,7 @@ export default function App() {
               </label>
 
               <label className="full">
-                Senha
+                {t("form.password")}
                 <div className="passwordInput">
                   <input
                     value={credentialForm.password}
@@ -1837,7 +1891,7 @@ export default function App() {
                         password: event.target.value,
                       }))
                     }
-                    placeholder="Digite ou gere uma senha"
+                    placeholder={t("form.passwordPlaceholder")}
                   />
                   <button
                     type="button"
@@ -1848,11 +1902,11 @@ export default function App() {
                       }))
                     }
                   >
-                    Gerar forte
+                    {t("form.generateStrong")}
                   </button>
                 </div>
                 <span className="strength">
-                  Força: {getPasswordLabel(score)} · {score}%
+                  {t("form.strength", { label: translatePasswordLabel(getPasswordLabel(score), appLanguage), score })}
                 </span>
               </label>
 
@@ -1863,7 +1917,7 @@ export default function App() {
                   onChange={(event) =>
                     setCredentialForm((current) => ({ ...current, notes: event.target.value }))
                   }
-                  placeholder="Notas protegidas dentro do cofre criptografado"
+                  placeholder={t("form.notesPlaceholder")}
                 />
               </label>
 
@@ -1878,7 +1932,7 @@ export default function App() {
                     }))
                   }
                 />
-                Marcar como favorita
+                {t("form.markFavorite")}
               </label>
             </div>
 
@@ -1887,7 +1941,7 @@ export default function App() {
                 Cancelar
               </button>
               <button disabled={busy} className="primaryButton">
-                {busy ? "Salvando..." : "Salvar credencial"}
+                {busy ? t("form.saving") : t("form.saveCredential")}
               </button>
             </div>
           </form>
