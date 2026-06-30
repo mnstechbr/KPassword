@@ -1,0 +1,19 @@
+﻿node_modules/
+dist/
+dist-release/
+src-tauri/target/
+src-tauri/gen/
+.vscode/
+.idea/
+
+.env
+.env.*
+*.log
+
+*.backup-*
+*.tmp
+*.sig
+
+# Não subir chave privada do updater, caso exista dentro do projeto por acidente
+*.key
+*.key.pub

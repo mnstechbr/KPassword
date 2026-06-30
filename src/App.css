@@ -1,0 +1,1884 @@
+﻿* {
+  box-sizing: border-box;
+}
+
+:root {
+  color: #f7f7fb;
+  background: #08090d;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(82, 33, 255, 0.22), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(0, 225, 255, 0.14), transparent 35%),
+    #08090d;
+}
+
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+:root[data-font-scale="large"] {
+  font-size: 17px;
+}
+
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.authShell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 32px;
+}
+
+.authCard {
+  width: min(460px, 100%);
+  padding: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 28px;
+  background: rgba(16, 18, 27, 0.92);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+}
+
+.brandMark {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 225, 255, 0.45);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(0, 225, 255, 0.22), rgba(124, 58, 237, 0.2));
+  color: #c7fbff;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.eyebrow {
+  margin: 18px 0 8px;
+  color: #7dd3fc;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+.authCard h1,
+.topbar h1 {
+  margin-bottom: 10px;
+}
+
+.authCard p,
+.wideCard p,
+.emptyText {
+  color: #aab0c5;
+  line-height: 1.6;
+}
+
+.authForm {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  color: #dfe5ff;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 14px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.055);
+  color: #f7f7fb;
+  padding: 13px 14px;
+}
+
+textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+select option {
+  background: #151824;
+  color: #f7f7fb;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(125, 211, 252, 0.75);
+  box-shadow: 0 0 0 4px rgba(125, 211, 252, 0.12);
+}
+
+.primaryButton,
+.secondaryButton,
+.ghostButton,
+.lockButton,
+.iconButton,
+.navList button,
+.detailActions button,
+.rowActions button,
+.sidebarToggle,
+.dangerConfirmButton {
+  border: 0;
+  border-radius: 14px;
+  color: #f8fbff;
+  font-weight: 800;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #0ea5e9, #7c3aed);
+  padding: 13px 18px;
+  box-shadow: 0 14px 32px rgba(14, 165, 233, 0.22);
+}
+
+.dangerConfirmButton {
+  background: linear-gradient(135deg, #dc2626, #7f1d1d);
+  padding: 13px 18px;
+  box-shadow: 0 14px 32px rgba(220, 38, 38, 0.22);
+}
+
+.secondaryButton {
+  background: rgba(14, 165, 233, 0.18);
+  padding: 12px 16px;
+}
+
+.ghostButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 12px 16px;
+}
+
+.message {
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 700;
+}
+
+.message.error {
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(127, 29, 29, 0.2);
+  color: #fecaca;
+}
+
+.message.success {
+  margin-bottom: 16px;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  background: rgba(20, 83, 45, 0.18);
+  color: #bbf7d0;
+}
+
+.securityNotes {
+  display: grid;
+  gap: 6px;
+  color: #fde68a;
+  font-size: 0.86rem;
+}
+
+.appShell {
+  display: grid;
+  height: 100vh;
+  min-width: 0;
+  overflow: hidden;
+  transition: grid-template-columns 180ms ease;
+}
+
+.appShell.sidebarClosed {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.appShell.sidebarOpen {
+  grid-template-columns: 248px minmax(0, 1fr);
+}
+
+.sidebar {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 22px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 12, 18, 0.82);
+  padding: 14px;
+}
+
+.sidebarBrand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebarToggle {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 225, 255, 0.45);
+  background: linear-gradient(135deg, rgba(0, 225, 255, 0.22), rgba(124, 58, 237, 0.2));
+  color: #c7fbff;
+  font-size: 1.25rem;
+}
+
+.brandText {
+  min-width: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 160ms ease;
+}
+
+.sidebarClosed .brandText,
+.sidebarClosed .navLabel {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebarBrand strong,
+.sidebarBrand span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebarBrand span {
+  color: #8d96ad;
+  font-size: 0.82rem;
+}
+
+.navList {
+  display: grid;
+  gap: 8px;
+}
+
+.navList button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  background: transparent;
+  color: #9ca3af;
+  padding: 12px;
+  text-align: left;
+}
+
+.navList button.active,
+.navList button:hover {
+  background: rgba(125, 211, 252, 0.12);
+  color: #e0f2fe;
+}
+
+.lockButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  padding: 12px;
+  text-align: left;
+}
+
+.lockButton:hover {
+  background: rgba(125, 211, 252, 0.12);
+  color: #e0f2fe;
+}
+
+.navIcon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.navLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity 160ms ease;
+}
+
+.sidebarFooter {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.sidebarClosed .ghostButton,
+.sidebarClosed .lockButton {
+  justify-content: center;
+  padding-inline: 12px;
+}
+
+.content {
+  min-width: 0;
+  overflow: auto;
+  padding: 22px;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.topbar .eyebrow {
+  margin-top: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.toolbar input {
+  flex: 1 1 auto;
+}
+
+.toolbar span {
+  flex: 0 0 auto;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.credentialRows {
+  display: grid;
+  gap: 8px;
+}
+
+.credentialRow {
+  display: grid;
+  grid-template-columns:
+    28px
+    42px
+    minmax(180px, 1.35fr)
+    minmax(120px, 0.7fr)
+    minmax(94px, 0.45fr)
+    minmax(104px, 0.55fr)
+    minmax(300px, auto);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 16px;
+  background: rgba(16, 18, 27, 0.82);
+  color: #f8fbff;
+  padding: 10px 12px;
+  text-align: left;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.credentialRow:hover {
+  border-color: rgba(125, 211, 252, 0.52);
+  background: rgba(20, 28, 42, 0.92);
+}
+
+.credentialRow.dragging {
+  opacity: 0.52;
+}
+
+.credentialRow.dragOver {
+  border-color: rgba(14, 165, 233, 0.95);
+  transform: translateY(-1px);
+}
+
+.dragHandle {
+  display: grid;
+  width: 24px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  color: #64748b;
+  cursor: grab;
+  font-size: 1rem;
+  letter-spacing: -0.28em;
+  user-select: none;
+}
+
+.dragHandle:hover {
+  background: rgba(125, 211, 252, 0.1);
+  color: #bae6fd;
+}
+
+.credentialRow:active .dragHandle {
+  cursor: grabbing;
+}
+
+.rowStar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 12px;
+  color: #5c6679;
+  font-size: 1.45rem;
+  line-height: 1;
+  transition:
+    color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.rowStar:hover,
+.rowStar.active {
+  background: rgba(253, 230, 138, 0.1);
+  color: #fde68a;
+  transform: scale(1.04);
+}
+
+.rowMain {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.rowMain strong,
+.rowMain small,
+.rowPassword,
+.rowCategory,
+.rowStrength {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowMain strong {
+  font-size: 0.98rem;
+}
+
+.rowMain small,
+.rowCategory,
+.rowStrength {
+  color: #9ca3af;
+  font-size: 0.82rem;
+}
+
+.rowPassword {
+  color: #dbeafe;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.rowCategory {
+  border-radius: 999px;
+  background: rgba(125, 211, 252, 0.12);
+  color: #bae6fd;
+  padding: 6px 9px;
+  text-align: center;
+  font-weight: 900;
+}
+
+.rowActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 0;
+}
+
+.rowActions button {
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 9px 10px;
+  font-size: 0.82rem;
+}
+
+.popupOverlay,
+.modalOverlay,
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.72);
+  padding: 24px;
+  z-index: 50;
+}
+
+.confirmOverlay {
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.76);
+}
+
+.confirmCard {
+  display: grid;
+  width: min(440px, 100%);
+  gap: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 36%),
+    #10121b;
+  padding: 24px;
+  box-shadow: 0 30px 120px rgba(0, 0, 0, 0.68);
+}
+
+.confirmCard h2 {
+  margin-bottom: 8px;
+}
+
+.confirmCard p {
+  margin: 0;
+  color: #bac2d6;
+  line-height: 1.55;
+}
+
+.confirmIcon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(14, 165, 233, 0.16);
+  color: #bae6fd;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.confirmIcon.danger {
+  background: rgba(220, 38, 38, 0.16);
+  color: #fecaca;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.detailPopup {
+  display: grid;
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+  gap: 14px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.105);
+  border-radius: 24px;
+  background: #10121b;
+  padding: 22px;
+  box-shadow: 0 30px 120px rgba(0, 0, 0, 0.62);
+}
+
+.detailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detailHeader span {
+  color: #7dd3fc;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.detailHeader h2 {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detailGrid div,
+.notesBox {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 12px;
+}
+
+.detailGrid span,
+.notesBox span {
+  color: #9ca3af;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.detailGrid strong {
+  overflow-wrap: anywhere;
+}
+
+.notesBox p {
+  margin: 0;
+  color: #d7def0;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.detailActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.detailActions button {
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 10px 11px;
+}
+
+.detailActions .dangerButton {
+  background: rgba(185, 28, 28, 0.24);
+  color: #fecaca;
+}
+
+.dashboardGrid,
+.settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metricCard,
+.wideCard,
+.emptyState {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 22px;
+  background: rgba(16, 18, 27, 0.82);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);
+}
+
+.metricCard {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+}
+
+.metricCard span,
+.metricCard small {
+  color: #9ca3af;
+}
+
+.metricCard strong {
+  font-size: 2.1rem;
+}
+
+.metricCard.warning strong {
+  color: #fde68a;
+}
+
+.wideCard {
+  grid-column: span 2;
+  padding: 22px;
+}
+
+.settingsGrid .wideCard {
+  grid-column: span 4;
+}
+
+.securityGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.securityGrid span {
+  min-width: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #cbd5e1;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+
+.storageCard {
+  display: grid;
+  gap: 16px;
+}
+
+.cardTitleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cardTitleRow h2 {
+  margin-bottom: 8px;
+}
+
+.cardTitleRow p {
+  margin: 0;
+}
+
+.pathGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.hiddenPathsBox {
+  display: grid;
+  gap: 6px;
+  border: 1px dashed rgba(125, 211, 252, 0.28);
+  border-radius: 16px;
+  background: rgba(125, 211, 252, 0.07);
+  padding: 14px;
+}
+
+.hiddenPathsBox span {
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+.miniList,
+.backupList {
+  display: grid;
+  gap: 10px;
+}
+
+.miniList button,
+.backupList div,
+.pathBox {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #f7f7fb;
+  padding: 12px;
+  text-align: left;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.miniList span,
+.backupList span,
+.pathBox span {
+  color: #9ca3af;
+  font-size: 0.82rem;
+}
+
+.emptyState {
+  display: grid;
+  place-items: center;
+  padding: 46px;
+  text-align: center;
+}
+
+.credentialModal {
+  width: min(820px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 26px;
+  background: #10121b;
+  padding: 22px;
+  box-shadow: 0 30px 120px rgba(0, 0, 0, 0.6);
+}
+
+.iconButton {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 1.5rem;
+}
+
+.modalHeader,
+.modalActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.passwordInput {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.passwordInput button {
+  border: 0;
+  border-radius: 14px;
+  background: rgba(14, 165, 233, 0.16);
+  color: #bfdbfe;
+  padding: 0 14px;
+  font-weight: 800;
+}
+
+.strength {
+  color: #9ca3af;
+  font-size: 0.82rem;
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkRow input {
+  width: auto;
+}
+
+@media (max-width: 1220px) {
+  .credentialRow {
+    grid-template-columns:
+      28px
+      42px
+      minmax(170px, 1fr)
+      minmax(118px, 0.55fr)
+      minmax(96px, 0.45fr)
+      minmax(280px, auto);
+  }
+
+  .rowStrength {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  body {
+    overflow: auto;
+  }
+
+  .appShell,
+  .appShell.sidebarClosed,
+  .appShell.sidebarOpen {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    min-height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 12px;
+  }
+
+  .sidebarClosed .brandText,
+  .sidebarClosed .navLabel {
+    width: auto;
+    opacity: 1;
+  }
+
+  .navList {
+    display: flex;
+    flex: 0 0 auto;
+  }
+
+  .navList button,
+  .ghostButton,
+  .lockButton {
+    white-space: nowrap;
+  }
+
+  .sidebarFooter {
+    margin-left: auto;
+    margin-top: 0;
+  }
+
+  .dashboardGrid,
+  .settingsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wideCard,
+  .settingsGrid .wideCard {
+    grid-column: 1 / -1;
+  }
+
+  .credentialRow {
+    grid-template-columns: 28px 38px minmax(160px, 1fr) minmax(110px, 0.55fr);
+  }
+
+  .rowCategory,
+  .rowStrength {
+    display: none;
+  }
+
+  .rowActions {
+    grid-column: 3 / -1;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .authShell,
+  .content,
+  .modalOverlay,
+  .popupOverlay,
+  .confirmOverlay {
+    padding: 16px;
+  }
+
+  .topbar,
+  .toolbar,
+  .modalActions,
+  .confirmActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar span {
+    white-space: normal;
+  }
+
+  .dashboardGrid,
+  .settingsGrid,
+  .detailGrid,
+  .formGrid,
+  .securityGrid,
+  .passwordInput,
+  .detailActions {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .navList {
+    display: grid;
+  }
+
+  .sidebarFooter {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .sidebarFooter button,
+  .topbar button,
+  .cardTitleRow button {
+    width: 100%;
+  }
+
+  .cardTitleRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .credentialRow {
+    grid-template-columns: 24px 34px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .rowPassword {
+    grid-column: 3 / -1;
+  }
+
+  .rowActions {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+  }
+
+  .rowActions button {
+    flex: 1 1 120px;
+  }
+
+  .credentialModal,
+  .detailPopup {
+    max-height: calc(100vh - 32px);
+    padding: 18px;
+  }
+}
+
+
+.sidebarFooter {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.sidebarClosed .lockButton {
+  width: 48px;
+  height: 48px;
+  justify-content: center;
+  padding: 12px;
+  margin: 0 auto;
+}
+
+.sidebarClosed .lockButton .navIcon {
+  margin: 0;
+}
+
+.reorderControls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  width: 24px;
+}
+
+.reorderControls button {
+  display: grid;
+  width: 24px;
+  height: 17px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.065);
+  color: #bcd3ea;
+  font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.reorderControls button:hover:not(:disabled) {
+  background: rgba(125, 211, 252, 0.16);
+  color: #e0f2fe;
+}
+
+.reorderControls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.25;
+}
+
+.backupList {
+  margin-bottom: 16px;
+}
+
+.backupList + .secondaryButton,
+.wideCard > .secondaryButton {
+  margin-top: 12px;
+}
+
+.storageCard {
+  display: grid;
+  gap: 16px;
+}
+
+.cardTitleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cardTitleRow h2 {
+  margin-bottom: 8px;
+}
+
+.cardTitleRow p {
+  margin: 0;
+}
+
+.pathGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.hiddenPathsBox {
+  display: grid;
+  gap: 6px;
+  border: 1px dashed rgba(125, 211, 252, 0.28);
+  border-radius: 16px;
+  background: rgba(125, 211, 252, 0.07);
+  padding: 14px;
+}
+
+.hiddenPathsBox span {
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+.preferencesGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.preferenceCard {
+  display: grid;
+  gap: 16px;
+}
+
+.preferenceCard h2 {
+  margin-bottom: 4px;
+}
+
+.preferenceCard p {
+  margin: 0;
+}
+
+.optionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.optionButton {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.055);
+  color: inherit;
+  padding: 16px;
+  text-align: left;
+}
+
+.optionButton span {
+  font-size: 1.5rem;
+}
+
+.optionButton strong,
+.optionButton small {
+  overflow-wrap: anywhere;
+}
+
+.optionButton small {
+  color: #9ca3af;
+  line-height: 1.45;
+}
+
+.optionButton.active,
+.optionButton:hover {
+  border-color: rgba(125, 211, 252, 0.58);
+  background: rgba(125, 211, 252, 0.12);
+}
+
+.toggleList {
+  display: grid;
+  gap: 10px;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 14px;
+}
+
+.toggleRow span {
+  display: grid;
+  gap: 3px;
+}
+
+.toggleRow small {
+  color: #9ca3af;
+  line-height: 1.45;
+}
+
+.toggleRow input {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+:root[data-density="compact"] .credentialRow {
+  padding-block: 7px;
+}
+
+:root[data-density="compact"] .rowActions button {
+  padding-block: 7px;
+}
+
+:root[data-theme="light"] {
+  color: #111827;
+  background: #eef3fb;
+}
+
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(124, 58, 237, 0.1), transparent 35%),
+    #eef3fb;
+  color: #111827;
+}
+
+:root[data-theme="light"] .authCard,
+:root[data-theme="light"] .credentialRow,
+:root[data-theme="light"] .wideCard,
+:root[data-theme="light"] .metricCard,
+:root[data-theme="light"] .emptyState,
+:root[data-theme="light"] .credentialModal,
+:root[data-theme="light"] .detailPopup,
+:root[data-theme="light"] .confirmCard {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111827;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme="light"] .sidebar {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme="light"] input,
+:root[data-theme="light"] select,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] .toggleRow,
+:root[data-theme="light"] .optionButton,
+:root[data-theme="light"] .pathBox,
+:root[data-theme="light"] .backupList div,
+:root[data-theme="light"] .miniList button,
+:root[data-theme="light"] .detailGrid div,
+:root[data-theme="light"] .notesBox,
+:root[data-theme="light"] .securityGrid span {
+  background: rgba(15, 23, 42, 0.055);
+  color: #111827;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+:root[data-theme="light"] .rowPassword,
+:root[data-theme="light"] .detailGrid strong,
+:root[data-theme="light"] .pathBox strong {
+  color: #1e3a8a;
+}
+
+:root[data-theme="light"] p,
+:root[data-theme="light"] small,
+:root[data-theme="light"] .rowMain small,
+:root[data-theme="light"] .rowStrength,
+:root[data-theme="light"] .rowCategory,
+:root[data-theme="light"] .storageHint,
+:root[data-theme="light"] .backupList span,
+:root[data-theme="light"] .pathBox span,
+:root[data-theme="light"] .toggleRow small,
+:root[data-theme="light"] .optionButton small,
+:root[data-theme="light"] .emptyText {
+  color: #4b5563;
+}
+
+:root[data-theme="light"] .navList button,
+:root[data-theme="light"] .lockButton {
+  color: #475569;
+}
+
+:root[data-theme="mixed"] {
+  color: #111827;
+  background: #edf2f8;
+}
+
+:root[data-theme="mixed"] body {
+  background: #edf2f8;
+  color: #111827;
+}
+
+:root[data-theme="mixed"] .content {
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 30%),
+    #edf2f8;
+}
+
+:root[data-theme="mixed"] .authCard,
+:root[data-theme="mixed"] .credentialRow,
+:root[data-theme="mixed"] .wideCard,
+:root[data-theme="mixed"] .metricCard,
+:root[data-theme="mixed"] .emptyState,
+:root[data-theme="mixed"] .credentialModal,
+:root[data-theme="mixed"] .detailPopup,
+:root[data-theme="mixed"] .confirmCard {
+  background: rgba(255, 255, 255, 0.9);
+  color: #111827;
+  border-color: rgba(15, 23, 42, 0.11);
+}
+
+:root[data-theme="mixed"] input,
+:root[data-theme="mixed"] select,
+:root[data-theme="mixed"] textarea,
+:root[data-theme="mixed"] .toggleRow,
+:root[data-theme="mixed"] .optionButton,
+:root[data-theme="mixed"] .pathBox,
+:root[data-theme="mixed"] .backupList div,
+:root[data-theme="mixed"] .miniList button,
+:root[data-theme="mixed"] .detailGrid div,
+:root[data-theme="mixed"] .notesBox,
+:root[data-theme="mixed"] .securityGrid span {
+  background: rgba(15, 23, 42, 0.055);
+  color: #111827;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+:root[data-theme="mixed"] p,
+:root[data-theme="mixed"] small,
+:root[data-theme="mixed"] .rowMain small,
+:root[data-theme="mixed"] .rowStrength,
+:root[data-theme="mixed"] .rowCategory,
+:root[data-theme="mixed"] .backupList span,
+:root[data-theme="mixed"] .pathBox span,
+:root[data-theme="mixed"] .toggleRow small,
+:root[data-theme="mixed"] .optionButton small,
+:root[data-theme="mixed"] .emptyText {
+  color: #4b5563;
+}
+
+@media (max-width: 980px) {
+  .preferencesGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .preferenceCard {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .preferencesGrid,
+  .optionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cardTitleRow,
+  .toggleRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cardTitleRow button {
+    width: 100%;
+  }
+}
+
+
+/* KPassword refinement overrides */
+.sidebarFooter {
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+  padding: 0 !important;
+}
+
+.lockButton {
+  width: 100% !important;
+  min-height: 48px !important;
+  border-radius: 14px !important;
+}
+
+.sidebarClosed .lockButton {
+  width: 48px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 12px !important;
+  justify-content: center !important;
+  margin: 0 auto !important;
+}
+
+.sidebarClosed .lockButton .navIcon {
+  width: 24px !important;
+  height: 24px !important;
+  margin: 0 !important;
+}
+
+.sidebarClosed .lockButton .navLabel {
+  display: none !important;
+}
+
+.backupList {
+  margin-bottom: 18px !important;
+}
+
+.securityActionCard,
+.preferenceCard,
+.storageCard {
+  align-content: start;
+}
+
+.changePasswordForm,
+.updateGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.changePasswordForm .primaryButton,
+.inlineNotes {
+  grid-column: 1 / -1;
+}
+
+.fileImportButton {
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(125, 211, 252, 0.35);
+  border-radius: 16px;
+  background: rgba(125, 211, 252, 0.08);
+  color: #dbeafe;
+  padding: 14px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.fileImportButton input {
+  display: none;
+}
+
+.inlineFileButton {
+  margin-top: 6px;
+}
+
+.restoreBox {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+  border: 1px dashed rgba(125, 211, 252, 0.25);
+  border-radius: 20px;
+  background: rgba(125, 211, 252, 0.06);
+  padding: 16px;
+}
+
+.restoreBox h2 {
+  margin-bottom: 0;
+  font-size: 1.05rem;
+}
+
+.restoreBox p {
+  margin: 0;
+  color: #9ca3af;
+}
+
+.updateStatus {
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 14px;
+  background: rgba(125, 211, 252, 0.08);
+  color: inherit;
+  line-height: 1.5;
+  padding: 12px;
+}
+
+:root[data-theme="light"] .fileImportButton,
+:root[data-theme="mixed"] .fileImportButton,
+:root[data-theme="light"] .restoreBox,
+:root[data-theme="mixed"] .restoreBox,
+:root[data-theme="light"] .updateStatus,
+:root[data-theme="mixed"] .updateStatus {
+  background: rgba(14, 165, 233, 0.08);
+  border-color: rgba(14, 165, 233, 0.25);
+  color: #0f172a;
+}
+
+@media (max-width: 980px) {
+  .changePasswordForm,
+  .updateGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.authTextButton {
+  width: max-content;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  color: #7dd3fc;
+  padding: 0;
+  margin: 16px auto 0;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.authTextButton:hover {
+  color: #bae6fd;
+}
+
+.restoreDialog {
+  display: grid;
+  width: min(460px, 100%);
+  gap: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.105);
+  border-radius: 24px;
+  background: #10121b;
+  color: #f7f7fb;
+  padding: 22px;
+  box-shadow: 0 30px 120px rgba(0, 0, 0, 0.62);
+}
+
+.restoreDialog p {
+  margin: 0;
+  color: #aab0c5;
+  line-height: 1.55;
+}
+
+.updateSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.updateSummary div {
+  display: grid;
+  gap: 5px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 12px;
+}
+
+.updateSummary span {
+  color: #9ca3af;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.updateSummary strong {
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme="light"] .restoreDialog,
+:root[data-theme="mixed"] .restoreDialog {
+  background: rgba(255, 255, 255, 0.94);
+  color: #111827;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme="light"] .restoreDialog p,
+:root[data-theme="mixed"] .restoreDialog p {
+  color: #4b5563;
+}
+
+:root[data-theme="light"] .updateSummary div,
+:root[data-theme="mixed"] .updateSummary div {
+  background: rgba(15, 23, 42, 0.055);
+}
+
+@media (max-width: 720px) {
+  .updateSummary {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.appLogo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.appLogo.sm {
+  width: 26px;
+  height: 26px;
+}
+
+.appLogo.md {
+  width: 38px;
+  height: 38px;
+}
+
+.appLogo.lg {
+  width: 54px;
+  height: 54px;
+  margin-bottom: 16px;
+}
+
+.appLogo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0;
+  transform: none;
+  transform-origin: center;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.22));
+}
+
+.appLogo span {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(0, 225, 255, 0.16), rgba(124, 58, 237, 0.16));
+  color: #c7fbff;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.appLogo span[hidden] {
+  display: none;
+}
+
+.brandIdentity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sidebarClosed .brandIdentity {
+  display: none;
+}
+
+.topbarTitle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topbarTitle > div {
+  min-width: 0;
+}
+
+.topbarTitle h1 {
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme="light"] .appLogo,
+:root[data-theme="mixed"] .appLogo {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (max-width: 720px) {
+  .topbarTitle {
+    align-items: center;
+  }
+}
+
+
+
+
+/* UI icon size correction after enlarging app-icon.png for native Windows icons */
+.topbarTitle .appLogo.md,
+.sidebarBrand .appLogo.sm,
+.brandIdentity .appLogo.sm {
+  align-self: center;
+}
+
+.authCard .appLogo.lg {
+  margin-inline: auto;
+}
+
+
+/* Final icon tuning: app UI +5% to +7%. Native icons are handled by tools/boost-native-icon.ps1 */
+.appLogo.sm {
+  width: 28px;
+  height: 28px;
+}
+
+.appLogo.md {
+  width: 41px;
+  height: 41px;
+}
+
+.appLogo.lg {
+  width: 58px;
+  height: 58px;
+}
+
+.appLogo img {
+  transform: none;
+  object-fit: contain;
+}
+
+/* Menu toggle usando o Ã­cone oficial do KPassword */
+.sidebarToggle {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  box-shadow: none;
+}
+
+.sidebarToggle:hover {
+  background: rgba(125, 211, 252, 0.1);
+}
+
+.sidebarToggle .appLogo.md {
+  width: 42px;
+  height: 42px;
+  margin: 0;
+}
+
+.sidebarToggle .appLogo.md img {
+  transform: none;
+  object-fit: contain;
+}
+
+.sidebarClosed .sidebarBrand {
+  justify-content: center;
+}
+
+.sidebarClosed .sidebarToggle {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto;
+}
+
+.sidebarOpen .sidebarBrand {
+  align-items: center;
+}
+
+.sidebarOpen .brandIdentity {
+  min-width: 0;
+}
+
+.sidebarOpen .brandText {
+  padding-left: 0;
+}
+
+/* CorreÃ§Ã£o segura: Ã­cone do KPassword como botÃ£o do menu lateral */
+.sidebarToggle {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  box-shadow: none;
+}
+
+.sidebarToggle:hover {
+  background: rgba(125, 211, 252, 0.1);
+}
+
+.sidebarToggle .appLogo.md {
+  width: 42px;
+  height: 42px;
+  margin: 0;
+}
+
+.sidebarToggle .appLogo.md img {
+  transform: none;
+  object-fit: contain;
+}
+
+.sidebarClosed .sidebarBrand {
+  justify-content: center;
+}
+
+.sidebarClosed .sidebarToggle {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto;
+}
+
+.sidebarOpen .sidebarBrand {
+  align-items: center;
+}
+
+.sidebarOpen .brandText {
+  padding-left: 0;
+}
+
+/* Remove o Ã­cone duplicado do cabeÃ§alho das pÃ¡ginas */
+.topbarTitle .appLogo {
+  display: none !important;
+}
+
+.topbarTitle {
+  gap: 0 !important;
+}
+
