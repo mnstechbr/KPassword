@@ -44,16 +44,6 @@ body {
   animation: none !important;
 }
 
-* {
-  scrollbar-width: none;
-}
-
-*::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
 button,
 input,
 select,
@@ -3008,3 +2998,1193 @@ button,
   }
 }
 /* === KPassword v0.5.1 Windows Hello END === */
+
+/* === KPassword v0.6.0 responsive design system START === */
+:root {
+  --kp-bg: #08090d;
+  --kp-surface: #10121b;
+  --kp-card: rgba(16, 18, 27, 0.84);
+  --kp-card-strong: rgba(18, 22, 34, 0.96);
+  --kp-border: rgba(255, 255, 255, 0.105);
+  --kp-border-soft: rgba(255, 255, 255, 0.075);
+  --kp-text: #f7f7fb;
+  --kp-muted: #aab0c5;
+  --kp-muted-2: #8d96ad;
+  --kp-primary: #0ea5e9;
+  --kp-accent: #7c3aed;
+  --kp-danger: #dc2626;
+  --kp-warning: #f59e0b;
+  --kp-success: #22c55e;
+  --kp-radius-xs: 12px;
+  --kp-radius-sm: 14px;
+  --kp-radius-md: 18px;
+  --kp-radius-lg: 22px;
+  --kp-radius-xl: 28px;
+  --kp-space-1: 6px;
+  --kp-space-2: 10px;
+  --kp-space-3: 14px;
+  --kp-space-4: 18px;
+  --kp-space-5: 24px;
+  --kp-page-pad: clamp(14px, 2.4vw, 26px);
+  --kp-card-pad: clamp(16px, 2vw, 24px);
+  --kp-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  --card: var(--kp-card);
+  --border: var(--kp-border);
+  --muted: var(--kp-muted);
+}
+
+:root[data-theme="light"] {
+  --kp-bg: #eef3fb;
+  --kp-surface: #ffffff;
+  --kp-card: rgba(255, 255, 255, 0.92);
+  --kp-card-strong: rgba(255, 255, 255, 0.98);
+  --kp-border: rgba(15, 23, 42, 0.12);
+  --kp-border-soft: rgba(15, 23, 42, 0.08);
+  --kp-text: #111827;
+  --kp-muted: #4b5563;
+  --kp-muted-2: #64748b;
+  --card: var(--kp-card);
+  --border: var(--kp-border);
+  --muted: var(--kp-muted);
+}
+
+:root[data-theme="mixed"] {
+  --kp-bg: #edf2f8;
+  --kp-surface: #ffffff;
+  --kp-card: rgba(255, 255, 255, 0.9);
+  --kp-card-strong: rgba(255, 255, 255, 0.97);
+  --kp-border: rgba(15, 23, 42, 0.11);
+  --kp-border-soft: rgba(15, 23, 42, 0.08);
+  --kp-text: #111827;
+  --kp-muted: #4b5563;
+  --kp-muted-2: #64748b;
+  --card: var(--kp-card);
+  --border: var(--kp-border);
+  --muted: var(--kp-muted);
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100dvh;
+}
+
+body {
+  overflow: hidden;
+  color: var(--kp-text);
+  background-color: var(--kp-bg);
+}
+
+#root,
+.appShell,
+.content,
+.sidebar,
+.authShell,
+.authCard,
+.topbar,
+.toolbar,
+.credentialRows,
+.credentialRow,
+.dashboardGrid,
+.settingsGrid,
+.preferencesGrid,
+.wideCard,
+.metricCard,
+.preferenceCard,
+.securityActionCard,
+.storageCard,
+.modalOverlay,
+.popupOverlay,
+.confirmOverlay,
+.credentialModal,
+.detailPopup,
+.restoreDialog,
+.confirmCard,
+.formGrid,
+.detailGrid,
+.securityGrid,
+.exportActionGrid,
+.itemTypeSwitch,
+.generatorPanel,
+.toggleList,
+.toggleRow,
+.cardTitleRow,
+.rowActions,
+.detailActions,
+.attachmentItem,
+.historyItem,
+.trashItem,
+.vaultSwitcher,
+.newVaultRow,
+.windowsHelloPanel,
+.languagePreferenceBox {
+  min-width: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+button,
+.primaryButton,
+.secondaryButton,
+.ghostButton,
+.dangerButton,
+.dangerConfirmButton,
+.windowsHelloButton,
+.fileImportButton,
+.optionButton,
+.itemTypeButton,
+.rowActions button,
+.detailActions button,
+.historyActions button,
+.attachmentActions button,
+.trashActions button {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+input,
+select,
+textarea {
+  min-height: 46px;
+  border-radius: var(--kp-radius-sm);
+}
+
+.appShell {
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  background: transparent;
+}
+
+.content {
+  min-height: 0;
+  padding: var(--kp-page-pad);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.sidebar {
+  min-height: 0;
+  overflow: hidden auto;
+  padding: clamp(10px, 1.6vw, 14px);
+}
+
+.sidebarOpen {
+  --kp-sidebar-width: clamp(218px, 22vw, 260px);
+}
+
+.appShell.sidebarOpen {
+  grid-template-columns: var(--kp-sidebar-width) minmax(0, 1fr);
+}
+
+.appShell.sidebarClosed {
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.navList button,
+.lockButton,
+.sidebarToggle {
+  min-height: 46px;
+}
+
+.topbar {
+  align-items: start;
+  gap: clamp(12px, 2vw, 20px);
+  flex-wrap: wrap;
+}
+
+.topbarTitle {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.topbarTitle h1,
+.topbarTitle p,
+.cardTitleRow h2,
+.cardTitleRow p,
+.metricCard strong,
+.metricCard span,
+.metricCard small,
+.rowMain strong,
+.rowMain small,
+.detailHeader h2,
+.detailGrid strong,
+.notesBox p,
+.securityGrid span,
+.updateStatus,
+.updateSummary strong,
+.exportBox strong,
+.exportBox span,
+.attachmentItem strong,
+.attachmentItem span,
+.historyItem strong,
+.historyItem span,
+.trashItem strong,
+.trashItem span,
+.windowsHelloPanelText strong,
+.windowsHelloPanelText span,
+.windowsHelloPanelText small,
+.vaultSwitcher small,
+.languagePreferenceBox span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.topbarActions {
+  flex: 1 1 260px;
+  justify-content: flex-end;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--kp-space-3);
+  align-items: center;
+}
+
+.toolbar input {
+  min-width: 0;
+}
+
+.toolbar span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.dashboardGrid,
+.settingsGrid,
+.preferencesGrid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: clamp(12px, 1.8vw, 18px);
+}
+
+.metricCard,
+.wideCard,
+.preferenceCard,
+.emptyState {
+  border-radius: var(--kp-radius-lg);
+  background: var(--kp-card);
+  border-color: var(--kp-border-soft);
+  box-shadow: var(--kp-shadow);
+}
+
+.wideCard,
+.settingsGrid .wideCard,
+.preferenceCard {
+  grid-column: span 2;
+  padding: var(--kp-card-pad);
+}
+
+.settingsGrid .wideCard,
+.preferenceCard {
+  grid-column: 1 / -1;
+}
+
+.securityGrid,
+.detailGrid,
+.formGrid,
+.settingsControlGrid,
+.generatorPanel,
+.updateSummary,
+.optionGrid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.exportActionGrid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+
+.itemTypeSwitch {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr));
+}
+
+.itemTypeButton {
+  min-height: 66px;
+}
+
+.credentialRows {
+  gap: var(--kp-space-2);
+}
+
+.credentialRow {
+  grid-template-columns:
+    28px
+    42px
+    minmax(150px, 1.35fr)
+    minmax(96px, 0.52fr)
+    minmax(92px, 0.42fr)
+    minmax(112px, 0.5fr)
+    minmax(172px, auto);
+  gap: clamp(8px, 1.3vw, 12px);
+  border-radius: var(--kp-radius-md);
+}
+
+.rowActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.rowActions button {
+  flex: 0 1 auto;
+}
+
+.modalOverlay,
+.popupOverlay,
+.confirmOverlay {
+  align-items: center;
+  padding: clamp(10px, 2.2vw, 24px);
+}
+
+.credentialModal,
+.detailPopup,
+.restoreDialog,
+.confirmCard {
+  width: min(100%, var(--kp-modal-width, 820px));
+  max-height: calc(100dvh - clamp(20px, 4vw, 48px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: clamp(18px, 2.5vw, 26px);
+  background: var(--kp-card-strong);
+}
+
+.detailPopup {
+  --kp-modal-width: 780px;
+}
+
+.restoreDialog,
+.confirmCard {
+  --kp-modal-width: 480px;
+}
+
+.modalHeader,
+.detailHeader,
+.cardTitleRow,
+.modalActions,
+.confirmActions {
+  gap: var(--kp-space-3);
+}
+
+.modalHeader,
+.detailHeader {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: calc(var(--kp-card-pad) * -1) calc(var(--kp-card-pad) * -1) var(--kp-space-3);
+  padding: var(--kp-card-pad) var(--kp-card-pad) var(--kp-space-3);
+  border-bottom: 1px solid var(--kp-border-soft);
+  background: color-mix(in srgb, var(--kp-card-strong) 94%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.credentialModal {
+  padding: var(--kp-card-pad);
+}
+
+.detailPopup {
+  padding: var(--kp-card-pad);
+}
+
+.confirmCard,
+.restoreDialog {
+  padding: var(--kp-card-pad);
+}
+
+.modalActions,
+.detailActions,
+.confirmActions,
+.historyActions,
+.attachmentActions,
+.trashActions {
+  flex-wrap: wrap;
+}
+
+.modalActions button,
+.confirmActions button,
+.detailActions button,
+.historyActions button,
+.attachmentActions button,
+.trashActions button {
+  flex: 1 1 150px;
+}
+
+.detailActions {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+}
+
+.toggleRow,
+.attachmentItem,
+.trashItem,
+.historyItem,
+.totpBox,
+.windowsHelloPanel,
+.languagePreferenceBox,
+.exportBox,
+.pathBox,
+.backupList div,
+.miniList button,
+.detailGrid div,
+.notesBox,
+.securityGrid span,
+.updateSummary div {
+  border-radius: var(--kp-radius-md);
+}
+
+.toggleRow,
+.attachmentItem,
+.trashItem,
+.totpBox,
+.windowsHelloPanel,
+.languagePreferenceBox {
+  align-items: center;
+}
+
+.generatorOptions label {
+  min-width: 0;
+  white-space: normal;
+}
+
+.authShell {
+  min-height: 100dvh !important;
+  padding: clamp(10px, 2.5vw, 32px) !important;
+}
+
+.authCard {
+  width: min(100%, 520px) !important;
+  max-height: calc(100dvh - clamp(20px, 5vw, 64px)) !important;
+}
+
+.authForm,
+.authCard > .vaultSwitcher,
+.securityActionCard,
+.preferenceCard,
+.storageCard,
+.exportBox,
+.attachmentsBox,
+.historyBox {
+  gap: clamp(10px, 1.4vw, 16px);
+}
+
+/* desktop estreito/tablet: mantém tudo usável sem estourar container */
+@media (max-width: 1180px) {
+  .credentialRow {
+    grid-template-columns: 28px 40px minmax(0, 1fr) minmax(92px, 0.42fr) minmax(160px, auto);
+  }
+
+  .rowCategory,
+  .rowHealth {
+    display: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  body {
+    overflow: hidden;
+  }
+
+  .appShell,
+  .appShell.sidebarOpen,
+  .appShell.sidebarClosed {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .content {
+    grid-row: 1;
+    padding: clamp(12px, 3vw, 18px);
+  }
+
+  .sidebar {
+    grid-row: 2;
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: auto !important;
+    max-height: 82px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-top: 1px solid var(--kp-border-soft);
+    border-right: 0;
+    padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    background: rgba(10, 12, 18, 0.94);
+    backdrop-filter: blur(16px);
+  }
+
+  .sidebarBrand {
+    flex: 0 0 auto;
+    justify-content: center;
+  }
+
+  .sidebarClosed .sidebarBrand .sidebarToggle,
+  .sidebarOpen .sidebarBrand .sidebarToggle {
+    transform: none !important;
+  }
+
+  .brandText,
+  .sidebarOpen .brandText,
+  .sidebarClosed .brandText {
+    display: none !important;
+  }
+
+  .navList {
+    display: flex !important;
+    flex: 1 0 auto;
+    gap: 8px;
+  }
+
+  .navList button,
+  .lockButton {
+    justify-content: center;
+    min-width: 52px;
+    min-height: 52px;
+    padding: 10px;
+  }
+
+  .navLabel {
+    max-width: 110px;
+  }
+
+  .sidebarFooter {
+    width: auto !important;
+    margin: 0 0 0 auto !important;
+    flex: 0 0 auto;
+  }
+
+  .sidebarClosed .lockButton,
+  .sidebarOpen .lockButton,
+  .lockButton {
+    width: auto !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    margin: 0 !important;
+  }
+
+  .topbar,
+  .toolbar,
+  .cardTitleRow,
+  .modalActions,
+  .confirmActions,
+  .languagePreferenceBox,
+  .toggleRow,
+  .attachmentItem,
+  .trashItem,
+  .totpBox,
+  .windowsHelloPanel {
+    align-items: stretch;
+  }
+
+  .topbarActions,
+  .topbarActions .primaryButton,
+  .languageSelect,
+  .languageSelect select {
+    width: 100%;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar span {
+    text-align: left;
+  }
+
+  .wideCard,
+  .settingsGrid .wideCard,
+  .preferenceCard,
+  .dashboardGrid .wideCard {
+    grid-column: 1 / -1;
+  }
+
+  .credentialRow {
+    grid-template-columns: 28px 38px minmax(0, 1fr);
+    align-items: start;
+    padding: 12px;
+  }
+
+  .rowMain {
+    grid-column: 3 / -1;
+  }
+
+  .rowPassword {
+    grid-column: 3 / -1;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .rowActions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .rowActions button {
+    flex: 1 1 132px;
+  }
+
+  .formGrid,
+  .detailGrid,
+  .securityGrid,
+  .settingsControlGrid,
+  .generatorPanel,
+  .updateSummary,
+  .optionGrid,
+  .exportActionGrid,
+  .itemTypeSwitch,
+  .newVaultRow,
+  .historyItem,
+  .windowsHelloPanel,
+  .totpBox {
+    grid-template-columns: 1fr !important;
+  }
+
+  .itemTypeButton {
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+@media (max-width: 620px) {
+  :root[data-font-scale="large"] {
+    font-size: 16px;
+  }
+
+  .content,
+  .authShell,
+  .modalOverlay,
+  .popupOverlay,
+  .confirmOverlay {
+    padding: 10px !important;
+  }
+
+  .authCard,
+  .credentialModal,
+  .detailPopup,
+  .restoreDialog,
+  .confirmCard,
+  .wideCard,
+  .metricCard,
+  .preferenceCard,
+  .emptyState {
+    border-radius: 18px !important;
+  }
+
+  .authCard {
+    min-height: auto !important;
+    max-height: calc(100dvh - 20px) !important;
+  }
+
+  .topbarTitle h1,
+  .authCard > h1 {
+    font-size: clamp(1.55rem, 8vw, 2rem) !important;
+  }
+
+  .sidebar {
+    max-height: 74px;
+  }
+
+  .sidebarBrand {
+    display: none !important;
+  }
+
+  .navList button,
+  .lockButton {
+    min-width: 48px;
+    height: 48px !important;
+    min-height: 48px !important;
+  }
+
+  .navLabel,
+  .sidebarClosed .navLabel,
+  .sidebarOpen .navLabel,
+  .lockButton .navLabel {
+    display: none !important;
+  }
+
+  .navIcon {
+    margin: 0 !important;
+  }
+
+  .metricCard,
+  .wideCard,
+  .preferenceCard,
+  .emptyState,
+  .credentialModal,
+  .detailPopup,
+  .restoreDialog,
+  .confirmCard {
+    padding: 16px !important;
+  }
+
+  .modalHeader,
+  .detailHeader {
+    margin: -16px -16px 12px;
+    padding: 16px;
+  }
+
+  .credentialRow {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .reorderControls {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .rowStar {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .rowMain,
+  .rowPassword {
+    grid-column: 2 / -1;
+  }
+
+  .rowActions {
+    grid-column: 1 / -1;
+  }
+
+  .rowActions button,
+  .modalActions button,
+  .confirmActions button,
+  .detailActions button,
+  .historyActions button,
+  .attachmentActions button,
+  .trashActions button,
+  .windowsHelloPanel button {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .compactFileButton,
+  .fileImportButton,
+  .primaryButton,
+  .secondaryButton,
+  .ghostButton,
+  .dangerButton,
+  .dangerConfirmButton,
+  .windowsHelloButton {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .languageSelect.compact select {
+    max-width: none !important;
+  }
+
+  .authLanguageRow {
+    align-items: stretch !important;
+  }
+
+  .authLanguageRow .languageSelect {
+    width: 100%;
+  }
+
+  .authLanguageRow select {
+    width: 100%;
+    max-width: none !important;
+  }
+
+  .credentialRow {
+    padding: 10px;
+  }
+
+  .topbarActions {
+    justify-content: stretch;
+  }
+}
+/* === KPassword v0.6.0 responsive design system END === */
+
+/* === KPassword v0.6.0 hotfix desktop login + dashboard START === */
+
+/* Login: desktop-first, sem sensação de app mobile preso em container */
+.authShell {
+  min-height: 100dvh !important;
+  padding: clamp(18px, 3.2vw, 42px) !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: auto !important;
+}
+
+.authCard {
+  width: min(1080px, calc(100vw - 36px)) !important;
+  max-width: 1080px !important;
+  max-height: none !important;
+  overflow: visible !important;
+  display: grid !important;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1fr) !important;
+  grid-template-rows: auto auto auto auto auto auto auto !important;
+  grid-auto-flow: row dense !important;
+  gap: clamp(10px, 1.5vw, 18px) clamp(24px, 4vw, 56px) !important;
+  align-items: center !important;
+  padding: clamp(26px, 4vw, 44px) !important;
+  border-radius: 34px !important;
+}
+
+.authLanguageRow {
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  justify-content: flex-end !important;
+  min-height: 38px !important;
+  margin: 0 !important;
+}
+
+.authCard > .appLogo.lg {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  justify-self: start !important;
+  width: clamp(64px, 7vw, 88px) !important;
+  height: clamp(64px, 7vw, 88px) !important;
+  margin: 0 0 clamp(4px, 1vh, 8px) !important;
+}
+
+.authCard > .eyebrow {
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  justify-self: start !important;
+  text-align: left !important;
+  margin: 0 !important;
+}
+
+.authCard > h1 {
+  grid-column: 1 !important;
+  grid-row: 4 !important;
+  max-width: 360px !important;
+  margin: 0 !important;
+  text-align: left !important;
+  font-size: clamp(2.15rem, 4vw, 3.45rem) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.065em !important;
+}
+
+.authCard > p:not(.eyebrow) {
+  grid-column: 1 !important;
+  grid-row: 5 !important;
+  max-width: 390px !important;
+  margin: 0 !important;
+  text-align: left !important;
+  color: rgba(203, 213, 225, 0.82) !important;
+  line-height: 1.6 !important;
+}
+
+.authForm {
+  grid-column: 2 !important;
+  grid-row: 2 / span 4 !important;
+  align-self: center !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: clamp(18px, 2.2vw, 24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: 24px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.022)) !important;
+  box-shadow: 0 18px 46px rgba(0,0,0,0.20) !important;
+}
+
+.authTextButton {
+  grid-column: 2 !important;
+  grid-row: 6 !important;
+  justify-self: center !important;
+  margin: 0 !important;
+}
+
+.authCard > .vaultSwitcher {
+  grid-column: 2 !important;
+  grid-row: 7 !important;
+  align-self: end !important;
+  margin: 0 !important;
+  padding: 14px !important;
+  border-radius: 20px !important;
+}
+
+.authCard > .vaultSwitcher .newVaultRow {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+.authCard > .vaultSwitcher select,
+.authCard > .vaultSwitcher input,
+.authForm input {
+  min-height: 50px !important;
+}
+
+.authForm .primaryButton,
+.authForm .windowsHelloButton {
+  min-height: 52px !important;
+}
+
+/* Loading fica com cara de tela desktop, não de celular */
+.authCard:not(:has(.authForm)) > .vaultSwitcher {
+  grid-row: 2 / span 4 !important;
+  align-self: center !important;
+}
+
+.authCard:not(:has(.authForm)) > h1 {
+  grid-row: 3 !important;
+}
+
+.authCard:not(:has(.authForm)) > p:not(.eyebrow) {
+  grid-row: 4 !important;
+}
+
+/* Dashboard: cards mais limpos, menos "grade crua", com hierarquia visual */
+.dashboardGrid {
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  gap: clamp(12px, 1.5vw, 18px) !important;
+  align-items: stretch !important;
+}
+
+.dashboardGrid .metricCard {
+  grid-column: span 3 !important;
+  min-height: 132px !important;
+  padding: 18px !important;
+  border-radius: 24px !important;
+  align-content: space-between !important;
+  gap: 10px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.022)),
+    rgba(15, 23, 42, 0.72) !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.18) !important;
+}
+
+.dashboardGrid .metricCard:nth-child(1) {
+  grid-column: span 6 !important;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.20), transparent 32%),
+    linear-gradient(135deg, rgba(37, 99, 235, 0.20), rgba(15, 23, 42, 0.78)) !important;
+  border-color: rgba(125, 211, 252, 0.22) !important;
+}
+
+.dashboardGrid .metricCard:nth-child(2),
+.dashboardGrid .metricCard:nth-child(3),
+.dashboardGrid .metricCard:nth-child(4) {
+  background:
+    linear-gradient(180deg, rgba(99, 102, 241, 0.10), rgba(255,255,255,0.018)),
+    rgba(15, 23, 42, 0.70) !important;
+}
+
+.dashboardGrid .metricCard span {
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: rgba(203, 213, 225, 0.76) !important;
+}
+
+.dashboardGrid .metricCard strong {
+  font-size: clamp(1.9rem, 4vw, 3rem) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.05em !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.dashboardGrid .metricCard small {
+  line-height: 1.4 !important;
+  color: rgba(148, 163, 184, 0.88) !important;
+}
+
+.dashboardGrid .metricCard.warning {
+  border-color: rgba(251, 191, 36, 0.24) !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(251, 191, 36, 0.12), transparent 34%),
+    rgba(15, 23, 42, 0.72) !important;
+}
+
+.dashboardGrid .metricCard.danger {
+  border-color: rgba(248, 113, 113, 0.24) !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(248, 113, 113, 0.14), transparent 34%),
+    rgba(15, 23, 42, 0.72) !important;
+}
+
+.dashboardGrid .wideCard {
+  grid-column: span 4 !important;
+  min-height: 240px !important;
+  padding: clamp(18px, 2vw, 24px) !important;
+  border-radius: 26px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)),
+    rgba(15, 23, 42, 0.76) !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18) !important;
+}
+
+.dashboardGrid .wideCard h2 {
+  margin: 0 0 16px !important;
+  font-size: clamp(1rem, 1.6vw, 1.18rem) !important;
+  letter-spacing: -0.02em !important;
+}
+
+.dashboardGrid .securityGrid {
+  grid-template-columns: 1fr !important;
+  gap: 9px !important;
+  margin-top: 0 !important;
+}
+
+.dashboardGrid .securityGrid span {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 42px !important;
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  background: rgba(2, 6, 23, 0.24) !important;
+  border: 1px solid rgba(148, 163, 184, 0.10) !important;
+  line-height: 1.35 !important;
+}
+
+.dashboardGrid .miniList {
+  gap: 10px !important;
+  margin-top: 0 !important;
+}
+
+.dashboardGrid .miniList button {
+  min-height: 54px !important;
+  padding: 12px !important;
+  border-radius: 14px !important;
+  background: rgba(2, 6, 23, 0.24) !important;
+  border-color: rgba(148, 163, 184, 0.10) !important;
+}
+
+.dashboardGrid .miniList button strong,
+.dashboardGrid .miniList button span {
+  min-width: 0 !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* Responsividade sem quebrar containers */
+@media (max-width: 1180px) {
+  .authCard {
+    width: min(960px, calc(100vw - 28px)) !important;
+    grid-template-columns: minmax(250px, 0.82fr) minmax(340px, 1fr) !important;
+    gap: 14px clamp(20px, 3vw, 36px) !important;
+  }
+
+  .dashboardGrid .metricCard {
+    grid-column: span 4 !important;
+  }
+
+  .dashboardGrid .metricCard:nth-child(1) {
+    grid-column: span 8 !important;
+  }
+
+  .dashboardGrid .wideCard {
+    grid-column: span 6 !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .authShell {
+    place-items: start center !important;
+    padding: 14px !important;
+  }
+
+  .authCard {
+    width: min(100%, 560px) !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+    gap: 14px !important;
+    padding: clamp(20px, 5vw, 28px) !important;
+    border-radius: 26px !important;
+  }
+
+  .authLanguageRow,
+  .authCard > .appLogo.lg,
+  .authCard > .eyebrow,
+  .authCard > h1,
+  .authCard > p:not(.eyebrow),
+  .authForm,
+  .authTextButton,
+  .authCard > .vaultSwitcher {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+
+  .authCard > .appLogo.lg {
+    justify-self: center !important;
+    width: 58px !important;
+    height: 58px !important;
+    margin: 0 auto !important;
+  }
+
+  .authCard > .eyebrow,
+  .authCard > h1,
+  .authCard > p:not(.eyebrow) {
+    justify-self: center !important;
+    text-align: center !important;
+    max-width: 100% !important;
+  }
+
+  .authCard > h1 {
+    font-size: clamp(1.75rem, 7vw, 2.3rem) !important;
+  }
+
+  .authForm {
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .authCard > .vaultSwitcher .newVaultRow {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboardGrid .metricCard,
+  .dashboardGrid .metricCard:nth-child(1),
+  .dashboardGrid .wideCard {
+    grid-column: 1 / -1 !important;
+  }
+
+  .dashboardGrid .metricCard {
+    min-height: 110px !important;
+  }
+
+  .dashboardGrid .wideCard {
+    min-height: auto !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .authShell {
+    padding: 10px !important;
+  }
+
+  .authCard {
+    width: 100% !important;
+    border-radius: 22px !important;
+    padding: 18px !important;
+  }
+
+  .authLanguageRow {
+    justify-content: stretch !important;
+  }
+
+  .authLanguageRow .languageSelect,
+  .authLanguageRow select {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .dashboardGrid .metricCard,
+  .dashboardGrid .wideCard {
+    border-radius: 18px !important;
+    padding: 16px !important;
+  }
+}
+/* === KPassword v0.6.0 hotfix desktop login + dashboard END === */
