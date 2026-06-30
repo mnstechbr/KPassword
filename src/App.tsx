@@ -1,4 +1,4 @@
-﻿import {
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -24,6 +24,8 @@ import type {
   BackupFile,
   CredentialCategory,
   CredentialRecord,
+  PasswordHistoryEntry,
+  VaultItemType,
   EncryptedVaultFile,
   PlainVault,
   StorageInfo,
@@ -40,6 +42,7 @@ import {
 } from "./i18n";
 
 const EMPTY_FORM: Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> = {
+  itemType: "credential",
   title: "",
   username: "",
   password: "",
@@ -50,6 +53,21 @@ const EMPTY_FORM: Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> = {
   passwordChangedAt: "",
   passwordExpiresInDays: 90,
   passwordExpiryNoticeDays: 15,
+  passwordHistory: [],
+  cardholderName: "",
+  cardNumber: "",
+  cardExpiry: "",
+  cardCvv: "",
+  cardIssuer: "",
+  identityFullName: "",
+  identityDocument: "",
+  identityEmail: "",
+  identityPhone: "",
+  identityAddress: "",
+  licenseProduct: "",
+  licenseKey: "",
+  licenseOwner: "",
+  licenseExpiresAt: "",
 };
 
 const CATEGORIES: CredentialCategory[] = [
@@ -62,12 +80,14 @@ const CATEGORIES: CredentialCategory[] = [
 ];
 
 const CLIPBOARD_CLEAR_SECONDS = 60;
-const APP_VERSION = "0.3.3";
+const APP_VERSION = "0.4.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
 
 type Screen = "credentials" | "dashboard" | "trash" | "settings" | "preferences";
+
+const ITEM_TYPES: VaultItemType[] = ["credential", "secure_note", "card", "identity", "license"];
 
 type AppTheme = "dark" | "light" | "mixed";
 type FontScale = "normal" | "large";
@@ -188,6 +208,75 @@ function stopAction(event: MouseEvent) {
   event.stopPropagation();
 }
 
+function getItemType(credential: CredentialRecord): VaultItemType {
+  return credential.itemType ?? "credential";
+}
+
+function isCredentialItem(credential: CredentialRecord) {
+  return getItemType(credential) === "credential";
+}
+
+function getItemTypeIcon(itemType: VaultItemType) {
+  const icons: Record<VaultItemType, string> = {
+    credential: "🔑",
+    secure_note: "📝",
+    card: "💳",
+    identity: "🪪",
+    license: "📜",
+  };
+
+  return icons[itemType];
+}
+
+function getItemTypeLabel(itemType: VaultItemType, language: AppLanguage) {
+  return translate(language, `itemType.${itemType}`);
+}
+
+function getItemSubtitle(item: CredentialRecord, language: AppLanguage) {
+  const itemType = getItemType(item);
+
+  if (itemType === "credential") {
+    return item.username || translate(language, "credential.noUser");
+  }
+
+  if (itemType === "secure_note") {
+    return item.notes ? translate(language, "item.secureNoteWithContent") : translate(language, "item.secureNoteEmpty");
+  }
+
+  if (itemType === "card") {
+    const lastDigits = (item.cardNumber ?? "").replace(/\D/g, "").slice(-4);
+    return lastDigits ? translate(language, "item.cardEnding", { digits: lastDigits }) : item.cardIssuer || translate(language, "item.card");
+  }
+
+  if (itemType === "identity") {
+    return item.identityEmail || item.identityPhone || item.identityDocument || translate(language, "item.identity");
+  }
+
+  return item.licenseProduct || item.licenseOwner || translate(language, "item.license");
+}
+
+function getItemPrimarySecret(item: CredentialRecord) {
+  const itemType = getItemType(item);
+
+  if (itemType === "credential") return item.password;
+  if (itemType === "card") return item.cardNumber ?? "";
+  if (itemType === "license") return item.licenseKey ?? "";
+
+  return "";
+}
+
+function maskGenericSecret(value?: string) {
+  if (!value) return "—";
+  const normalized = value.replace(/\s+/g, "");
+
+  if (normalized.length <= 4) return "••••";
+  return `•••• ${normalized.slice(-4)}`;
+}
+
+function getPasswordHistory(credential: CredentialRecord): PasswordHistoryEntry[] {
+  return credential.passwordHistory ?? [];
+}
+
 function daysBetween(startIso: string | undefined, end = new Date()) {
   if (!startIso) return 0;
 
@@ -211,6 +300,13 @@ function getCredentialPasswordChangedAt(credential: CredentialRecord) {
 }
 
 function getPasswordExpiryInfo(credential: CredentialRecord) {
+  if (!isCredentialItem(credential)) {
+    return {
+      status: "never" as PasswordExpiryStatus,
+      daysLeft: null as number | null,
+    };
+  }
+
   const expiresInDays = Number(credential.passwordExpiresInDays ?? 0);
   const noticeDays = Number(credential.passwordExpiryNoticeDays ?? 15);
 
@@ -265,12 +361,40 @@ function normalizeVault(vault: PlainVault): PlainVault {
 
   return {
     ...vault,
-    credentials: (vault.credentials ?? []).map((credential) => ({
-      ...credential,
-      passwordChangedAt: credential.passwordChangedAt ?? credential.updatedAt ?? credential.createdAt ?? now,
-      passwordExpiresInDays: credential.passwordExpiresInDays ?? 0,
-      passwordExpiryNoticeDays: credential.passwordExpiryNoticeDays ?? 15,
-    })),
+    credentials: (vault.credentials ?? []).map((credential) => {
+      const itemType = credential.itemType ?? "credential";
+
+      return {
+        ...credential,
+        itemType,
+        username: credential.username ?? "",
+        password: credential.password ?? "",
+        url: credential.url ?? "",
+        notes: credential.notes ?? "",
+        favorite: credential.favorite ?? false,
+        passwordChangedAt:
+          itemType === "credential"
+            ? credential.passwordChangedAt ?? credential.updatedAt ?? credential.createdAt ?? now
+            : credential.passwordChangedAt,
+        passwordExpiresInDays: itemType === "credential" ? credential.passwordExpiresInDays ?? 0 : credential.passwordExpiresInDays ?? 0,
+        passwordExpiryNoticeDays: itemType === "credential" ? credential.passwordExpiryNoticeDays ?? 15 : credential.passwordExpiryNoticeDays ?? 15,
+        passwordHistory: Array.isArray(credential.passwordHistory) ? credential.passwordHistory : [],
+        cardholderName: credential.cardholderName ?? "",
+        cardNumber: credential.cardNumber ?? "",
+        cardExpiry: credential.cardExpiry ?? "",
+        cardCvv: credential.cardCvv ?? "",
+        cardIssuer: credential.cardIssuer ?? "",
+        identityFullName: credential.identityFullName ?? "",
+        identityDocument: credential.identityDocument ?? "",
+        identityEmail: credential.identityEmail ?? "",
+        identityPhone: credential.identityPhone ?? "",
+        identityAddress: credential.identityAddress ?? "",
+        licenseProduct: credential.licenseProduct ?? "",
+        licenseKey: credential.licenseKey ?? "",
+        licenseOwner: credential.licenseOwner ?? "",
+        licenseExpiresAt: credential.licenseExpiresAt ?? "",
+      };
+    }),
     settings: {
       autoLockMinutes: vault.settings?.autoLockMinutes ?? 3,
       backupIntervalHours: vault.settings?.backupIntervalHours ?? 4,
@@ -320,6 +444,7 @@ export default function App() {
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [showStoragePaths, setShowStoragePaths] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [visibleHistoryPasswords, setVisibleHistoryPasswords] = useState<Record<string, boolean>>({});
   const [copiedField, setCopiedField] = useState("");
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [currentMasterPassword, setCurrentMasterPassword] = useState("");
@@ -429,6 +554,7 @@ export default function App() {
     setSetupPassword("");
     setConfirmPassword("");
     setVisiblePasswords({});
+    setVisibleHistoryPasswords({});
     setDetailCredentialId(null);
     setMessage("");
     setMode((current) => (current === "setup" ? "setup" : "locked"));
@@ -832,16 +958,32 @@ export default function App() {
   function openEditCredentialForm(credential: CredentialRecord) {
     setEditingId(credential.id);
     setCredentialForm({
+      itemType: getItemType(credential),
       title: credential.title,
-      username: credential.username,
-      password: credential.password,
-      url: credential.url,
+      username: credential.username ?? "",
+      password: credential.password ?? "",
+      url: credential.url ?? "",
       category: credential.category,
-      notes: credential.notes,
+      notes: credential.notes ?? "",
       favorite: credential.favorite,
       passwordChangedAt: getCredentialPasswordChangedAt(credential),
       passwordExpiresInDays: credential.passwordExpiresInDays ?? 0,
       passwordExpiryNoticeDays: credential.passwordExpiryNoticeDays ?? 15,
+      passwordHistory: getPasswordHistory(credential),
+      cardholderName: credential.cardholderName ?? "",
+      cardNumber: credential.cardNumber ?? "",
+      cardExpiry: credential.cardExpiry ?? "",
+      cardCvv: credential.cardCvv ?? "",
+      cardIssuer: credential.cardIssuer ?? "",
+      identityFullName: credential.identityFullName ?? "",
+      identityDocument: credential.identityDocument ?? "",
+      identityEmail: credential.identityEmail ?? "",
+      identityPhone: credential.identityPhone ?? "",
+      identityAddress: credential.identityAddress ?? "",
+      licenseProduct: credential.licenseProduct ?? "",
+      licenseKey: credential.licenseKey ?? "",
+      licenseOwner: credential.licenseOwner ?? "",
+      licenseExpiresAt: credential.licenseExpiresAt ?? "",
     });
     setFormOpen(true);
   }
@@ -856,7 +998,9 @@ export default function App() {
       return;
     }
 
-    if (!credentialForm.password.trim()) {
+    const itemType = credentialForm.itemType ?? "credential";
+
+    if (itemType === "credential" && !credentialForm.password.trim()) {
       setMessage(t("errors.credentialPasswordRequired"));
       return;
     }
@@ -878,20 +1022,56 @@ export default function App() {
     const previousCredential = editingId
       ? vault.credentials.find((credential) => credential.id === editingId)
       : null;
+    const previousItemType = previousCredential ? getItemType(previousCredential) : itemType;
     const passwordChanged =
-      !previousCredential || previousCredential.password !== credentialForm.password;
+      itemType === "credential" &&
+      (!previousCredential || previousCredential.password !== credentialForm.password);
+    const previousHistory = previousCredential ? getPasswordHistory(previousCredential) : [];
+    const passwordHistory =
+      passwordChanged && previousCredential && previousItemType === "credential" && previousCredential.password
+        ? [
+            {
+              id: createId(),
+              password: previousCredential.password,
+              changedAt: getCredentialPasswordChangedAt(previousCredential),
+              savedAt: now,
+            },
+            ...previousHistory,
+          ].slice(0, 20)
+        : previousHistory;
 
     const cleanForm = {
       ...credentialForm,
+      itemType,
       title: credentialForm.title.trim(),
-      username: credentialForm.username.trim(),
-      url: normalizeUrl(credentialForm.url),
+      username: itemType === "credential" ? credentialForm.username.trim() : "",
+      password: itemType === "credential" ? credentialForm.password : "",
+      url: itemType === "credential" ? normalizeUrl(credentialForm.url) : "",
       notes: credentialForm.notes.trim(),
-      passwordChangedAt: passwordChanged
-        ? now
-        : previousCredential?.passwordChangedAt ?? previousCredential?.updatedAt ?? now,
-      passwordExpiresInDays: Number(credentialForm.passwordExpiresInDays ?? 0),
-      passwordExpiryNoticeDays: Number(credentialForm.passwordExpiryNoticeDays ?? 15),
+      favorite: credentialForm.favorite,
+      passwordChangedAt:
+        itemType === "credential"
+          ? passwordChanged
+            ? now
+            : previousCredential?.passwordChangedAt ?? previousCredential?.updatedAt ?? now
+          : "",
+      passwordExpiresInDays: itemType === "credential" ? Number(credentialForm.passwordExpiresInDays ?? 0) : 0,
+      passwordExpiryNoticeDays: itemType === "credential" ? Number(credentialForm.passwordExpiryNoticeDays ?? 15) : 15,
+      passwordHistory: itemType === "credential" ? passwordHistory : [],
+      cardholderName: itemType === "card" ? (credentialForm.cardholderName ?? "").trim() : "",
+      cardNumber: itemType === "card" ? (credentialForm.cardNumber ?? "").trim() : "",
+      cardExpiry: itemType === "card" ? (credentialForm.cardExpiry ?? "").trim() : "",
+      cardCvv: itemType === "card" ? (credentialForm.cardCvv ?? "").trim() : "",
+      cardIssuer: itemType === "card" ? (credentialForm.cardIssuer ?? "").trim() : "",
+      identityFullName: itemType === "identity" ? (credentialForm.identityFullName ?? "").trim() : "",
+      identityDocument: itemType === "identity" ? (credentialForm.identityDocument ?? "").trim() : "",
+      identityEmail: itemType === "identity" ? (credentialForm.identityEmail ?? "").trim() : "",
+      identityPhone: itemType === "identity" ? (credentialForm.identityPhone ?? "").trim() : "",
+      identityAddress: itemType === "identity" ? (credentialForm.identityAddress ?? "").trim() : "",
+      licenseProduct: itemType === "license" ? (credentialForm.licenseProduct ?? "").trim() : "",
+      licenseKey: itemType === "license" ? (credentialForm.licenseKey ?? "").trim() : "",
+      licenseOwner: itemType === "license" ? (credentialForm.licenseOwner ?? "").trim() : "",
+      licenseExpiresAt: itemType === "license" ? (credentialForm.licenseExpiresAt ?? "").trim() : "",
     };
 
     const createdId = createId();
@@ -1074,6 +1254,103 @@ export default function App() {
     }
   }
 
+  async function handleRestorePasswordFromHistory(credentialId: string, historyId: string) {
+    if (!vault) return;
+
+    const target = vault.credentials.find((credential) => credential.id === credentialId);
+    const historyEntry = target?.passwordHistory?.find((entry) => entry.id === historyId);
+
+    if (!target || !historyEntry) return;
+
+    const confirmed = await askConfirmation({
+      title: t("history.restoreTitle"),
+      message: t("history.restoreMessage", { title: target.title }),
+      confirmText: t("history.restore"),
+      cancelText: t("dialog.cancel"),
+    });
+
+    if (!confirmed) return;
+
+    const now = new Date().toISOString();
+
+    try {
+      await persistVault({
+        ...vault,
+        credentials: vault.credentials.map((credential) => {
+          if (credential.id !== credentialId) return credential;
+
+          const remainingHistory = getPasswordHistory(credential).filter((entry) => entry.id !== historyId);
+          const currentPasswordEntry = credential.password
+            ? {
+                id: createId(),
+                password: credential.password,
+                changedAt: getCredentialPasswordChangedAt(credential),
+                savedAt: now,
+              }
+            : null;
+
+          return {
+            ...credential,
+            password: historyEntry.password,
+            passwordChangedAt: now,
+            passwordHistory: [
+              ...(currentPasswordEntry ? [currentPasswordEntry] : []),
+              ...remainingHistory,
+            ].slice(0, 20),
+            updatedAt: now,
+          };
+        }),
+        updatedAt: now,
+      });
+
+      setMessage(t("history.restored"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("history.restoreError"));
+    }
+  }
+
+  async function handleClearPasswordHistory(credentialId: string) {
+    if (!vault) return;
+
+    const target = vault.credentials.find((credential) => credential.id === credentialId);
+
+    if (!target || getPasswordHistory(target).length === 0) return;
+
+    const confirmed = await askConfirmation({
+      title: t("history.clearTitle"),
+      message: t("history.clearMessage", { title: target.title }),
+      confirmText: t("history.clear"),
+      cancelText: t("dialog.cancel"),
+      tone: "danger",
+    });
+
+    if (!confirmed) return;
+
+    const now = new Date().toISOString();
+
+    try {
+      await persistVault({
+        ...vault,
+        credentials: vault.credentials.map((credential) =>
+          credential.id === credentialId
+            ? {
+                ...credential,
+                passwordHistory: [],
+                updatedAt: now,
+              }
+            : credential,
+        ),
+        updatedAt: now,
+      });
+
+      setMessage(t("history.cleared"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("history.clearError"));
+    }
+  }
+
   async function toggleFavorite(id: string) {
     if (!vault) return;
 
@@ -1168,6 +1445,20 @@ export default function App() {
         credential.category,
         credential.notes,
         credential.password,
+        getItemTypeLabel(getItemType(credential), appLanguage),
+        credential.cardholderName,
+        credential.cardNumber,
+        credential.cardExpiry,
+        credential.cardIssuer,
+        credential.identityFullName,
+        credential.identityDocument,
+        credential.identityEmail,
+        credential.identityPhone,
+        credential.identityAddress,
+        credential.licenseProduct,
+        credential.licenseKey,
+        credential.licenseOwner,
+        credential.licenseExpiresAt,
         credential.favorite ? "favorito favorita estrela" : "",
       ]
         .join(" ")
@@ -1175,7 +1466,7 @@ export default function App() {
 
       return terms.every((term) => searchable.includes(term));
     });
-  }, [search, vault]);
+  }, [appLanguage, search, vault]);
 
   const detailCredential = useMemo(() => {
     if (!vault || !detailCredentialId) return null;
@@ -1184,36 +1475,42 @@ export default function App() {
 
   const stats = useMemo(() => {
     const credentials = getActiveCredentials(vault?.credentials ?? []);
+    const credentialItems = credentials.filter(isCredentialItem);
     const deleted = getDeletedCredentials(vault?.credentials ?? []);
     const repeatedPasswords = new Map<string, number>();
 
-    credentials.forEach((credential) => {
+    credentialItems.forEach((credential) => {
       repeatedPasswords.set(
         credential.password,
         (repeatedPasswords.get(credential.password) ?? 0) + 1,
       );
     });
 
-    const weak = credentials.filter(
+    const weak = credentialItems.filter(
       (credential) => getPasswordScore(credential.password) < 60,
     ).length;
-    const repeated = credentials.filter(
+    const repeated = credentialItems.filter(
       (credential) => (repeatedPasswords.get(credential.password) ?? 0) > 1,
     ).length;
-    const expired = credentials.filter(
+    const expired = credentialItems.filter(
       (credential) => getPasswordExpiryInfo(credential).status === "expired",
     ).length;
-    const expiringSoon = credentials.filter(
+    const expiringSoon = credentialItems.filter(
       (credential) => getPasswordExpiryInfo(credential).status === "soon",
     ).length;
-    const missingUrl = credentials.filter((credential) => !credential.url).length;
-    const missingUser = credentials.filter((credential) => !credential.username).length;
-    const oldPasswords = credentials.filter(
+    const missingUrl = credentialItems.filter((credential) => !credential.url).length;
+    const missingUser = credentialItems.filter((credential) => !credential.username).length;
+    const oldPasswords = credentialItems.filter(
       (credential) => daysBetween(getCredentialPasswordChangedAt(credential)) >= 180,
     ).length;
 
     return {
       total: credentials.length,
+      credentialItems: credentialItems.length,
+      secureNotes: credentials.filter((credential) => getItemType(credential) === "secure_note").length,
+      cards: credentials.filter((credential) => getItemType(credential) === "card").length,
+      identities: credentials.filter((credential) => getItemType(credential) === "identity").length,
+      licenses: credentials.filter((credential) => getItemType(credential) === "license").length,
       deleted: deleted.length,
       favorites: credentials.filter((credential) => credential.favorite).length,
       weak,
@@ -1228,23 +1525,24 @@ export default function App() {
 
   const activeCredentials = getActiveCredentials(vault?.credentials ?? []);
   const deletedCredentials = getDeletedCredentials(vault?.credentials ?? []);
-  const expiredCredentials = activeCredentials.filter(
+  const credentialItems = activeCredentials.filter(isCredentialItem);
+  const expiredCredentials = credentialItems.filter(
     (credential) => getPasswordExpiryInfo(credential).status === "expired",
   );
-  const expiringSoonCredentials = activeCredentials.filter(
+  const expiringSoonCredentials = credentialItems.filter(
     (credential) => getPasswordExpiryInfo(credential).status === "soon",
   );
-  const weakCredentials = activeCredentials.filter(
+  const weakCredentials = credentialItems.filter(
     (credential) => getPasswordScore(credential.password) < 60,
   );
   const repeatedPasswordCounts = new Map<string, number>();
-  activeCredentials.forEach((credential) => {
+  credentialItems.forEach((credential) => {
     repeatedPasswordCounts.set(credential.password, (repeatedPasswordCounts.get(credential.password) ?? 0) + 1);
   });
-  const repeatedCredentials = activeCredentials.filter(
+  const repeatedCredentials = credentialItems.filter(
     (credential) => (repeatedPasswordCounts.get(credential.password) ?? 0) > 1,
   );
-  const incompleteCredentials = activeCredentials.filter(
+  const incompleteCredentials = credentialItems.filter(
     (credential) => !credential.url || !credential.username || !credential.category,
   );
 
@@ -1544,7 +1842,7 @@ export default function App() {
             <div>
               <p className="eyebrow">{t("topbar.localProtection")}</p>
               <h1>
-                {screen === "credentials" && t("nav.credentials")}
+                {screen === "credentials" && t("nav.items")}
                 {screen === "dashboard" && t("topbar.vaultDashboard")}
                 {screen === "trash" && t("nav.trash")}
                 {screen === "settings" && t("nav.securityBackup")}
@@ -1557,7 +1855,7 @@ export default function App() {
             <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
             {screen !== "trash" && (
               <button className="primaryButton" onClick={openNewCredentialForm}>
-                {t("topbar.addCredential")}
+                {t("topbar.addItem")}
               </button>
             )}
           </div>
@@ -1578,7 +1876,9 @@ export default function App() {
 
             <section className="credentialRows">
               {filteredCredentials.map((credential, index) => {
-                const passwordScore = getPasswordScore(credential.password);
+                const itemType = getItemType(credential);
+                const passwordScore = isCredentialItem(credential) ? getPasswordScore(credential.password) : 0;
+                const primarySecret = getItemPrimarySecret(credential);
                 const previousCredential = filteredCredentials[index - 1];
                 const nextCredential = filteredCredentials[index + 1];
                 const canMoveUp =
@@ -1630,40 +1930,57 @@ export default function App() {
 
                     <span className="rowMain">
                       <strong>{credential.title}</strong>
-                      <small>{credential.username || t("credential.noUser")}</small>
+                      <small>{getItemSubtitle(credential, appLanguage)}</small>
                     </span>
 
-                    <span className="rowPassword">{maskPassword(credential.password)}</span>
+                    <span className="rowPassword">
+                      {isCredentialItem(credential) ? maskPassword(credential.password) : maskGenericSecret(primarySecret)}
+                    </span>
 
-                    <span className="rowCategory">{getCategoryLabel(credential.category, appLanguage)}</span>
+                    <span className="rowCategory">
+                      {getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)}
+                    </span>
 
                     <span className="rowHealth">
-                      <span>{translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} · {passwordScore}%</span>
-                      <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
-                        {getExpiryLabel(credential)}
-                      </span>
+                      {isCredentialItem(credential) ? (
+                        <>
+                          <span>{translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} · {passwordScore}%</span>
+                          <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
+                            {getExpiryLabel(credential)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{getCategoryLabel(credential.category, appLanguage)}</span>
+                          <span className="expiryBadge never">{t("item.encrypted")}</span>
+                        </>
+                      )}
                     </span>
 
                     <span className="rowActions">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          stopAction(event);
-                          void copySecure(credential.username, `user-${credential.id}`);
-                        }}
-                      >
-                        {copiedField === `user-${credential.id}` ? t("credential.copied") : t("credential.copyUser")}
-                      </button>
+                      {isCredentialItem(credential) && credential.username && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            stopAction(event);
+                            void copySecure(credential.username, `user-${credential.id}`);
+                          }}
+                        >
+                          {copiedField === `user-${credential.id}` ? t("credential.copied") : t("credential.copyUser")}
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          stopAction(event);
-                          void copySecure(credential.password, `pass-${credential.id}`);
-                        }}
-                      >
-                        {copiedField === `pass-${credential.id}` ? t("credential.copiedFemale") : t("credential.copyPassword")}
-                      </button>
+                      {primarySecret && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            stopAction(event);
+                            void copySecure(primarySecret, `secret-${credential.id}`);
+                          }}
+                        >
+                          {copiedField === `secret-${credential.id}` ? t("credential.copiedFemale") : t(isCredentialItem(credential) ? "credential.copyPassword" : "item.copySecret")}
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -1684,7 +2001,7 @@ export default function App() {
                   <h2>{t("credential.emptyTitle")}</h2>
                   <p>{t("credential.emptyDescription")}</p>
                   <button className="primaryButton" onClick={openNewCredentialForm}>
-                    {t("topbar.addCredential")}
+                    {t("topbar.addItem")}
                   </button>
                 </div>
               )}
@@ -1697,7 +2014,22 @@ export default function App() {
             <article className="metricCard">
               <span>{t("dashboard.total")}</span>
               <strong>{stats.total}</strong>
-              <small>{t("dashboard.savedCredentials")}</small>
+              <small>{t("dashboard.savedItems")}</small>
+            </article>
+            <article className="metricCard">
+              <span>{t("itemType.credential")}</span>
+              <strong>{stats.credentialItems}</strong>
+              <small>{t("dashboard.credentialsOnly")}</small>
+            </article>
+            <article className="metricCard">
+              <span>{t("itemType.secure_note")}</span>
+              <strong>{stats.secureNotes}</strong>
+              <small>{t("dashboard.secureNotes")}</small>
+            </article>
+            <article className="metricCard">
+              <span>{t("itemType.card")}</span>
+              <strong>{stats.cards}</strong>
+              <small>{t("dashboard.cards")}</small>
             </article>
             <article className="metricCard">
               <span>{t("dashboard.favorites")}</span>
@@ -2246,117 +2578,280 @@ export default function App() {
 
       </section>
 
-      {detailCredential && (
-        <div className="popupOverlay" onMouseDown={() => setDetailCredentialId(null)}>
-          <aside className="detailPopup" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="detailHeader">
-              <div>
-                <span>{getCategoryLabel(detailCredential.category, appLanguage)}</span>
-                <h2>{detailCredential.title}</h2>
-              </div>
-              <button className="iconButton" onClick={() => setDetailCredentialId(null)}>
-                ×
-              </button>
-            </div>
+      {detailCredential && (() => {
+        const itemType = getItemType(detailCredential);
+        const primarySecret = getItemPrimarySecret(detailCredential);
+        const historyEntries = getPasswordHistory(detailCredential);
 
-            <div className="detailGrid">
-              <div>
-                <span>{t("detail.user")}</span>
-                <strong>{detailCredential.username || "—"}</strong>
-              </div>
-
-              <div>
-                <span>{t("detail.password")}</span>
-                <strong>
-                  {visiblePasswords[detailCredential.id]
-                    ? detailCredential.password
-                    : maskPassword(detailCredential.password)}
-                </strong>
-              </div>
-
-              <div>
-                <span>{t("detail.site")}</span>
-                <strong>{detailCredential.url || "—"}</strong>
-              </div>
-
-              <div>
-                <span>{t("detail.strength")}</span>
-                <strong>
-                  {translatePasswordLabel(getPasswordLabel(getPasswordScore(detailCredential.password)), appLanguage)} ·{" "}
-                  {getPasswordScore(detailCredential.password)}%
-                </strong>
-              </div>
-
-              <div>
-                <span>{t("expiry.changedAt")}</span>
-                <strong>{formatDate(getCredentialPasswordChangedAt(detailCredential), appLanguage)}</strong>
-              </div>
-
-              <div>
-                <span>{t("expiry.status")}</span>
-                <strong className={getExpiryBadgeClass(getPasswordExpiryInfo(detailCredential).status)}>
-                  {getExpiryLabel(detailCredential)}
-                </strong>
-              </div>
-
-              <div>
-                <span>{t("detail.createdAt")}</span>
-                <strong>{formatDate(detailCredential.createdAt, appLanguage)}</strong>
-              </div>
-
-              <div>
-                <span>{t("detail.updatedAt")}</span>
-                <strong>{formatDate(detailCredential.updatedAt, appLanguage)}</strong>
-              </div>
-            </div>
-
-            <div className="notesBox">
-              <span>{t("detail.notes")}</span>
-              <p>{detailCredential.notes || t("detail.noNotes")}</p>
-            </div>
-
-            <div className="detailActions">
-              <button onClick={() => void copySecure(detailCredential.username, `user-${detailCredential.id}`)}>
-                {copiedField === `user-${detailCredential.id}` ? t("credential.userCopied") : t("credential.copyUser")}
-              </button>
-
-              <button onClick={() => void copySecure(detailCredential.password, `pass-${detailCredential.id}`)}>
-                {copiedField === `pass-${detailCredential.id}` ? t("credential.passwordCopied") : t("credential.copyPassword")}
-              </button>
-
-              <button
-                onClick={() =>
-                  setVisiblePasswords((current) => ({
-                    ...current,
-                    [detailCredential.id]: !current[detailCredential.id],
-                  }))
-                }
-              >
-                {visiblePasswords[detailCredential.id] ? t("credential.hidePassword") : t("credential.showPassword")}
-              </button>
-
-              <button onClick={() => void toggleFavorite(detailCredential.id)}>
-                {detailCredential.favorite ? t("credential.removeFavorite") : t("credential.favorite")}
-              </button>
-
-              {detailCredential.url && (
-                <button onClick={() => window.open(detailCredential.url, "_blank")}>
-                  {t("credential.openSite")}
+        return (
+          <div className="popupOverlay" onMouseDown={() => setDetailCredentialId(null)}>
+            <aside className="detailPopup" onMouseDown={(event) => event.stopPropagation()}>
+              <div className="detailHeader">
+                <div>
+                  <span>{getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)} · {getCategoryLabel(detailCredential.category, appLanguage)}</span>
+                  <h2>{detailCredential.title}</h2>
+                </div>
+                <button className="iconButton" onClick={() => setDetailCredentialId(null)}>
+                  ×
                 </button>
+              </div>
+
+              {itemType === "credential" && (
+                <div className="detailGrid">
+                  <div>
+                    <span>{t("detail.user")}</span>
+                    <strong>{detailCredential.username || "—"}</strong>
+                  </div>
+
+                  <div>
+                    <span>{t("detail.password")}</span>
+                    <strong>
+                      {visiblePasswords[detailCredential.id]
+                        ? detailCredential.password
+                        : maskPassword(detailCredential.password)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>{t("detail.site")}</span>
+                    <strong>{detailCredential.url || "—"}</strong>
+                  </div>
+
+                  <div>
+                    <span>{t("detail.strength")}</span>
+                    <strong>
+                      {translatePasswordLabel(getPasswordLabel(getPasswordScore(detailCredential.password)), appLanguage)} ·{" "}
+                      {getPasswordScore(detailCredential.password)}%
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>{t("expiry.changedAt")}</span>
+                    <strong>{formatDate(getCredentialPasswordChangedAt(detailCredential), appLanguage)}</strong>
+                  </div>
+
+                  <div>
+                    <span>{t("expiry.status")}</span>
+                    <strong className={getExpiryBadgeClass(getPasswordExpiryInfo(detailCredential).status)}>
+                      {getExpiryLabel(detailCredential)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>{t("detail.createdAt")}</span>
+                    <strong>{formatDate(detailCredential.createdAt, appLanguage)}</strong>
+                  </div>
+
+                  <div>
+                    <span>{t("detail.updatedAt")}</span>
+                    <strong>{formatDate(detailCredential.updatedAt, appLanguage)}</strong>
+                  </div>
+                </div>
               )}
 
-              <button onClick={() => openEditCredentialForm(detailCredential)}>{t("credential.edit")}</button>
+              {itemType === "secure_note" && (
+                <div className="detailGrid">
+                  <div>
+                    <span>{t("item.type")}</span>
+                    <strong>{getItemTypeLabel(itemType, appLanguage)}</strong>
+                  </div>
+                  <div>
+                    <span>{t("detail.createdAt")}</span>
+                    <strong>{formatDate(detailCredential.createdAt, appLanguage)}</strong>
+                  </div>
+                  <div>
+                    <span>{t("detail.updatedAt")}</span>
+                    <strong>{formatDate(detailCredential.updatedAt, appLanguage)}</strong>
+                  </div>
+                  <div>
+                    <span>{t("detail.category")}</span>
+                    <strong>{getCategoryLabel(detailCredential.category, appLanguage)}</strong>
+                  </div>
+                </div>
+              )}
 
-              <button
-                className="dangerButton"
-                onClick={() => void handleDeleteCredential(detailCredential.id)}
-              >
-                {t("credential.delete")}
-              </button>
-            </div>
-          </aside>
-        </div>
-      )}
+              {itemType === "card" && (
+                <div className="detailGrid">
+                  <div>
+                    <span>{t("card.holder")}</span>
+                    <strong>{detailCredential.cardholderName || "—"}</strong>
+                  </div>
+                  <div>
+                    <span>{t("card.number")}</span>
+                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardNumber || "—" : maskGenericSecret(detailCredential.cardNumber)}</strong>
+                  </div>
+                  <div>
+                    <span>{t("card.expiry")}</span>
+                    <strong>{detailCredential.cardExpiry || "—"}</strong>
+                  </div>
+                  <div>
+                    <span>{t("card.cvv")}</span>
+                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardCvv || "—" : maskGenericSecret(detailCredential.cardCvv)}</strong>
+                  </div>
+                  <div>
+                    <span>{t("card.issuer")}</span>
+                    <strong>{detailCredential.cardIssuer || "—"}</strong>
+                  </div>
+                  <div>
+                    <span>{t("detail.updatedAt")}</span>
+                    <strong>{formatDate(detailCredential.updatedAt, appLanguage)}</strong>
+                  </div>
+                </div>
+              )}
+
+              {itemType === "identity" && (
+                <div className="detailGrid">
+                  <div>
+                    <span>{t("identity.fullName")}</span>
+                    <strong>{detailCredential.identityFullName || "—"}</strong>
+                  </div>
+                  <div>
+                    <span>{t("identity.document")}</span>
+                    <strong>{detailCredential.identityDocument || "—"}</strong>
+                  </div>
+                  <div>
+                    <span>{t("identity.email")}</span>
+                    <strong>{detailCredential.identityEmail || "—"}</strong>
+                  </div>
+                  <div>
+                    <span>{t("identity.phone")}</span>
+                    <strong>{detailCredential.identityPhone || "—"}</strong>
+                  </div>
+                  <div className="full">
+                    <span>{t("identity.address")}</span>
+                    <strong>{detailCredential.identityAddress || "—"}</strong>
+                  </div>
+                </div>
+              )}
+
+              {itemType === "license" && (
+                <div className="detailGrid">
+                  <div>
+                    <span>{t("license.product")}</span>
+                    <strong>{detailCredential.licenseProduct || "—"}</strong>
+                  </div>
+                  <div>
+                    <span>{t("license.key")}</span>
+                    <strong>{visiblePasswords[`license-${detailCredential.id}`] ? detailCredential.licenseKey || "—" : maskGenericSecret(detailCredential.licenseKey)}</strong>
+                  </div>
+                  <div>
+                    <span>{t("license.owner")}</span>
+                    <strong>{detailCredential.licenseOwner || "—"}</strong>
+                  </div>
+                  <div>
+                    <span>{t("license.expiresAt")}</span>
+                    <strong>{detailCredential.licenseExpiresAt || "—"}</strong>
+                  </div>
+                </div>
+              )}
+
+              <div className="notesBox">
+                <span>{itemType === "secure_note" ? t("note.content") : t("detail.notes")}</span>
+                <p>{detailCredential.notes || t("detail.noNotes")}</p>
+              </div>
+
+              {itemType === "credential" && (
+                <div className="historyBox">
+                  <div className="cardTitleRow">
+                    <div>
+                      <h3>{t("history.title")}</h3>
+                      <p>{t("history.description")}</p>
+                    </div>
+                    <button
+                      className="dangerButton"
+                      disabled={historyEntries.length === 0}
+                      onClick={() => void handleClearPasswordHistory(detailCredential.id)}
+                    >
+                      {t("history.clear")}
+                    </button>
+                  </div>
+
+                  <div className="historyList">
+                    {historyEntries.map((entry) => (
+                      <article key={entry.id} className="historyItem">
+                        <div>
+                          <strong>
+                            {visibleHistoryPasswords[entry.id] ? entry.password : maskPassword(entry.password)}
+                          </strong>
+                          <span>
+                            {t("history.savedAt")} {formatDate(entry.savedAt, appLanguage)} · {t("history.changedAt")} {formatDate(entry.changedAt, appLanguage)}
+                          </span>
+                        </div>
+                        <div className="historyActions">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setVisibleHistoryPasswords((current) => ({
+                                ...current,
+                                [entry.id]: !current[entry.id],
+                              }))
+                            }
+                          >
+                            {visibleHistoryPasswords[entry.id] ? t("credential.hidePassword") : t("credential.showPassword")}
+                          </button>
+                          <button type="button" onClick={() => void copySecure(entry.password, `history-${entry.id}`)}>
+                            {copiedField === `history-${entry.id}` ? t("credential.copiedFemale") : t("credential.copyPassword")}
+                          </button>
+                          <button type="button" onClick={() => void handleRestorePasswordFromHistory(detailCredential.id, entry.id)}>
+                            {t("history.restore")}
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+
+                    {historyEntries.length === 0 && <p className="emptyText">{t("history.empty")}</p>}
+                  </div>
+                </div>
+              )}
+
+              <div className="detailActions">
+                {itemType === "credential" && detailCredential.username && (
+                  <button onClick={() => void copySecure(detailCredential.username, `user-${detailCredential.id}`)}>
+                    {copiedField === `user-${detailCredential.id}` ? t("credential.userCopied") : t("credential.copyUser")}
+                  </button>
+                )}
+
+                {primarySecret && (
+                  <button onClick={() => void copySecure(primarySecret, `secret-${detailCredential.id}`)}>
+                    {copiedField === `secret-${detailCredential.id}` ? t("credential.copiedFemale") : t(itemType === "credential" ? "credential.copyPassword" : "item.copySecret")}
+                  </button>
+                )}
+
+                {(itemType === "credential" || itemType === "card" || itemType === "license") && (
+                  <button
+                    onClick={() =>
+                      setVisiblePasswords((current) => ({
+                        ...current,
+                        [itemType === "card" ? `card-${detailCredential.id}` : itemType === "license" ? `license-${detailCredential.id}` : detailCredential.id]:
+                          !current[itemType === "card" ? `card-${detailCredential.id}` : itemType === "license" ? `license-${detailCredential.id}` : detailCredential.id],
+                      }))
+                    }
+                  >
+                    {visiblePasswords[itemType === "card" ? `card-${detailCredential.id}` : itemType === "license" ? `license-${detailCredential.id}` : detailCredential.id]
+                      ? t("credential.hidePassword")
+                      : t("credential.showPassword")}
+                  </button>
+                )}
+
+                {detailCredential.url && (
+                  <button onClick={() => window.open(detailCredential.url, "_blank")}>
+                    {t("credential.openSite")}
+                  </button>
+                )}
+
+                <button onClick={() => openEditCredentialForm(detailCredential)}>{t("credential.edit")}</button>
+
+                <button
+                  className="dangerButton"
+                  onClick={() => void handleDeleteCredential(detailCredential.id)}
+                >
+                  {t("credential.delete")}
+                </button>
+              </div>
+            </aside>
+          </div>
+        );
+      })()}
 
       {formOpen && (
         <div className="modalOverlay" onMouseDown={() => setFormOpen(false)}>
@@ -2364,11 +2859,33 @@ export default function App() {
             <div className="modalHeader">
               <div>
                 <p className="eyebrow">{editingId ? t("form.editing") : t("form.new")}</p>
-                <h2>{editingId ? t("form.editCredential") : t("form.addCredential")}</h2>
+                <h2>{editingId ? t("form.editItem") : t("form.addItem")}</h2>
               </div>
               <button type="button" className="iconButton" onClick={() => setFormOpen(false)}>
                 ×
               </button>
+            </div>
+
+            <div className="itemTypeSwitch full">
+              {ITEM_TYPES.map((itemType) => (
+                <button
+                  type="button"
+                  key={itemType}
+                  className={(credentialForm.itemType ?? "credential") === itemType ? "itemTypeButton active" : "itemTypeButton"}
+                  onClick={() =>
+                    setCredentialForm((current) => ({
+                      ...getEmptyCredential(),
+                      itemType,
+                      title: current.title,
+                      category: current.category,
+                      favorite: current.favorite,
+                    }))
+                  }
+                >
+                  <span>{getItemTypeIcon(itemType)}</span>
+                  <strong>{getItemTypeLabel(itemType, appLanguage)}</strong>
+                </button>
+              ))}
             </div>
 
             <div className="formGrid">
@@ -2401,166 +2918,297 @@ export default function App() {
                 </select>
               </label>
 
-              <label>
-                {t("form.userEmail")}
-                <input
-                  value={credentialForm.username}
-                  onChange={(event) =>
-                    setCredentialForm((current) => ({ ...current, username: event.target.value }))
-                  }
-                  placeholder="usuario@email.com"
-                />
-              </label>
-
-              <label>
-                {t("form.site")}
-                <input
-                  value={credentialForm.url}
-                  onChange={(event) =>
-                    setCredentialForm((current) => ({ ...current, url: event.target.value }))
-                  }
-                  placeholder="https://..."
-                />
-              </label>
-
-              <label>
-                {t("expiry.expiresIn")}
-                <select
-                  value={credentialForm.passwordExpiresInDays ?? 0}
-                  onChange={(event) =>
-                    setCredentialForm((current) => ({
-                      ...current,
-                      passwordExpiresInDays: Number(event.target.value),
-                    }))
-                  }
-                >
-                  {PASSWORD_EXPIRY_OPTIONS.map((days) => (
-                    <option key={days} value={days}>
-                      {days === 0 ? t("expiry.never") : t("expiry.days", { days })}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                {t("expiry.noticeDays")}
-                <select
-                  value={credentialForm.passwordExpiryNoticeDays ?? 15}
-                  onChange={(event) =>
-                    setCredentialForm((current) => ({
-                      ...current,
-                      passwordExpiryNoticeDays: Number(event.target.value),
-                    }))
-                  }
-                >
-                  {PASSWORD_NOTICE_OPTIONS.map((days) => (
-                    <option key={days} value={days}>
-                      {t("expiry.daysBefore", { days })}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="full">
-                {t("form.password")}
-                <div className="passwordInput">
-                  <input
-                    value={credentialForm.password}
-                    onChange={(event) =>
-                      setCredentialForm((current) => ({
-                        ...current,
-                        password: event.target.value,
-                      }))
-                    }
-                    placeholder={t("form.passwordPlaceholder")}
-                  />
-                  <button type="button" onClick={generateCredentialPassword}>
-                    {t("form.generateStrong")}
-                  </button>
-                </div>
-                <span className="strength">
-                  {t("form.strength", { label: translatePasswordLabel(getPasswordLabel(score), appLanguage), score })}
-                </span>
-
-                <div className="generatorPanel">
+              {(credentialForm.itemType ?? "credential") === "credential" && (
+                <>
                   <label>
-                    {t("generator.mode")}
+                    {t("form.userEmail")}
+                    <input
+                      value={credentialForm.username}
+                      onChange={(event) =>
+                        setCredentialForm((current) => ({ ...current, username: event.target.value }))
+                      }
+                      placeholder="usuario@email.com"
+                    />
+                  </label>
+
+                  <label>
+                    {t("form.site")}
+                    <input
+                      value={credentialForm.url}
+                      onChange={(event) =>
+                        setCredentialForm((current) => ({ ...current, url: event.target.value }))
+                      }
+                      placeholder="https://..."
+                    />
+                  </label>
+
+                  <label>
+                    {t("expiry.expiresIn")}
                     <select
-                      value={generatorMode}
-                      onChange={(event) => setGeneratorMode(event.target.value as PasswordGeneratorMode)}
+                      value={credentialForm.passwordExpiresInDays ?? 0}
+                      onChange={(event) =>
+                        setCredentialForm((current) => ({
+                          ...current,
+                          passwordExpiresInDays: Number(event.target.value),
+                        }))
+                      }
                     >
-                      <option value="random">{t("generator.random")}</option>
-                      <option value="memorable">{t("generator.memorable")}</option>
-                      <option value="pin">{t("generator.pin")}</option>
+                      {PASSWORD_EXPIRY_OPTIONS.map((days) => (
+                        <option key={days} value={days}>
+                          {days === 0 ? t("expiry.never") : t("expiry.days", { days })}
+                        </option>
+                      ))}
                     </select>
                   </label>
 
                   <label>
-                    {generatorMode === "pin" ? t("generator.pinLength") : t("generator.length")}
-                    <input
-                      type="number"
-                      min={generatorMode === "pin" ? 4 : 8}
-                      max={generatorMode === "pin" ? 16 : 96}
-                      value={generatorLength}
-                      onChange={(event) => setGeneratorLength(Number(event.target.value))}
-                    />
+                    {t("expiry.noticeDays")}
+                    <select
+                      value={credentialForm.passwordExpiryNoticeDays ?? 15}
+                      onChange={(event) =>
+                        setCredentialForm((current) => ({
+                          ...current,
+                          passwordExpiryNoticeDays: Number(event.target.value),
+                        }))
+                      }
+                    >
+                      {PASSWORD_NOTICE_OPTIONS.map((days) => (
+                        <option key={days} value={days}>
+                          {t("expiry.daysBefore", { days })}
+                        </option>
+                      ))}
+                    </select>
                   </label>
 
-                  {generatorMode === "random" && (
-                    <div className="generatorOptions">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={generatorLowercase}
-                          onChange={(event) => setGeneratorLowercase(event.target.checked)}
-                        />
-                        {t("generator.lowercase")}
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={generatorUppercase}
-                          onChange={(event) => setGeneratorUppercase(event.target.checked)}
-                        />
-                        {t("generator.uppercase")}
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={generatorNumbers}
-                          onChange={(event) => setGeneratorNumbers(event.target.checked)}
-                        />
-                        {t("generator.numbers")}
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={generatorSymbols}
-                          onChange={(event) => setGeneratorSymbols(event.target.checked)}
-                        />
-                        {t("generator.symbols")}
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={generatorAvoidAmbiguous}
-                          onChange={(event) => setGeneratorAvoidAmbiguous(event.target.checked)}
-                        />
-                        {t("generator.avoidAmbiguous")}
-                      </label>
+                  <label className="full">
+                    {t("form.password")}
+                    <div className="passwordInput">
+                      <input
+                        value={credentialForm.password}
+                        onChange={(event) =>
+                          setCredentialForm((current) => ({
+                            ...current,
+                            password: event.target.value,
+                          }))
+                        }
+                        placeholder={t("form.passwordPlaceholder")}
+                      />
+                      <button type="button" onClick={generateCredentialPassword}>
+                        {t("form.generateStrong")}
+                      </button>
                     </div>
-                  )}
-                </div>
-              </label>
+                    <span className="strength">
+                      {t("form.strength", { label: translatePasswordLabel(getPasswordLabel(score), appLanguage), score })}
+                    </span>
+
+                    <div className="generatorPanel">
+                      <label>
+                        {t("generator.mode")}
+                        <select
+                          value={generatorMode}
+                          onChange={(event) => setGeneratorMode(event.target.value as PasswordGeneratorMode)}
+                        >
+                          <option value="random">{t("generator.random")}</option>
+                          <option value="memorable">{t("generator.memorable")}</option>
+                          <option value="pin">{t("generator.pin")}</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        {generatorMode === "pin" ? t("generator.pinLength") : t("generator.length")}
+                        <input
+                          type="number"
+                          min={generatorMode === "pin" ? 4 : 8}
+                          max={generatorMode === "pin" ? 16 : 96}
+                          value={generatorLength}
+                          onChange={(event) => setGeneratorLength(Number(event.target.value))}
+                        />
+                      </label>
+
+                      {generatorMode === "random" && (
+                        <div className="generatorOptions">
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={generatorLowercase}
+                              onChange={(event) => setGeneratorLowercase(event.target.checked)}
+                            />
+                            {t("generator.lowercase")}
+                          </label>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={generatorUppercase}
+                              onChange={(event) => setGeneratorUppercase(event.target.checked)}
+                            />
+                            {t("generator.uppercase")}
+                          </label>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={generatorNumbers}
+                              onChange={(event) => setGeneratorNumbers(event.target.checked)}
+                            />
+                            {t("generator.numbers")}
+                          </label>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={generatorSymbols}
+                              onChange={(event) => setGeneratorSymbols(event.target.checked)}
+                            />
+                            {t("generator.symbols")}
+                          </label>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={generatorAvoidAmbiguous}
+                              onChange={(event) => setGeneratorAvoidAmbiguous(event.target.checked)}
+                            />
+                            {t("generator.avoidAmbiguous")}
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                </>
+              )}
+
+              {(credentialForm.itemType ?? "credential") === "card" && (
+                <>
+                  <label>
+                    {t("card.holder")}
+                    <input
+                      value={credentialForm.cardholderName ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, cardholderName: event.target.value }))}
+                      placeholder={t("card.holderPlaceholder")}
+                    />
+                  </label>
+                  <label>
+                    {t("card.issuer")}
+                    <input
+                      value={credentialForm.cardIssuer ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, cardIssuer: event.target.value }))}
+                      placeholder={t("card.issuerPlaceholder")}
+                    />
+                  </label>
+                  <label>
+                    {t("card.number")}
+                    <input
+                      value={credentialForm.cardNumber ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, cardNumber: event.target.value }))}
+                      placeholder="0000 0000 0000 0000"
+                    />
+                  </label>
+                  <label>
+                    {t("card.expiry")}
+                    <input
+                      value={credentialForm.cardExpiry ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, cardExpiry: event.target.value }))}
+                      placeholder="MM/AA"
+                    />
+                  </label>
+                  <label>
+                    {t("card.cvv")}
+                    <input
+                      value={credentialForm.cardCvv ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, cardCvv: event.target.value }))}
+                      placeholder="***"
+                    />
+                  </label>
+                </>
+              )}
+
+              {(credentialForm.itemType ?? "credential") === "identity" && (
+                <>
+                  <label>
+                    {t("identity.fullName")}
+                    <input
+                      value={credentialForm.identityFullName ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, identityFullName: event.target.value }))}
+                      placeholder={t("identity.fullNamePlaceholder")}
+                    />
+                  </label>
+                  <label>
+                    {t("identity.document")}
+                    <input
+                      value={credentialForm.identityDocument ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, identityDocument: event.target.value }))}
+                      placeholder={t("identity.documentPlaceholder")}
+                    />
+                  </label>
+                  <label>
+                    {t("identity.email")}
+                    <input
+                      value={credentialForm.identityEmail ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, identityEmail: event.target.value }))}
+                      placeholder="email@exemplo.com"
+                    />
+                  </label>
+                  <label>
+                    {t("identity.phone")}
+                    <input
+                      value={credentialForm.identityPhone ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, identityPhone: event.target.value }))}
+                      placeholder={t("identity.phonePlaceholder")}
+                    />
+                  </label>
+                  <label className="full">
+                    {t("identity.address")}
+                    <textarea
+                      value={credentialForm.identityAddress ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, identityAddress: event.target.value }))}
+                      placeholder={t("identity.addressPlaceholder")}
+                    />
+                  </label>
+                </>
+              )}
+
+              {(credentialForm.itemType ?? "credential") === "license" && (
+                <>
+                  <label>
+                    {t("license.product")}
+                    <input
+                      value={credentialForm.licenseProduct ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, licenseProduct: event.target.value }))}
+                      placeholder={t("license.productPlaceholder")}
+                    />
+                  </label>
+                  <label>
+                    {t("license.owner")}
+                    <input
+                      value={credentialForm.licenseOwner ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, licenseOwner: event.target.value }))}
+                      placeholder={t("license.ownerPlaceholder")}
+                    />
+                  </label>
+                  <label className="full">
+                    {t("license.key")}
+                    <textarea
+                      value={credentialForm.licenseKey ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, licenseKey: event.target.value }))}
+                      placeholder={t("license.keyPlaceholder")}
+                    />
+                  </label>
+                  <label>
+                    {t("license.expiresAt")}
+                    <input
+                      value={credentialForm.licenseExpiresAt ?? ""}
+                      onChange={(event) => setCredentialForm((current) => ({ ...current, licenseExpiresAt: event.target.value }))}
+                      placeholder={t("license.expiresAtPlaceholder")}
+                    />
+                  </label>
+                </>
+              )}
 
               <label className="full">
-                {t("form.notes")}
+                {(credentialForm.itemType ?? "credential") === "secure_note" ? t("note.content") : t("form.notes")}
                 <textarea
                   value={credentialForm.notes}
                   onChange={(event) =>
                     setCredentialForm((current) => ({ ...current, notes: event.target.value }))
                   }
-                  placeholder={t("form.notesPlaceholder")}
+                  placeholder={(credentialForm.itemType ?? "credential") === "secure_note" ? t("note.contentPlaceholder") : t("form.notesPlaceholder")}
                 />
               </label>
 
@@ -2584,7 +3232,7 @@ export default function App() {
                 {t("dialog.cancel")}
               </button>
               <button disabled={busy} className="primaryButton">
-                {busy ? t("form.saving") : t("form.saveCredential")}
+                {busy ? t("form.saving") : t("form.saveItem")}
               </button>
             </div>
           </form>

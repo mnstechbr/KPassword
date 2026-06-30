@@ -1,4 +1,4 @@
-﻿* {
+* {
   box-sizing: border-box;
 }
 
@@ -2282,3 +2282,186 @@ button,
 }
 /* === KPassword v0.3.3 hotfix spacing security settings END === */
 
+/* === KPassword v0.4.0 item types and password history START === */
+.itemTypeSwitch {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.itemTypeButton {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  align-content: center;
+  justify-items: center;
+  min-height: 74px;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #cbd5e1;
+  padding: 12px 10px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.itemTypeButton span {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.itemTypeButton strong {
+  overflow: hidden;
+  width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemTypeButton.active {
+  border-color: rgba(125, 211, 252, 0.62);
+  background: rgba(14, 165, 233, 0.18);
+  color: #e0f2fe;
+}
+
+.historyBox {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 14px;
+}
+
+.historyBox h3 {
+  margin: 0 0 6px;
+}
+
+.historyBox p {
+  margin: 0;
+  color: #aab0c5;
+  line-height: 1.5;
+}
+
+.historyList {
+  display: grid;
+  gap: 10px;
+}
+
+.historyItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 12px;
+}
+
+.historyItem > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.historyItem strong {
+  overflow-wrap: anywhere;
+  color: #dbeafe;
+  letter-spacing: 0.06em;
+}
+
+.historyItem span {
+  color: #9ca3af;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.historyActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.historyActions button,
+.dangerButton {
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.075);
+  color: #f8fbff;
+  padding: 9px 10px;
+  font-weight: 800;
+}
+
+.dangerButton {
+  background: rgba(185, 28, 28, 0.24);
+  color: #fecaca;
+}
+
+.dangerButton:disabled {
+  opacity: 0.45;
+}
+
+.detailGrid .full {
+  grid-column: 1 / -1;
+}
+
+.credentialRow .rowCategory {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+@media (max-width: 1220px) {
+  .itemTypeSwitch {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .credentialRow {
+    grid-template-columns:
+      28px
+      42px
+      minmax(170px, 1fr)
+      minmax(112px, 0.55fr)
+      minmax(280px, auto);
+  }
+
+  .rowCategory {
+    display: none !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .itemTypeSwitch {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .historyItem {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .historyActions {
+    justify-content: stretch;
+  }
+
+  .historyActions button {
+    flex: 1 1 140px;
+  }
+}
+
+@media (max-width: 720px) {
+  .itemTypeSwitch {
+    grid-template-columns: 1fr;
+  }
+
+  .itemTypeButton {
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    min-height: 58px;
+    text-align: left;
+  }
+}
+/* === KPassword v0.4.0 item types and password history END === */

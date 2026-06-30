@@ -6,8 +6,23 @@ export type CredentialCategory =
   | "Sistema"
   | "Outro";
 
+export type VaultItemType =
+  | "credential"
+  | "secure_note"
+  | "card"
+  | "identity"
+  | "license";
+
+export type PasswordHistoryEntry = {
+  id: string;
+  password: string;
+  changedAt: string;
+  savedAt: string;
+};
+
 export type CredentialRecord = {
   id: string;
+  itemType?: VaultItemType;
   title: string;
   username: string;
   password: string;
@@ -19,6 +34,25 @@ export type CredentialRecord = {
   passwordChangedAt?: string;
   passwordExpiresInDays?: number;
   passwordExpiryNoticeDays?: number;
+  passwordHistory?: PasswordHistoryEntry[];
+
+  cardholderName?: string;
+  cardNumber?: string;
+  cardExpiry?: string;
+  cardCvv?: string;
+  cardIssuer?: string;
+
+  identityFullName?: string;
+  identityDocument?: string;
+  identityEmail?: string;
+  identityPhone?: string;
+  identityAddress?: string;
+
+  licenseProduct?: string;
+  licenseKey?: string;
+  licenseOwner?: string;
+  licenseExpiresAt?: string;
+
   createdAt: string;
   updatedAt: string;
 };
