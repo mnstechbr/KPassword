@@ -1,4 +1,4 @@
-﻿use std::{
+use std::{
     fs,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
@@ -307,6 +307,7 @@ mod windows_hello_native {
     use std::ffi::c_void;
 
     #[repr(C)]
+    #[allow(non_snake_case)]
     struct DATA_BLOB {
         cbData: u32,
         pbData: *mut u8,
@@ -578,11 +579,21 @@ mod windows_hello_native {
     }
 }
 
+async fn run_windows_hello_task<T, F>(operation: &'static str, task: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|error| format!("Falha ao executar Windows Hello ({operation}): {error}"))?
+}
+
 #[tauri::command]
-fn windows_hello_status(app: AppHandle, vault_name: Option<String>) -> Result<WindowsHelloStatus, String> {
+async fn windows_hello_status(app: AppHandle, vault_name: Option<String>) -> Result<WindowsHelloStatus, String> {
     #[cfg(windows)]
     {
-        windows_hello_native::status(app, vault_name)
+        run_windows_hello_task("status", move || windows_hello_native::status(app, vault_name)).await
     }
 
     #[cfg(not(windows))]
@@ -598,7 +609,7 @@ fn windows_hello_status(app: AppHandle, vault_name: Option<String>) -> Result<Wi
 }
 
 #[tauri::command]
-fn enable_windows_hello(
+async fn enable_windows_hello(
     app: AppHandle,
     vault_name: Option<String>,
     master_password: String,
@@ -606,7 +617,10 @@ fn enable_windows_hello(
 ) -> Result<WindowsHelloStatus, String> {
     #[cfg(windows)]
     {
-        windows_hello_native::enable(app, vault_name, master_password, reason)
+        run_windows_hello_task("enable", move || {
+            windows_hello_native::enable(app, vault_name, master_password, reason)
+        })
+        .await
     }
 
     #[cfg(not(windows))]
@@ -624,10 +638,10 @@ fn enable_windows_hello(
 }
 
 #[tauri::command]
-fn disable_windows_hello(app: AppHandle, vault_name: Option<String>) -> Result<WindowsHelloStatus, String> {
+async fn disable_windows_hello(app: AppHandle, vault_name: Option<String>) -> Result<WindowsHelloStatus, String> {
     #[cfg(windows)]
     {
-        windows_hello_native::disable(app, vault_name)
+        run_windows_hello_task("disable", move || windows_hello_native::disable(app, vault_name)).await
     }
 
     #[cfg(not(windows))]
@@ -643,14 +657,17 @@ fn disable_windows_hello(app: AppHandle, vault_name: Option<String>) -> Result<W
 }
 
 #[tauri::command]
-fn unlock_with_windows_hello(
+async fn unlock_with_windows_hello(
     app: AppHandle,
     vault_name: Option<String>,
     reason: String,
 ) -> Result<String, String> {
     #[cfg(windows)]
     {
-        windows_hello_native::unlock(app, vault_name, reason)
+        run_windows_hello_task("unlock", move || {
+            windows_hello_native::unlock(app, vault_name, reason)
+        })
+        .await
     }
 
     #[cfg(not(windows))]
