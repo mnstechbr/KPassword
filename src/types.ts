@@ -29,6 +29,15 @@ export type VaultAttachment = {
   createdAt: string;
 };
 
+export type VaultFileInfo = {
+  name: string;
+  display_name: string;
+  filename: string;
+  size_bytes: number;
+  modified_epoch_ms: number;
+  is_default: boolean;
+};
+
 export type CredentialRecord = {
   id: string;
   itemType?: VaultItemType;
@@ -45,6 +54,8 @@ export type CredentialRecord = {
   passwordExpiryNoticeDays?: number;
   passwordHistory?: PasswordHistoryEntry[];
   attachments?: VaultAttachment[];
+  totpSecret?: string;
+  totpIssuer?: string;
 
   cardholderName?: string;
   cardNumber?: string;
@@ -113,4 +124,5 @@ export type StorageInfo = {
   vault_path: string;
   backup_dir: string;
   backups: BackupFile[];
+  vault_name?: string;
 };

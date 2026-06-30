@@ -17,6 +17,7 @@ import { generatePassword, getPasswordLabel, getPasswordScore, type PasswordGene
 import {
   getStorageInfo,
   listBackupFiles,
+  listVaultFiles,
   loadVaultFile,
   saveVaultFile,
 } from "./vault-storage";
@@ -26,6 +27,7 @@ import type {
   CredentialRecord,
   PasswordHistoryEntry,
   VaultAttachment,
+  VaultFileInfo,
   VaultItemType,
   EncryptedVaultFile,
   PlainVault,
@@ -56,6 +58,8 @@ const EMPTY_FORM: Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> = {
   passwordExpiryNoticeDays: 15,
   passwordHistory: [],
   attachments: [],
+  totpSecret: "",
+  totpIssuer: "",
   cardholderName: "",
   cardNumber: "",
   cardExpiry: "",
@@ -82,7 +86,9 @@ const CATEGORIES: CredentialCategory[] = [
 ];
 
 const CLIPBOARD_CLEAR_SECONDS = 60;
-const APP_VERSION = "0.4.1";
+const DEFAULT_VAULT_NAME = "vault";
+const TOTP_PERIOD_SECONDS = 30;
+const APP_VERSION = "0.5.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -158,6 +164,114 @@ function getStoredValue<T extends string>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function createVaultSlug(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+
+function getVaultDisplayName(vaultName: string, vaultFiles: VaultFileInfo[]) {
+  const found = vaultFiles.find((item) => item.name === vaultName);
+
+  if (found) return found.display_name;
+  if (vaultName === DEFAULT_VAULT_NAME) return "Principal";
+
+  return vaultName.replace(/[-_]+/g, " ");
+}
+
+function parseTotpInput(value: string, fallbackIssuer = "") {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return { secret: "", issuer: fallbackIssuer };
+  }
+
+  if (/^otpauth:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      const secret = url.searchParams.get("secret") ?? "";
+      const issuer = url.searchParams.get("issuer") ?? fallbackIssuer;
+      return { secret: normalizeTotpSecret(secret), issuer };
+    } catch {
+      return { secret: normalizeTotpSecret(trimmed), issuer: fallbackIssuer };
+    }
+  }
+
+  return { secret: normalizeTotpSecret(trimmed), issuer: fallbackIssuer };
+}
+
+function normalizeTotpSecret(secret: string) {
+  return secret.toUpperCase().replace(/[^A-Z2-7]/g, "");
+}
+
+function decodeBase32(value: string) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const normalized = normalizeTotpSecret(value);
+  let bits = "";
+
+  for (const character of normalized) {
+    const index = alphabet.indexOf(character);
+    if (index === -1) continue;
+    bits += index.toString(2).padStart(5, "0");
+  }
+
+  const bytes: number[] = [];
+
+  for (let index = 0; index + 8 <= bits.length; index += 8) {
+    bytes.push(Number.parseInt(bits.slice(index, index + 8), 2));
+  }
+
+  return new Uint8Array(bytes);
+}
+
+function counterToBytes(counter: number) {
+  const bytes = new Uint8Array(8);
+  let value = BigInt(counter);
+
+  for (let index = 7; index >= 0; index -= 1) {
+    bytes[index] = Number(value & 0xffn);
+    value >>= 8n;
+  }
+
+  return bytes;
+}
+
+async function generateTotp(secret: string, timestamp = Date.now()) {
+  const keyBytes = decodeBase32(secret);
+
+  if (keyBytes.length === 0) {
+    throw new Error("Invalid TOTP secret.");
+  }
+
+  const counter = Math.floor(timestamp / 1000 / TOTP_PERIOD_SECONDS);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, counterToBytes(counter)));
+  const offset = signature[signature.length - 1] & 0x0f;
+  const binary =
+    ((signature[offset] & 0x7f) << 24) |
+    ((signature[offset + 1] & 0xff) << 16) |
+    ((signature[offset + 2] & 0xff) << 8) |
+    (signature[offset + 3] & 0xff);
+
+  return String(binary % 1_000_000).padStart(6, "0");
+}
+
+function getTotpRemainingSeconds(timestamp = Date.now()) {
+  const elapsed = Math.floor(timestamp / 1000) % TOTP_PERIOD_SECONDS;
+  return TOTP_PERIOD_SECONDS - elapsed;
 }
 
 function AppLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
@@ -364,6 +478,8 @@ function buildCsv(items: CredentialRecord[]) {
     "password",
     "url",
     "notes",
+    "totpIssuer",
+    "totpSecret",
     "cardholderName",
     "cardNumber",
     "cardExpiry",
@@ -501,6 +617,8 @@ function rowToImportedCredential(row: Record<string, string>, now: string): Cred
     passwordExpiryNoticeDays: Number(getCsvValue(row, ["passwordexpirynoticedays", "password_expiry_notice_days", "aviso_dias"])) || 15,
     passwordHistory: [],
     attachments: [],
+    totpIssuer: itemType === "credential" ? getCsvValue(row, ["totpissuer", "totp_issuer", "issuer", "emissor"]) : "",
+    totpSecret: itemType === "credential" ? getCsvValue(row, ["totpsecret", "totp_secret", "otp", "2fa", "mfa", "segredo_totp"]) : "",
     cardholderName: itemType === "card" ? getCsvValue(row, ["cardholdername", "card_holder", "nome_cartao"]) : "",
     cardNumber: itemType === "card" ? getCsvValue(row, ["cardnumber", "card_number", "numero_cartao", "número_cartão"]) : "",
     cardExpiry: itemType === "card" ? getCsvValue(row, ["cardexpiry", "card_expiry", "validade_cartao"]) : "",
@@ -627,6 +745,8 @@ function normalizeVault(vault: PlainVault): PlainVault {
         passwordExpiryNoticeDays: itemType === "credential" ? credential.passwordExpiryNoticeDays ?? 15 : credential.passwordExpiryNoticeDays ?? 15,
         passwordHistory: Array.isArray(credential.passwordHistory) ? credential.passwordHistory : [],
         attachments: Array.isArray(credential.attachments) ? credential.attachments : [],
+        totpSecret: credential.totpSecret ?? "",
+        totpIssuer: credential.totpIssuer ?? "",
         cardholderName: credential.cardholderName ?? "",
         cardNumber: credential.cardNumber ?? "",
         cardExpiry: credential.cardExpiry ?? "",
@@ -702,6 +822,13 @@ export default function App() {
   const [exportPassword, setExportPassword] = useState("");
   const [restorePopupOpen, setRestorePopupOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState("");
+  const [activeVaultName, setActiveVaultName] = useState(() =>
+    getStoredValue<string>("kpassword:active-vault", DEFAULT_VAULT_NAME),
+  );
+  const [vaultFiles, setVaultFiles] = useState<VaultFileInfo[]>([]);
+  const [newVaultName, setNewVaultName] = useState("");
+  const [totpTick, setTotpTick] = useState(Date.now());
+  const [detailTotpCode, setDetailTotpCode] = useState("");
   const [appLanguage, setAppLanguage] = useState<AppLanguage>(getInitialLanguage);
   const [generatorMode, setGeneratorMode] = useState<PasswordGeneratorMode>("random");
   const [generatorLength, setGeneratorLength] = useState(24);
@@ -740,6 +867,15 @@ export default function App() {
   }, [appLanguage]);
 
   useEffect(() => {
+    localStorage.setItem("kpassword:active-vault", activeVaultName);
+  }, [activeVaultName]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setTotpTick(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = appTheme;
     document.documentElement.dataset.fontScale = fontScale;
     document.documentElement.dataset.motion = reduceMotion ? "reduced" : "normal";
@@ -750,6 +886,31 @@ export default function App() {
     localStorage.setItem("kpassword:reduce-motion", String(reduceMotion));
     localStorage.setItem("kpassword:compact-mode", String(compactMode));
   }, [appTheme, fontScale, reduceMotion, compactMode]);
+
+  useEffect(() => {
+    const secret = detailCredentialId && vault
+      ? vault.credentials.find((credential) => credential.id === detailCredentialId)?.totpSecret
+      : "";
+
+    if (!secret) {
+      setDetailTotpCode("");
+      return;
+    }
+
+    let cancelled = false;
+
+    void generateTotp(secret, totpTick)
+      .then((code) => {
+        if (!cancelled) setDetailTotpCode(code);
+      })
+      .catch(() => {
+        if (!cancelled) setDetailTotpCode("");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detailCredentialId, totpTick, vault]);
 
   useEffect(() => {
     if (!vault) return;
@@ -763,38 +924,59 @@ export default function App() {
     localStorage.setItem("kpassword:clipboard-clear-seconds", String(vault.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS));
   }, [vault]);
 
-  const refreshStorageInfo = useCallback(async () => {
+  const refreshVaultFiles = useCallback(async () => {
     try {
-      const [info, backupFiles] = await Promise.all([getStorageInfo(), listBackupFiles()]);
+      const files = await listVaultFiles();
+      setVaultFiles(files);
+      return files;
+    } catch (error) {
+      console.error("Erro ao listar cofres:", error);
+      return [];
+    }
+  }, []);
+
+  const refreshStorageInfo = useCallback(async (vaultName = activeVaultName) => {
+    try {
+      const [info, backupFiles] = await Promise.all([
+        getStorageInfo(vaultName),
+        listBackupFiles(vaultName),
+      ]);
       setStorageInfo(info);
       setBackups(backupFiles);
     } catch (error) {
       console.error("Erro ao carregar informações de armazenamento:", error);
     }
-  }, []);
+  }, [activeVaultName]);
 
   useEffect(() => {
     void (async () => {
       try {
         setMessage("");
-        const raw = await loadVaultFile();
+        setMode("loading");
+        await refreshVaultFiles();
+        const raw = await loadVaultFile(activeVaultName);
 
         if (!raw) {
+          setEncryptedVault(null);
+          setVault(null);
           setMode("setup");
-          await refreshStorageInfo();
+          await refreshStorageInfo(activeVaultName);
           return;
         }
 
         setEncryptedVault(parseEncryptedVault(raw));
+        setVault(null);
+        setMasterPassword("");
+        setUnlockPassword("");
         setMode("locked");
-        await refreshStorageInfo();
+        await refreshStorageInfo(activeVaultName);
       } catch (error) {
         console.error(error);
         setMessage(t("errors.loadVault"));
         setMode("setup");
       }
     })();
-  }, [refreshStorageInfo]);
+  }, [activeVaultName, refreshStorageInfo, refreshVaultFiles]);
 
   const lockVault = useCallback(() => {
     setVault(null);
@@ -826,7 +1008,7 @@ export default function App() {
       }
 
       const file = await encryptVault(nextVault, password, encryptedVault);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2));
+      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName);
 
       setEncryptedVault(file);
       setVault({
@@ -838,7 +1020,7 @@ export default function App() {
 
       return file;
     },
-    [encryptedVault, masterPassword],
+    [activeVaultName, encryptedVault, masterPassword],
   );
 
   useEffect(() => {
@@ -888,7 +1070,7 @@ export default function App() {
     try {
       const newVault = normalizeVault(createEmptyVault());
       const file = await encryptVault(newVault, setupPassword);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2));
+      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName);
 
       setEncryptedVault(file);
       setVault(newVault);
@@ -897,6 +1079,7 @@ export default function App() {
       setConfirmPassword("");
       setStorageInfo(info);
       setBackups(info.backups);
+      await refreshVaultFiles();
       setScreen("credentials");
       setMode("unlocked");
       setMessage("");
@@ -937,6 +1120,70 @@ export default function App() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleSwitchVault(nextVaultName: string) {
+    if (!nextVaultName || nextVaultName === activeVaultName) return;
+
+    const confirmed = mode === "unlocked"
+      ? await askConfirmation({
+          title: t("vault.switchTitle"),
+          message: t("vault.switchMessage"),
+          confirmText: t("vault.switchConfirm"),
+          cancelText: t("dialog.cancel"),
+        })
+      : true;
+
+    if (!confirmed) return;
+
+    setVault(null);
+    setEncryptedVault(null);
+    setMasterPassword("");
+    setUnlockPassword("");
+    setSetupPassword("");
+    setConfirmPassword("");
+    setDetailCredentialId(null);
+    setFormOpen(false);
+    setSearch("");
+    setActiveVaultName(nextVaultName);
+  }
+
+  async function handleCreateNewVault() {
+    const slug = createVaultSlug(newVaultName);
+
+    if (!slug) {
+      setMessage(t("vault.invalidName"));
+      return;
+    }
+
+    if (vaultFiles.some((item) => item.name === slug)) {
+      setMessage(t("vault.alreadyExists"));
+      return;
+    }
+
+    const confirmed = mode === "unlocked"
+      ? await askConfirmation({
+          title: t("vault.createTitle"),
+          message: t("vault.createMessage"),
+          confirmText: t("vault.createConfirm"),
+          cancelText: t("dialog.cancel"),
+        })
+      : true;
+
+    if (!confirmed) return;
+
+    setNewVaultName("");
+    setVault(null);
+    setEncryptedVault(null);
+    setMasterPassword("");
+    setUnlockPassword("");
+    setSetupPassword("");
+    setConfirmPassword("");
+    setDetailCredentialId(null);
+    setFormOpen(false);
+    setSearch("");
+    setActiveVaultName(slug);
+    setMessage(t("vault.newVaultReady"));
   }
 
   async function maybeShowPasswordRotationReminder(currentVault: PlainVault) {
@@ -1040,7 +1287,7 @@ export default function App() {
         },
       });
       const file = await encryptVault(nextVault, newMasterPassword, null);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2));
+      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName);
 
       setEncryptedVault(file);
       setVault({ ...nextVault, updatedAt: file.updatedAt });
@@ -1082,7 +1329,7 @@ export default function App() {
 
       if (!confirmed) return;
 
-      const info = await saveVaultFile(raw);
+      const info = await saveVaultFile(raw, activeVaultName);
 
       setEncryptedVault(parsed);
       setVault(restoredVault);
@@ -1220,6 +1467,8 @@ export default function App() {
       passwordExpiryNoticeDays: credential.passwordExpiryNoticeDays ?? 15,
       passwordHistory: getPasswordHistory(credential),
       attachments: getAttachments(credential),
+      totpSecret: credential.totpSecret ?? "",
+      totpIssuer: credential.totpIssuer ?? "",
       cardholderName: credential.cardholderName ?? "",
       cardNumber: credential.cardNumber ?? "",
       cardExpiry: credential.cardExpiry ?? "",
@@ -1290,6 +1539,10 @@ export default function App() {
           ].slice(0, 20)
         : previousHistory;
 
+    const parsedTotp = itemType === "credential"
+      ? parseTotpInput(credentialForm.totpSecret ?? "", credentialForm.totpIssuer ?? "")
+      : { secret: "", issuer: "" };
+
     const cleanForm = {
       ...credentialForm,
       itemType,
@@ -1309,6 +1562,8 @@ export default function App() {
       passwordExpiryNoticeDays: itemType === "credential" ? Number(credentialForm.passwordExpiryNoticeDays ?? 15) : 15,
       passwordHistory: itemType === "credential" ? passwordHistory : [],
       attachments: previousCredential ? getAttachments(previousCredential) : getAttachments(credentialForm),
+      totpSecret: itemType === "credential" ? parsedTotp.secret : "",
+      totpIssuer: itemType === "credential" ? parsedTotp.issuer.trim() : "",
       cardholderName: itemType === "card" ? (credentialForm.cardholderName ?? "").trim() : "",
       cardNumber: itemType === "card" ? (credentialForm.cardNumber ?? "").trim() : "",
       cardExpiry: itemType === "card" ? (credentialForm.cardExpiry ?? "").trim() : "",
@@ -1890,6 +2145,7 @@ export default function App() {
         credential.category,
         credential.notes,
         credential.password,
+        credential.totpIssuer,
         getItemTypeLabel(getItemType(credential), appLanguage),
         credential.cardholderName,
         credential.cardNumber,
@@ -1996,6 +2252,65 @@ export default function App() {
   const masterIssues = validateMasterPassword(setupPassword);
   const score = getPasswordScore(credentialForm.password);
 
+  const vaultOptions = useMemo(() => {
+    const options = [...vaultFiles];
+
+    if (!options.some((item) => item.name === activeVaultName)) {
+      options.unshift({
+        name: activeVaultName,
+        display_name: getVaultDisplayName(activeVaultName, []),
+        filename: `${activeVaultName}.kpvault`,
+        size_bytes: 0,
+        modified_epoch_ms: 0,
+        is_default: activeVaultName === DEFAULT_VAULT_NAME,
+      });
+    }
+
+    if (options.length === 0) {
+      options.push({
+        name: DEFAULT_VAULT_NAME,
+        display_name: "Principal",
+        filename: "vault.kpvault",
+        size_bytes: 0,
+        modified_epoch_ms: 0,
+        is_default: true,
+      });
+    }
+
+    return options;
+  }, [activeVaultName, vaultFiles]);
+
+  const vaultSelectorElement = (
+    <div className="vaultSwitcher">
+      <label>
+        <span>{t("vault.current")}</span>
+        <select
+          value={activeVaultName}
+          onChange={(event) => void handleSwitchVault(event.target.value)}
+        >
+          {vaultOptions.map((item) => (
+            <option key={item.name} value={item.name}>
+              {item.display_name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="newVaultRow">
+        <input
+          value={newVaultName}
+          onChange={(event) => setNewVaultName(event.target.value)}
+          placeholder={t("vault.newNamePlaceholder")}
+        />
+        <button type="button" className="secondaryButton" onClick={() => void handleCreateNewVault()}>
+          {t("vault.create")}
+        </button>
+      </div>
+
+      <small>{t("vault.currentFile", { name: getVaultDisplayName(activeVaultName, vaultFiles) })}</small>
+    </div>
+  );
+
   const confirmDialogElement = confirmDialog ? (
     <div className="confirmOverlay" onMouseDown={() => closeConfirmDialog(false)}>
       <section className="confirmCard" onMouseDown={(event) => event.stopPropagation()}>
@@ -2085,6 +2400,7 @@ export default function App() {
             <AppLogo size="lg" />
             <h1>KPassword</h1>
             <p>{t("status.loadingVault")}</p>
+            {vaultSelectorElement}
           </section>
         </main>
         {confirmDialogElement}
@@ -2152,6 +2468,8 @@ export default function App() {
             >
               {t("auth.restoreBackup")}
             </button>
+
+            {vaultSelectorElement}
           </section>
         </main>
         {confirmDialogElement}
@@ -2199,6 +2517,8 @@ export default function App() {
             >
               {t("auth.restoreBackup")}
             </button>
+
+            {vaultSelectorElement}
           </section>
         </main>
         {confirmDialogElement}
@@ -2933,6 +3253,12 @@ export default function App() {
         {screen === "preferences" && (
           <div className="preferencesGrid">
             <article className="wideCard preferenceCard">
+              <h2>{t("vault.title")}</h2>
+              <p>{t("vault.description")}</p>
+              {vaultSelectorElement}
+            </article>
+
+            <article className="wideCard preferenceCard">
               <h2>{t("language.title")}</h2>
               <p>{t("language.description")}</p>
               <div className="languagePreferenceBox">
@@ -3141,6 +3467,25 @@ export default function App() {
                     <span>{t("detail.updatedAt")}</span>
                     <strong>{formatDate(detailCredential.updatedAt, appLanguage)}</strong>
                   </div>
+                </div>
+              )}
+
+              {itemType === "credential" && detailCredential.totpSecret && (
+                <div className="totpBox">
+                  <div>
+                    <span>{t("totp.title")}</span>
+                    <strong>{detailTotpCode || "------"}</strong>
+                    <small>{t("totp.remaining", { seconds: getTotpRemainingSeconds(totpTick) })}</small>
+                    {detailCredential.totpIssuer && <small>{t("totp.issuer")}: {detailCredential.totpIssuer}</small>}
+                  </div>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={!detailTotpCode}
+                    onClick={() => void copySecure(detailTotpCode, `totp-${detailCredential.id}`)}
+                  >
+                    {copiedField === `totp-${detailCredential.id}` ? t("credential.copied") : t("totp.copy")}
+                  </button>
                 </div>
               )}
 
@@ -3478,6 +3823,28 @@ export default function App() {
                         setCredentialForm((current) => ({ ...current, url: event.target.value }))
                       }
                       placeholder="https://..."
+                    />
+                  </label>
+
+                  <label>
+                    {t("totp.issuer")}
+                    <input
+                      value={credentialForm.totpIssuer ?? ""}
+                      onChange={(event) =>
+                        setCredentialForm((current) => ({ ...current, totpIssuer: event.target.value }))
+                      }
+                      placeholder={t("totp.issuerPlaceholder")}
+                    />
+                  </label>
+
+                  <label>
+                    {t("totp.secret")}
+                    <input
+                      value={credentialForm.totpSecret ?? ""}
+                      onChange={(event) =>
+                        setCredentialForm((current) => ({ ...current, totpSecret: event.target.value }))
+                      }
+                      placeholder={t("totp.secretPlaceholder")}
                     />
                   </label>
 

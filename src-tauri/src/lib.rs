@@ -23,10 +23,21 @@ struct BackupFile {
 }
 
 #[derive(Serialize)]
+struct VaultFileInfo {
+    name: String,
+    display_name: String,
+    filename: String,
+    size_bytes: u64,
+    modified_epoch_ms: u128,
+    is_default: bool,
+}
+
+#[derive(Serialize)]
 struct StorageInfo {
     vault_path: String,
     backup_dir: String,
     backups: Vec<BackupFile>,
+    vault_name: String,
 }
 
 fn now_epoch_seconds() -> u64 {
@@ -43,21 +54,56 @@ fn modified_epoch_ms(modified: SystemTime) -> u128 {
         .as_millis()
 }
 
-fn storage_paths(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
+fn sanitize_vault_name(vault_name: Option<String>) -> Result<String, String> {
+    let raw = vault_name.unwrap_or_else(|| "vault".to_string());
+    let trimmed = raw.trim();
+
+    if trimmed.is_empty() {
+        return Ok("vault".to_string());
+    }
+
+    if trimmed.len() > 48 {
+        return Err("Nome do cofre muito longo.".to_string());
+    }
+
+    if !trimmed
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_')
+    {
+        return Err("Nome de cofre inválido.".to_string());
+    }
+
+    Ok(trimmed.to_string())
+}
+
+fn vault_filename(vault_name: &str) -> String {
+    if vault_name == "vault" {
+        "vault.kpvault".to_string()
+    } else {
+        format!("{vault_name}.kpvault")
+    }
+}
+
+fn storage_paths(app: &AppHandle, vault_name: Option<String>) -> Result<(PathBuf, PathBuf, String), String> {
+    let safe_vault_name = sanitize_vault_name(vault_name)?;
     let data_dir = app
         .path()
         .app_data_dir()
         .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
 
-    let backup_dir = data_dir.join("backups");
+    fs::create_dir_all(&data_dir)
+        .map_err(|error| format!("Erro ao criar pasta do cofre: {error}"))?;
+
+    let backup_dir = if safe_vault_name == "vault" {
+        data_dir.join("backups")
+    } else {
+        data_dir.join("backups").join(&safe_vault_name)
+    };
 
     fs::create_dir_all(&backup_dir)
         .map_err(|error| format!("Erro ao criar pasta de backups: {error}"))?;
 
-    fs::create_dir_all(&data_dir)
-        .map_err(|error| format!("Erro ao criar pasta do cofre: {error}"))?;
-
-    Ok((data_dir.join("vault.kpvault"), backup_dir))
+    Ok((data_dir.join(vault_filename(&safe_vault_name)), backup_dir, safe_vault_name))
 }
 
 fn get_backups_from_dir(backup_dir: &PathBuf) -> Result<Vec<BackupFile>, String> {
@@ -107,14 +153,15 @@ fn should_create_backup(backup_dir: &PathBuf) -> bool {
     now_epoch_seconds().saturating_sub(last_backup_seconds) >= BACKUP_INTERVAL_SECONDS
 }
 
-fn build_storage_info(app: &AppHandle) -> Result<StorageInfo, String> {
-    let (vault_path, backup_dir) = storage_paths(app)?;
+fn build_storage_info(app: &AppHandle, vault_name: Option<String>) -> Result<StorageInfo, String> {
+    let (vault_path, backup_dir, safe_vault_name) = storage_paths(app, vault_name)?;
     let backups = get_backups_from_dir(&backup_dir)?;
 
     Ok(StorageInfo {
         vault_path: vault_path.to_string_lossy().to_string(),
         backup_dir: backup_dir.to_string_lossy().to_string(),
         backups,
+        vault_name: safe_vault_name,
     })
 }
 
@@ -127,8 +174,8 @@ fn show_main_window(app: &AppHandle) {
 }
 
 #[tauri::command]
-fn load_vault_file(app: AppHandle) -> Result<Option<String>, String> {
-    let (vault_path, _) = storage_paths(&app)?;
+fn load_vault_file(app: AppHandle, vault_name: Option<String>) -> Result<Option<String>, String> {
+    let (vault_path, _, _) = storage_paths(&app, vault_name)?;
 
     if !vault_path.exists() {
         return Ok(None);
@@ -140,8 +187,8 @@ fn load_vault_file(app: AppHandle) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-fn save_vault_file(app: AppHandle, payload: String) -> Result<StorageInfo, String> {
-    let (vault_path, backup_dir) = storage_paths(&app)?;
+fn save_vault_file(app: AppHandle, payload: String, vault_name: Option<String>) -> Result<StorageInfo, String> {
+    let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
     let temp_path = vault_path.with_extension("kpvault.tmp");
 
     fs::write(&temp_path, payload.as_bytes())
@@ -151,34 +198,87 @@ fn save_vault_file(app: AppHandle, payload: String) -> Result<StorageInfo, Strin
         .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))?;
 
     if should_create_backup(&backup_dir) {
-        let backup_name = format!("vault-{}.kpvault", now_epoch_seconds());
+        let backup_name = format!("{}-{}.kpvault", safe_vault_name, now_epoch_seconds());
         let backup_path = backup_dir.join(backup_name);
 
         fs::write(backup_path, payload.as_bytes())
             .map_err(|error| format!("Erro ao criar backup criptografado: {error}"))?;
     }
 
-    build_storage_info(&app)
+    build_storage_info(&app, Some(safe_vault_name))
 }
 
 #[tauri::command]
-fn get_storage_info(app: AppHandle) -> Result<StorageInfo, String> {
-    build_storage_info(&app)
+fn get_storage_info(app: AppHandle, vault_name: Option<String>) -> Result<StorageInfo, String> {
+    build_storage_info(&app, vault_name)
 }
 
 #[tauri::command]
-fn list_backup_files(app: AppHandle) -> Result<Vec<BackupFile>, String> {
-    let (_, backup_dir) = storage_paths(&app)?;
+fn list_vault_files(app: AppHandle) -> Result<Vec<VaultFileInfo>, String> {
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
+
+    fs::create_dir_all(&data_dir)
+        .map_err(|error| format!("Erro ao criar pasta do cofre: {error}"))?;
+
+    let mut vaults = Vec::new();
+    let entries = fs::read_dir(&data_dir)
+        .map_err(|error| format!("Erro ao listar cofres locais: {error}"))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+
+        if path.extension().and_then(|value| value.to_str()) != Some("kpvault") {
+            continue;
+        }
+
+        let filename = entry.file_name().to_string_lossy().to_string();
+        let name = filename.trim_end_matches(".kpvault").to_string();
+        let safe_name = if name == "vault" { "vault".to_string() } else { name };
+
+        if let Ok(metadata) = entry.metadata() {
+            vaults.push(VaultFileInfo {
+                display_name: if safe_name == "vault" {
+                    "Principal".to_string()
+                } else {
+                    safe_name.replace('_', " ").replace('-', " ")
+                },
+                filename,
+                name: safe_name.clone(),
+                size_bytes: metadata.len(),
+                modified_epoch_ms: metadata
+                    .modified()
+                    .map(modified_epoch_ms)
+                    .unwrap_or_default(),
+                is_default: safe_name == "vault",
+            });
+        }
+    }
+
+    vaults.sort_by(|a, b| {
+        b.is_default
+            .cmp(&a.is_default)
+            .then_with(|| b.modified_epoch_ms.cmp(&a.modified_epoch_ms))
+    });
+
+    Ok(vaults)
+}
+
+#[tauri::command]
+fn list_backup_files(app: AppHandle, vault_name: Option<String>) -> Result<Vec<BackupFile>, String> {
+    let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
     get_backups_from_dir(&backup_dir)
 }
 
 #[tauri::command]
-fn read_backup_file(app: AppHandle, filename: String) -> Result<String, String> {
+fn read_backup_file(app: AppHandle, filename: String, vault_name: Option<String>) -> Result<String, String> {
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
         return Err("Nome de backup inválido.".to_string());
     }
 
-    let (_, backup_dir) = storage_paths(&app)?;
+    let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
     let backup_path = backup_dir.join(filename);
 
     fs::read_to_string(backup_path)
@@ -260,6 +360,7 @@ pub fn run() {
             load_vault_file,
             save_vault_file,
             get_storage_info,
+            list_vault_files,
             list_backup_files,
             read_backup_file
         ])

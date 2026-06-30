@@ -2579,3 +2579,341 @@ button,
   }
 }
 
+
+/* KPassword v0.5.0 - multi-cofres e TOTP */
+.vaultSwitcher {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  min-width: 0;
+}
+
+.authCard .vaultSwitcher {
+  width: 100%;
+  margin: 6px 0 14px;
+}
+
+.vaultSwitcher label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.vaultSwitcher label span,
+.vaultSwitcher small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.vaultSwitcher select,
+.vaultSwitcher input {
+  min-width: 0;
+}
+
+.newVaultRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.totpBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+}
+
+.totpBox > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.totpBox span,
+.totpBox small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.totpBox strong {
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+@media (max-width: 720px) {
+  .newVaultRow,
+  .totpBox {
+    grid-template-columns: 1fr;
+  }
+
+  .totpBox {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .totpBox button {
+    width: 100%;
+  }
+}
+
+/* === KPassword v0.5.0 login premium responsive START === */
+.authShell {
+  min-height: 100dvh !important;
+  padding: clamp(14px, 3vh, 32px) clamp(12px, 3vw, 32px) !important;
+  place-items: center !important;
+  align-items: center !important;
+  overflow: auto !important;
+}
+
+.authCard {
+  position: relative !important;
+  isolation: isolate !important;
+  width: min(520px, calc(100vw - 24px)) !important;
+  max-height: calc(100dvh - clamp(28px, 6vh, 64px)) !important;
+  overflow-y: auto !important;
+  padding: clamp(22px, 3vw, 34px) !important;
+  border-radius: 30px !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(88, 80, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(0, 225, 255, 0.14), transparent 36%),
+    linear-gradient(180deg, rgba(19, 21, 32, 0.96), rgba(10, 13, 22, 0.95)) !important;
+  box-shadow:
+    0 34px 100px rgba(0, 0, 0, 0.56),
+    0 0 0 1px rgba(255, 255, 255, 0.035) inset,
+    0 0 70px rgba(18, 154, 255, 0.08) !important;
+}
+
+.authCard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(135deg, rgba(56, 189, 248, 0.22), transparent 26%),
+    linear-gradient(315deg, rgba(124, 58, 237, 0.22), transparent 28%);
+  opacity: 0.55;
+  z-index: -1;
+}
+
+.authCard::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.8), transparent);
+}
+
+.authCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.authLanguageRow {
+  justify-content: flex-end !important;
+  min-height: 42px !important;
+  margin: 0 0 8px !important;
+}
+
+.authCard > .appLogo.lg {
+  width: clamp(56px, 7vh, 68px) !important;
+  height: clamp(56px, 7vh, 68px) !important;
+  margin: 2px auto 18px !important;
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.48));
+}
+
+.authCard > .eyebrow {
+  margin: 0 auto 10px !important;
+  text-align: center !important;
+  color: rgba(199, 210, 254, 0.92) !important;
+  letter-spacing: 0.2em !important;
+}
+
+.authCard > h1 {
+  max-width: 100% !important;
+  margin: 0 auto 10px !important;
+  text-align: center !important;
+  font-size: clamp(1.9rem, 3.4vw, 2.45rem) !important;
+  line-height: 1.06 !important;
+  letter-spacing: -0.045em !important;
+}
+
+.authCard > p:not(.eyebrow) {
+  max-width: 440px !important;
+  margin: 0 auto !important;
+  text-align: center !important;
+  line-height: 1.55 !important;
+}
+
+.authForm {
+  margin-top: clamp(18px, 2.8vh, 26px) !important;
+  gap: 16px !important;
+}
+
+.authForm label {
+  gap: 9px !important;
+}
+
+.authForm input {
+  min-height: 56px !important;
+}
+
+.authForm .primaryButton {
+  min-height: 58px !important;
+  border-radius: 18px !important;
+}
+
+.authTextButton {
+  display: inline-flex !important;
+  align-self: center !important;
+  justify-content: center !important;
+  margin: 16px auto 0 !important;
+  text-align: center !important;
+}
+
+.authCard > .vaultSwitcher {
+  width: 100% !important;
+  margin: clamp(16px, 2.4vh, 24px) 0 0 !important;
+  padding: 14px !important;
+  gap: 10px !important;
+  border-radius: 20px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.028)),
+    rgba(10, 13, 22, 0.48) !important;
+  border-color: rgba(255, 255, 255, 0.105) !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24) inset !important;
+}
+
+.authCard > .vaultSwitcher label {
+  gap: 7px !important;
+}
+
+.authCard > .vaultSwitcher label span,
+.authCard > .vaultSwitcher small {
+  font-size: 0.78rem !important;
+  line-height: 1.35 !important;
+}
+
+.authCard > .vaultSwitcher select,
+.authCard > .vaultSwitcher input {
+  min-height: 46px !important;
+  border-radius: 14px !important;
+}
+
+.authCard > .vaultSwitcher small {
+  text-align: center !important;
+}
+
+.authCard > .vaultSwitcher .newVaultRow {
+  grid-template-columns: minmax(0, 1fr) minmax(118px, auto) !important;
+  align-items: stretch !important;
+}
+
+.authCard > .vaultSwitcher .newVaultRow button {
+  min-height: 46px !important;
+  padding: 0 18px !important;
+  white-space: nowrap !important;
+  border-radius: 14px !important;
+}
+
+@media (max-height: 760px) {
+  .authShell {
+    padding-block: 10px !important;
+  }
+
+  .authCard {
+    max-height: calc(100dvh - 20px) !important;
+    padding: 20px 24px !important;
+    border-radius: 26px !important;
+  }
+
+  .authLanguageRow {
+    min-height: 38px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .authCard > .appLogo.lg {
+    width: 52px !important;
+    height: 52px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .authCard > .eyebrow {
+    margin-bottom: 8px !important;
+  }
+
+  .authCard > h1 {
+    margin-bottom: 8px !important;
+    font-size: clamp(1.72rem, 4.8vw, 2.15rem) !important;
+  }
+
+  .authCard > p:not(.eyebrow) {
+    line-height: 1.42 !important;
+  }
+
+  .authForm {
+    margin-top: 16px !important;
+    gap: 12px !important;
+  }
+
+  .authForm input {
+    min-height: 52px !important;
+  }
+
+  .authForm .primaryButton {
+    min-height: 54px !important;
+  }
+
+  .authTextButton {
+    margin-top: 12px !important;
+  }
+
+  .authCard > .vaultSwitcher {
+    margin-top: 14px !important;
+    padding: 12px !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .authShell {
+    place-items: start center !important;
+    padding: 14px !important;
+  }
+
+  .authCard {
+    width: 100% !important;
+    max-height: none !important;
+    min-height: calc(100dvh - 28px) !important;
+    border-radius: 24px !important;
+  }
+
+  .authCard > .vaultSwitcher .newVaultRow {
+    grid-template-columns: 1fr !important;
+  }
+
+  .authCard > .vaultSwitcher .newVaultRow button {
+    width: 100% !important;
+  }
+
+  .languageSelect.compact select {
+    max-width: 94px !important;
+  }
+}
+/* === KPassword v0.5.0 login premium responsive END === */
