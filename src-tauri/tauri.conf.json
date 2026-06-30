@@ -53,7 +53,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk3QjkwMkM5ODJFODg2NTQKUldSVWh1aUN5UUs1bHhvQ0xHNnh4YW13NEUyS3JWZFpJNTdvcjRjdGlQbnNHaTg1MFMwc3BuY0IK",
       "endpoints": [
-        "https://github.com/SEU_USUARIO_GITHUB/SEU_REPO_GITHUB/releases/latest/download/latest.json"
+        "https://github.com/mnstechbr/KPassword/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

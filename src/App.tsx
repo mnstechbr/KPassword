@@ -50,8 +50,8 @@ const CATEGORIES: CredentialCategory[] = [
 
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const APP_VERSION = "0.3.0";
-const UPDATE_GITHUB_OWNER = "SEU_USUARIO_GITHUB";
-const UPDATE_GITHUB_REPO = "SEU_REPO_GITHUB";
+const UPDATE_GITHUB_OWNER = "mnstechbr";
+const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
 
 type Screen = "credentials" | "dashboard" | "settings" | "preferences";
@@ -165,28 +165,6 @@ function normalizeVault(vault: PlainVault): PlainVault {
       lastPasswordRotationReminderAt: vault.settings?.lastPasswordRotationReminderAt,
     },
   };
-}
-
-function compareVersions(currentVersion: string, latestVersion: string) {
-  const clean = (value: string) =>
-    value
-      .replace(/^v/i, "")
-      .split(/[.-]/)
-      .map((part) => Number.parseInt(part, 10) || 0);
-
-  const current = clean(currentVersion);
-  const latest = clean(latestVersion);
-  const maxLength = Math.max(current.length, latest.length);
-
-  for (let index = 0; index < maxLength; index += 1) {
-    const currentPart = current[index] ?? 0;
-    const latestPart = latest[index] ?? 0;
-
-    if (latestPart > currentPart) return 1;
-    if (latestPart < currentPart) return -1;
-  }
-
-  return 0;
 }
 
 export default function App() {
