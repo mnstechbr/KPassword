@@ -1882,3 +1882,21 @@ textarea:focus {
   gap: 0 !important;
 }
 
+/* Ajuste final: deslocar somente o botÃ£o KPassword no menu fechado */
+.sidebarClosed .sidebarBrand .sidebarToggle {
+  transform: translateX(9px) !important;
+}
+
+.sidebarClosed .sidebarBrand .sidebarToggle .appLogo.md {
+  transform: none !important;
+}
+
+.sidebarClosed .sidebarBrand .sidebarToggle .appLogo.md img {
+  transform: none !important;
+}
+
+/* Menu aberto permanece com o alinhamento original */
+.sidebarOpen .sidebarBrand .sidebarToggle {
+  transform: none !important;
+}
+
