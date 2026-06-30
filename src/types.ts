@@ -20,6 +20,15 @@ export type PasswordHistoryEntry = {
   savedAt: string;
 };
 
+export type VaultAttachment = {
+  id: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  dataUrl: string;
+  createdAt: string;
+};
+
 export type CredentialRecord = {
   id: string;
   itemType?: VaultItemType;
@@ -35,6 +44,7 @@ export type CredentialRecord = {
   passwordExpiresInDays?: number;
   passwordExpiryNoticeDays?: number;
   passwordHistory?: PasswordHistoryEntry[];
+  attachments?: VaultAttachment[];
 
   cardholderName?: string;
   cardNumber?: string;

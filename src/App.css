@@ -2465,3 +2465,117 @@ button,
   }
 }
 /* === KPassword v0.4.0 item types and password history END === */
+
+
+/* v0.4.1 - importação, exportação e anexos criptografados */
+.exportActionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.exportBox {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.42);
+  min-width: 0;
+}
+
+.exportBox strong,
+.attachmentItem strong {
+  overflow-wrap: anywhere;
+}
+
+.exportBox span,
+.attachmentItem span {
+  color: var(--muted);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.exportBox label {
+  display: grid;
+  gap: 8px;
+  line-height: 1.35;
+}
+
+.dangerExportBox {
+  border-color: rgba(248, 113, 113, 0.32);
+  background: rgba(127, 29, 29, 0.16);
+}
+
+.attachmentsBox,
+.historyBox {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.32);
+}
+
+.attachmentsList {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.attachmentItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.22);
+  min-width: 0;
+}
+
+.attachmentItem > div:first-child {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.attachmentActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.compactFileButton {
+  width: auto;
+  min-width: 150px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .exportActionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .attachmentItem {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .attachmentActions {
+    justify-content: stretch;
+  }
+
+  .attachmentActions button {
+    flex: 1 1 140px;
+  }
+
+  .compactFileButton {
+    width: 100%;
+  }
+}
+

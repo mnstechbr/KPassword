@@ -25,6 +25,7 @@ import type {
   CredentialCategory,
   CredentialRecord,
   PasswordHistoryEntry,
+  VaultAttachment,
   VaultItemType,
   EncryptedVaultFile,
   PlainVault,
@@ -54,6 +55,7 @@ const EMPTY_FORM: Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> = {
   passwordExpiresInDays: 90,
   passwordExpiryNoticeDays: 15,
   passwordHistory: [],
+  attachments: [],
   cardholderName: "",
   cardNumber: "",
   cardExpiry: "",
@@ -80,7 +82,7 @@ const CATEGORIES: CredentialCategory[] = [
 ];
 
 const CLIPBOARD_CLEAR_SECONDS = 60;
-const APP_VERSION = "0.4.0";
+const APP_VERSION = "0.4.1";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -273,6 +275,251 @@ function maskGenericSecret(value?: string) {
   return `•••• ${normalized.slice(-4)}`;
 }
 
+function getAttachments(credential?: Partial<CredentialRecord> | null): VaultAttachment[] {
+  return Array.isArray(credential?.attachments) ? credential.attachments : [];
+}
+
+function formatBytes(sizeBytes: number) {
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return "0 KB";
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function readFileAsText(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Erro ao ler arquivo."));
+    reader.readAsText(file, "utf-8");
+  });
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Erro ao ler arquivo."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function downloadTextFile(filename: string, content: string, mimeType = "application/json;charset=utf-8") {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadDataUrl(filename: string, dataUrl: string) {
+  const anchor = document.createElement("a");
+
+  anchor.href = dataUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
+function safeExportFilename(value: string) {
+  const clean = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9._-]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+
+  return clean || "kpassword";
+}
+
+function escapeCsvValue(value: unknown) {
+  const text = String(value ?? "");
+
+  if (/[",\r\n;]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  return text;
+}
+
+function buildCsv(items: CredentialRecord[]) {
+  const headers = [
+    "type",
+    "title",
+    "category",
+    "favorite",
+    "username",
+    "password",
+    "url",
+    "notes",
+    "cardholderName",
+    "cardNumber",
+    "cardExpiry",
+    "cardCvv",
+    "cardIssuer",
+    "identityFullName",
+    "identityDocument",
+    "identityEmail",
+    "identityPhone",
+    "identityAddress",
+    "licenseProduct",
+    "licenseKey",
+    "licenseOwner",
+    "licenseExpiresAt",
+    "passwordChangedAt",
+    "passwordExpiresInDays",
+    "passwordExpiryNoticeDays",
+    "createdAt",
+    "updatedAt",
+  ];
+
+  const rows = items.map((item) =>
+    headers.map((header) => escapeCsvValue((item as unknown as Record<string, unknown>)[header])).join(","),
+  );
+
+  return [headers.join(","), ...rows].join("\r\n");
+}
+
+function parseCsvLine(line: string) {
+  const values: string[] = [];
+  let current = "";
+  let quoted = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+      continue;
+    }
+
+    if ((character === "," || character === ";") && !quoted) {
+      values.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += character;
+  }
+
+  values.push(current.trim());
+
+  return values;
+}
+
+function parseCsv(text: string) {
+  const lines = text
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) return [];
+
+  const headers = parseCsvLine(lines[0]).map((header) => header.trim().toLowerCase());
+
+  return lines.slice(1).map((line) => {
+    const values = parseCsvLine(line);
+    const row: Record<string, string> = {};
+
+    headers.forEach((header, index) => {
+      row[header] = values[index] ?? "";
+    });
+
+    return row;
+  });
+}
+
+function getCsvValue(row: Record<string, string>, aliases: string[]) {
+  for (const alias of aliases) {
+    const value = row[alias.toLowerCase()];
+
+    if (value) return value;
+  }
+
+  return "";
+}
+
+function normalizeImportedItemType(value: string): VaultItemType {
+  const normalized = value.trim().toLowerCase();
+
+  if (["secure_note", "secure note", "note", "nota", "nota segura"].includes(normalized)) return "secure_note";
+  if (["card", "cartao", "cartão", "tarjeta"].includes(normalized)) return "card";
+  if (["identity", "identidade", "identidad", "kimlik"].includes(normalized)) return "identity";
+  if (["license", "licenca", "licença", "licencia", "lisans"].includes(normalized)) return "license";
+
+  return "credential";
+}
+
+function normalizeImportedCategory(value: string): CredentialCategory {
+  const normalized = value.trim().toLowerCase();
+
+  if (["pessoal", "personal"].includes(normalized)) return "Pessoal";
+  if (["banco", "bank", "banco/bank"].includes(normalized)) return "Banco";
+  if (["e-mail", "email", "mail"].includes(normalized)) return "E-mail";
+  if (["sistema", "system", "sistema/system"].includes(normalized)) return "Sistema";
+  if (["outro", "other", "otro", "diğer"].includes(normalized)) return "Outro";
+
+  return "Trabalho";
+}
+
+function rowToImportedCredential(row: Record<string, string>, now: string): CredentialRecord {
+  const itemType = normalizeImportedItemType(getCsvValue(row, ["type", "tipo", "itemtype", "item_type"]));
+  const title =
+    getCsvValue(row, ["title", "name", "nome", "titulo", "título", "site", "url"]) ||
+    "Item importado";
+
+  return {
+    id: createId(),
+    itemType,
+    title: title.trim(),
+    category: normalizeImportedCategory(getCsvValue(row, ["category", "categoria"])),
+    favorite: ["true", "1", "sim", "yes"].includes(getCsvValue(row, ["favorite", "favorito"]).toLowerCase()),
+    username: itemType === "credential" ? getCsvValue(row, ["username", "user", "login", "email", "e-mail", "usuario", "usuário"]) : "",
+    password: itemType === "credential" ? getCsvValue(row, ["password", "senha", "pass"]) : "",
+    url: itemType === "credential" ? normalizeUrl(getCsvValue(row, ["url", "site", "website"])) : "",
+    notes: getCsvValue(row, ["notes", "nota", "notas", "observacoes", "observações", "content", "conteudo", "conteúdo"]),
+    passwordChangedAt: getCsvValue(row, ["passwordchangedat", "password_changed_at", "alterada_em"]) || now,
+    passwordExpiresInDays: Number(getCsvValue(row, ["passwordexpiresindays", "password_expires_in_days", "validade_dias"])) || 0,
+    passwordExpiryNoticeDays: Number(getCsvValue(row, ["passwordexpirynoticedays", "password_expiry_notice_days", "aviso_dias"])) || 15,
+    passwordHistory: [],
+    attachments: [],
+    cardholderName: itemType === "card" ? getCsvValue(row, ["cardholdername", "card_holder", "nome_cartao"]) : "",
+    cardNumber: itemType === "card" ? getCsvValue(row, ["cardnumber", "card_number", "numero_cartao", "número_cartão"]) : "",
+    cardExpiry: itemType === "card" ? getCsvValue(row, ["cardexpiry", "card_expiry", "validade_cartao"]) : "",
+    cardCvv: itemType === "card" ? getCsvValue(row, ["cardcvv", "card_cvv", "cvv"]) : "",
+    cardIssuer: itemType === "card" ? getCsvValue(row, ["cardissuer", "card_issuer", "banco_cartao", "emissor"]) : "",
+    identityFullName: itemType === "identity" ? getCsvValue(row, ["identityfullname", "identity_full_name", "nome_completo"]) : "",
+    identityDocument: itemType === "identity" ? getCsvValue(row, ["identitydocument", "identity_document", "documento"]) : "",
+    identityEmail: itemType === "identity" ? getCsvValue(row, ["identityemail", "identity_email"]) : "",
+    identityPhone: itemType === "identity" ? getCsvValue(row, ["identityphone", "identity_phone", "telefone"]) : "",
+    identityAddress: itemType === "identity" ? getCsvValue(row, ["identityaddress", "identity_address", "endereco", "endereço"]) : "",
+    licenseProduct: itemType === "license" ? getCsvValue(row, ["licenseproduct", "license_product", "produto"]) : "",
+    licenseKey: itemType === "license" ? getCsvValue(row, ["licensekey", "license_key", "chave", "serial"]) : "",
+    licenseOwner: itemType === "license" ? getCsvValue(row, ["licenseowner", "license_owner", "proprietario", "proprietário"]) : "",
+    licenseExpiresAt: itemType === "license" ? getCsvValue(row, ["licenseexpiresat", "license_expires_at", "expira_em"]) : "",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 function getPasswordHistory(credential: CredentialRecord): PasswordHistoryEntry[] {
   return credential.passwordHistory ?? [];
 }
@@ -379,6 +626,7 @@ function normalizeVault(vault: PlainVault): PlainVault {
         passwordExpiresInDays: itemType === "credential" ? credential.passwordExpiresInDays ?? 0 : credential.passwordExpiresInDays ?? 0,
         passwordExpiryNoticeDays: itemType === "credential" ? credential.passwordExpiryNoticeDays ?? 15 : credential.passwordExpiryNoticeDays ?? 15,
         passwordHistory: Array.isArray(credential.passwordHistory) ? credential.passwordHistory : [],
+        attachments: Array.isArray(credential.attachments) ? credential.attachments : [],
         cardholderName: credential.cardholderName ?? "",
         cardNumber: credential.cardNumber ?? "",
         cardExpiry: credential.cardExpiry ?? "",
@@ -451,6 +699,7 @@ export default function App() {
   const [newMasterPassword, setNewMasterPassword] = useState("");
   const [newMasterConfirm, setNewMasterConfirm] = useState("");
   const [restorePassword, setRestorePassword] = useState("");
+  const [exportPassword, setExportPassword] = useState("");
   const [restorePopupOpen, setRestorePopupOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState("");
   const [appLanguage, setAppLanguage] = useState<AppLanguage>(getInitialLanguage);
@@ -970,6 +1219,7 @@ export default function App() {
       passwordExpiresInDays: credential.passwordExpiresInDays ?? 0,
       passwordExpiryNoticeDays: credential.passwordExpiryNoticeDays ?? 15,
       passwordHistory: getPasswordHistory(credential),
+      attachments: getAttachments(credential),
       cardholderName: credential.cardholderName ?? "",
       cardNumber: credential.cardNumber ?? "",
       cardExpiry: credential.cardExpiry ?? "",
@@ -1058,6 +1308,7 @@ export default function App() {
       passwordExpiresInDays: itemType === "credential" ? Number(credentialForm.passwordExpiresInDays ?? 0) : 0,
       passwordExpiryNoticeDays: itemType === "credential" ? Number(credentialForm.passwordExpiryNoticeDays ?? 15) : 15,
       passwordHistory: itemType === "credential" ? passwordHistory : [],
+      attachments: previousCredential ? getAttachments(previousCredential) : getAttachments(credentialForm),
       cardholderName: itemType === "card" ? (credentialForm.cardholderName ?? "").trim() : "",
       cardNumber: itemType === "card" ? (credentialForm.cardNumber ?? "").trim() : "",
       cardExpiry: itemType === "card" ? (credentialForm.cardExpiry ?? "").trim() : "",
@@ -1426,6 +1677,200 @@ export default function App() {
     }, (vault?.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS) * 1000);
   }
 
+
+  async function handleAddAttachment(credentialId: string, file?: File) {
+    if (!vault || !file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setMessage(t("attachments.tooLarge"));
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const now = new Date().toISOString();
+      const attachment: VaultAttachment = {
+        id: createId(),
+        name: file.name,
+        mimeType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+        dataUrl,
+        createdAt: now,
+      };
+
+      await persistVault({
+        ...vault,
+        credentials: vault.credentials.map((credential) =>
+          credential.id === credentialId
+            ? {
+                ...credential,
+                attachments: [attachment, ...getAttachments(credential)],
+                updatedAt: now,
+              }
+            : credential,
+        ),
+        updatedAt: now,
+      });
+
+      setMessage(t("attachments.added"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("attachments.addError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRemoveAttachment(credentialId: string, attachmentId: string) {
+    if (!vault) return;
+
+    const target = vault.credentials.find((credential) => credential.id === credentialId);
+    const attachment = getAttachments(target).find((item) => item.id === attachmentId);
+
+    const confirmed = await askConfirmation({
+      title: t("attachments.removeTitle"),
+      message: t("attachments.removeMessage", { name: attachment?.name ?? t("attachments.selected") }),
+      confirmText: t("attachments.remove"),
+      cancelText: t("dialog.cancel"),
+      tone: "danger",
+    });
+
+    if (!confirmed) return;
+
+    const now = new Date().toISOString();
+
+    try {
+      await persistVault({
+        ...vault,
+        credentials: vault.credentials.map((credential) =>
+          credential.id === credentialId
+            ? {
+                ...credential,
+                attachments: getAttachments(credential).filter((item) => item.id !== attachmentId),
+                updatedAt: now,
+              }
+            : credential,
+        ),
+        updatedAt: now,
+      });
+
+      setMessage(t("attachments.removed"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("attachments.removeError"));
+    }
+  }
+
+  async function handleExportEncryptedJson() {
+    if (!vault || !masterPassword) return;
+
+    const confirmed = await askConfirmation({
+      title: t("export.encryptedTitle"),
+      message: t("export.encryptedMessage"),
+      confirmText: t("export.downloadEncrypted"),
+      cancelText: t("dialog.cancel"),
+    });
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    try {
+      const file = await encryptVault(vault, masterPassword, encryptedVault);
+      const date = new Date().toISOString().slice(0, 10);
+      downloadTextFile(
+        `kpassword-export-criptografado-${date}.json`,
+        JSON.stringify(file, null, 2),
+      );
+      setEncryptedVault(file);
+      setMessage(t("export.encryptedSuccess"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("export.encryptedError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleExportPlainCsv() {
+    if (!vault) return;
+
+    if (exportPassword !== masterPassword) {
+      setMessage(t("export.passwordError"));
+      return;
+    }
+
+    const confirmed = await askConfirmation({
+      title: t("export.csvTitle"),
+      message: t("export.csvWarning"),
+      confirmText: t("export.downloadCsv"),
+      cancelText: t("dialog.cancel"),
+      tone: "danger",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const date = new Date().toISOString().slice(0, 10);
+      downloadTextFile(
+        `kpassword-export-aberto-${date}.csv`,
+        buildCsv(getActiveCredentials(vault.credentials)),
+        "text/csv;charset=utf-8",
+      );
+      setExportPassword("");
+      setMessage(t("export.csvSuccess"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("export.csvError"));
+    }
+  }
+
+  async function handleImportCsvFile(file?: File) {
+    if (!vault || !file) return;
+
+    setBusy(true);
+
+    try {
+      const text = await readFileAsText(file);
+      const rows = parseCsv(text);
+      const now = new Date().toISOString();
+      const importedCredentials = rows
+        .map((row) => rowToImportedCredential(row, now))
+        .filter((item) => item.title.trim().length > 0);
+
+      if (importedCredentials.length === 0) {
+        setMessage(t("import.noItems"));
+        return;
+      }
+
+      const confirmed = await askConfirmation({
+        title: t("import.csvTitle"),
+        message: t("import.csvMessage", { count: importedCredentials.length }),
+        confirmText: t("import.import"),
+        cancelText: t("dialog.cancel"),
+      });
+
+      if (!confirmed) return;
+
+      await persistVault({
+        ...vault,
+        credentials: [...importedCredentials, ...vault.credentials],
+        updatedAt: now,
+      });
+
+      setScreen("credentials");
+      setMessage(t("import.csvSuccess", { count: importedCredentials.length }));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("import.csvError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+
   const filteredCredentials = useMemo(() => {
     if (!vault) return [];
 
@@ -1459,6 +1904,7 @@ export default function App() {
         credential.licenseKey,
         credential.licenseOwner,
         credential.licenseExpiresAt,
+        getAttachments(credential).map((attachment) => attachment.name).join(" "),
         credential.favorite ? "favorito favorita estrela" : "",
       ]
         .join(" ")
@@ -2324,6 +2770,55 @@ export default function App() {
               </label>
             </article>
 
+
+            <article className="wideCard securityActionCard">
+              <h2>{t("export.title")}</h2>
+              <p>{t("export.description")}</p>
+
+              <div className="exportActionGrid">
+                <div className="exportBox">
+                  <strong>{t("export.encryptedTitle")}</strong>
+                  <span>{t("export.encryptedDescription")}</span>
+                  <button className="secondaryButton" type="button" onClick={() => void handleExportEncryptedJson()}>
+                    {t("export.downloadEncrypted")}
+                  </button>
+                </div>
+
+                <div className="exportBox dangerExportBox">
+                  <strong>{t("export.csvTitle")}</strong>
+                  <span>{t("export.csvDescription")}</span>
+                  <label>
+                    {t("export.confirmPassword")}
+                    <input
+                      type="password"
+                      value={exportPassword}
+                      onChange={(event) => setExportPassword(event.target.value)}
+                      placeholder={t("auth.unlockPlaceholder")}
+                    />
+                  </label>
+                  <button className="dangerConfirmButton" type="button" onClick={() => void handleExportPlainCsv()}>
+                    {t("export.downloadCsv")}
+                  </button>
+                </div>
+
+                <div className="exportBox">
+                  <strong>{t("import.csvTitle")}</strong>
+                  <span>{t("import.csvDescription")}</span>
+                  <label className="fileImportButton inlineFileButton">
+                    {t("import.selectCsv")}
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={(event) => {
+                        void handleImportCsvFile(event.target.files?.[0]);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+            </article>
+
             <article className="wideCard securityActionCard">
               <h2>{t("settings.securitySettings")}</h2>
               <p>{t("settings.securitySettingsDescription")}</p>
@@ -2748,6 +3243,50 @@ export default function App() {
               <div className="notesBox">
                 <span>{itemType === "secure_note" ? t("note.content") : t("detail.notes")}</span>
                 <p>{detailCredential.notes || t("detail.noNotes")}</p>
+              </div>
+
+              <div className="attachmentsBox">
+                <div className="cardTitleRow">
+                  <div>
+                    <h3>{t("attachments.title")}</h3>
+                    <p>{t("attachments.description")}</p>
+                  </div>
+                  <label className="fileImportButton inlineFileButton compactFileButton">
+                    {t("attachments.add")}
+                    <input
+                      type="file"
+                      onChange={(event) => {
+                        void handleAddAttachment(detailCredential.id, event.target.files?.[0]);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div className="attachmentsList">
+                  {getAttachments(detailCredential).map((attachment) => (
+                    <article key={attachment.id} className="attachmentItem">
+                      <div>
+                        <strong>{attachment.name}</strong>
+                        <span>
+                          {formatBytes(attachment.sizeBytes)} · {attachment.mimeType || "application/octet-stream"} · {formatDate(attachment.createdAt, appLanguage)}
+                        </span>
+                      </div>
+                      <div className="attachmentActions">
+                        <button type="button" onClick={() => downloadDataUrl(safeExportFilename(attachment.name), attachment.dataUrl)}>
+                          {t("attachments.download")}
+                        </button>
+                        <button type="button" className="dangerButton" onClick={() => void handleRemoveAttachment(detailCredential.id, attachment.id)}>
+                          {t("attachments.remove")}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+
+                  {getAttachments(detailCredential).length === 0 && (
+                    <p className="emptyText">{t("attachments.empty")}</p>
+                  )}
+                </div>
               </div>
 
               {itemType === "credential" && (
