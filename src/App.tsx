@@ -6,6 +6,7 @@ import {
   type FormEvent,
   type MouseEvent,
 } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   createEmptyVault,
   decryptVault,
@@ -93,7 +94,7 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "0.6.0";
+const APP_VERSION = "0.6.1";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -838,6 +839,7 @@ export default function App() {
   );
   const [windowsHelloStatus, setWindowsHelloStatus] = useState<WindowsHelloStatus>(DEFAULT_WINDOWS_HELLO_STATUS);
   const [windowsHelloBusy, setWindowsHelloBusy] = useState(false);
+  const [showDashboardMore, setShowDashboardMore] = useState(false);
   const [vaultFiles, setVaultFiles] = useState<VaultFileInfo[]>([]);
   const [newVaultName, setNewVaultName] = useState("");
   const [totpTick, setTotpTick] = useState(Date.now());
@@ -936,6 +938,22 @@ export default function App() {
     localStorage.setItem("kpassword:tray-sound", String(vault.settings.soundOnTray ?? true));
     localStorage.setItem("kpassword:clipboard-clear-seconds", String(vault.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS));
   }, [vault]);
+
+  useEffect(() => {
+    if (screen !== "dashboard" && showDashboardMore) {
+      setShowDashboardMore(false);
+    }
+  }, [screen, showDashboardMore]);
+
+  useEffect(() => {
+    if (!showDashboardMore) return;
+
+    const timer = window.setTimeout(() => {
+      setShowDashboardMore(false);
+    }, 60000);
+
+    return () => window.clearTimeout(timer);
+  }, [showDashboardMore]);
 
   const refreshVaultFiles = useCallback(async () => {
     try {
@@ -1155,6 +1173,31 @@ export default function App() {
     }
   }
 
+  async function prepareWindowsHelloPrompt() {
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.show();
+      await appWindow.unminimize();
+      await appWindow.setAlwaysOnTop(true);
+      await appWindow.setFocus();
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+      await appWindow.setFocus();
+      await new Promise((resolve) => window.setTimeout(resolve, 260));
+    } catch (error) {
+      console.error("Erro ao focar janela antes do Windows Hello:", error);
+    }
+  }
+
+  async function releaseWindowsHelloPromptFocus() {
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.setAlwaysOnTop(false);
+      await appWindow.setFocus();
+    } catch (error) {
+      console.error("Erro ao normalizar janela depois do Windows Hello:", error);
+    }
+  }
+
   async function handleUnlockWithWindowsHello() {
     setMessage("");
 
@@ -1167,6 +1210,7 @@ export default function App() {
     setWindowsHelloBusy(true);
 
     try {
+      await prepareWindowsHelloPrompt();
       const password = await unlockWithWindowsHello(activeVaultName, t("windowsHello.promptUnlock"));
       const plainVault = normalizeVault(await decryptVault(encryptedVault, password));
 
@@ -1185,6 +1229,7 @@ export default function App() {
       setMessage(t("windowsHello.unlockError"));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
+      await releaseWindowsHelloPromptFocus();
       setWindowsHelloBusy(false);
       setBusy(false);
     }
@@ -1217,6 +1262,7 @@ export default function App() {
     setWindowsHelloBusy(true);
 
     try {
+      await prepareWindowsHelloPrompt();
       const status = await enableWindowsHello(activeVaultName, masterPassword, t("windowsHello.promptEnable"));
       setWindowsHelloStatus(status);
       setMessage(t("windowsHello.enabledSuccess"));
@@ -1225,6 +1271,7 @@ export default function App() {
       setMessage(t("windowsHello.enableError"));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
+      await releaseWindowsHelloPromptFocus();
       setWindowsHelloBusy(false);
       setBusy(false);
     }
@@ -2942,62 +2989,79 @@ export default function App() {
         )}
 
         {screen === "dashboard" && (
-          <div className="dashboardGrid">
-            <article className="metricCard">
+          <div className="dashboardGrid compactDashboard">
+            <article className="metricCard dashboardTotalCard">
               <span>{t("dashboard.total")}</span>
               <strong>{stats.total}</strong>
               <small>{t("dashboard.savedItems")}</small>
             </article>
-            <article className="metricCard">
-              <span>{t("itemType.credential")}</span>
-              <strong>{stats.credentialItems}</strong>
-              <small>{t("dashboard.credentialsOnly")}</small>
-            </article>
-            <article className="metricCard">
-              <span>{t("itemType.secure_note")}</span>
-              <strong>{stats.secureNotes}</strong>
-              <small>{t("dashboard.secureNotes")}</small>
-            </article>
-            <article className="metricCard">
-              <span>{t("itemType.card")}</span>
-              <strong>{stats.cards}</strong>
-              <small>{t("dashboard.cards")}</small>
-            </article>
-            <article className="metricCard">
-              <span>{t("dashboard.favorites")}</span>
-              <strong>{stats.favorites}</strong>
-              <small>{t("dashboard.quickAccess")}</small>
-            </article>
-            <article className={stats.expired > 0 ? "metricCard danger" : "metricCard"}>
-              <span>{t("dashboard.expired")}</span>
-              <strong>{stats.expired}</strong>
-              <small>{t("dashboard.expiredDescription")}</small>
-            </article>
-            <article className={stats.expiringSoon > 0 ? "metricCard warning" : "metricCard"}>
-              <span>{t("dashboard.expiringSoon")}</span>
-              <strong>{stats.expiringSoon}</strong>
-              <small>{t("dashboard.expiringSoonDescription")}</small>
-            </article>
-            <article className={stats.weak > 0 ? "metricCard warning" : "metricCard"}>
-              <span>{t("dashboard.weak")}</span>
-              <strong>{stats.weak}</strong>
-              <small>{t("dashboard.reviewNeeded")}</small>
-            </article>
-            <article className={stats.repeated > 0 ? "metricCard warning" : "metricCard"}>
-              <span>{t("dashboard.repeated")}</span>
-              <strong>{stats.repeated}</strong>
-              <small>{t("dashboard.reuseRisk")}</small>
-            </article>
-            <article className={stats.oldPasswords > 0 ? "metricCard warning" : "metricCard"}>
-              <span>{t("dashboard.oldPasswords")}</span>
-              <strong>{stats.oldPasswords}</strong>
-              <small>{t("dashboard.oldPasswordsDescription")}</small>
-            </article>
-            <article className={stats.deleted > 0 ? "metricCard" : "metricCard"}>
-              <span>{t("nav.trash")}</span>
-              <strong>{stats.deleted}</strong>
-              <small>{t("trash.items")}</small>
-            </article>
+
+            <div className="dashboardMoreControl">
+              <button
+                className="secondaryButton"
+                type="button"
+                aria-expanded={showDashboardMore}
+                onClick={() => setShowDashboardMore((current) => !current)}
+              >
+                {showDashboardMore ? t("dashboard.hideMore") : t("dashboard.showMore")}
+              </button>
+              <small>{t("dashboard.moreAutoCollapse")}</small>
+            </div>
+
+            {showDashboardMore && (
+              <div className="dashboardMorePanel dashboardStatsPanel">
+                <article className="metricCard">
+                  <span>{t("itemType.credential")}</span>
+                  <strong>{stats.credentialItems}</strong>
+                  <small>{t("dashboard.credentialsOnly")}</small>
+                </article>
+                <article className="metricCard">
+                  <span>{t("itemType.secure_note")}</span>
+                  <strong>{stats.secureNotes}</strong>
+                  <small>{t("dashboard.secureNotes")}</small>
+                </article>
+                <article className="metricCard">
+                  <span>{t("itemType.card")}</span>
+                  <strong>{stats.cards}</strong>
+                  <small>{t("dashboard.cards")}</small>
+                </article>
+                <article className="metricCard">
+                  <span>{t("dashboard.favorites")}</span>
+                  <strong>{stats.favorites}</strong>
+                  <small>{t("dashboard.quickAccess")}</small>
+                </article>
+                <article className={stats.expired > 0 ? "metricCard danger" : "metricCard"}>
+                  <span>{t("dashboard.expired")}</span>
+                  <strong>{stats.expired}</strong>
+                  <small>{t("dashboard.expiredDescription")}</small>
+                </article>
+                <article className={stats.expiringSoon > 0 ? "metricCard warning" : "metricCard"}>
+                  <span>{t("dashboard.expiringSoon")}</span>
+                  <strong>{stats.expiringSoon}</strong>
+                  <small>{t("dashboard.expiringSoonDescription")}</small>
+                </article>
+                <article className={stats.weak > 0 ? "metricCard warning" : "metricCard"}>
+                  <span>{t("dashboard.weak")}</span>
+                  <strong>{stats.weak}</strong>
+                  <small>{t("dashboard.reviewNeeded")}</small>
+                </article>
+                <article className={stats.repeated > 0 ? "metricCard warning" : "metricCard"}>
+                  <span>{t("dashboard.repeated")}</span>
+                  <strong>{stats.repeated}</strong>
+                  <small>{t("dashboard.reuseRisk")}</small>
+                </article>
+                <article className={stats.oldPasswords > 0 ? "metricCard warning" : "metricCard"}>
+                  <span>{t("dashboard.oldPasswords")}</span>
+                  <strong>{stats.oldPasswords}</strong>
+                  <small>{t("dashboard.oldPasswordsDescription")}</small>
+                </article>
+                <article className="metricCard">
+                  <span>{t("nav.trash")}</span>
+                  <strong>{stats.deleted}</strong>
+                  <small>{t("trash.items")}</small>
+                </article>
+              </div>
+            )}
 
             <article className="wideCard">
               <h2>{t("dashboard.securityHealth")}</h2>

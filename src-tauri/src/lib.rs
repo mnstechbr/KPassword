@@ -343,6 +343,140 @@ mod windows_hello_native {
         fn LocalFree(h_mem: *mut c_void) -> *mut c_void;
     }
 
+
+    type Hwnd = isize;
+
+    const SW_RESTORE: i32 = 9;
+    const SWP_NOSIZE: u32 = 0x0001;
+    const SWP_NOMOVE: u32 = 0x0002;
+    const SWP_SHOWWINDOW: u32 = 0x0040;
+    const HWND_TOPMOST: Hwnd = -1isize;
+    const HWND_NOTOPMOST: Hwnd = -2isize;
+    const ASFW_ANY: u32 = u32::MAX;
+
+    #[repr(C)]
+    struct WindowSearchState {
+        process_id: u32,
+        hwnd: Hwnd,
+    }
+
+    #[link(name = "User32")]
+    extern "system" {
+        fn EnumWindows(callback: Option<unsafe extern "system" fn(Hwnd, isize) -> i32>, l_param: isize) -> i32;
+        fn GetWindowThreadProcessId(hwnd: Hwnd, process_id: *mut u32) -> u32;
+        fn IsWindowVisible(hwnd: Hwnd) -> i32;
+        fn GetWindowTextLengthW(hwnd: Hwnd) -> i32;
+        fn GetWindowTextW(hwnd: Hwnd, lp_string: *mut u16, n_max_count: i32) -> i32;
+        fn ShowWindow(hwnd: Hwnd, n_cmd_show: i32) -> i32;
+        fn SetForegroundWindow(hwnd: Hwnd) -> i32;
+        fn BringWindowToTop(hwnd: Hwnd) -> i32;
+        fn SetActiveWindow(hwnd: Hwnd) -> Hwnd;
+        fn SetFocus(hwnd: Hwnd) -> Hwnd;
+        fn SetWindowPos(hwnd: Hwnd, hwnd_insert_after: Hwnd, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
+        fn GetForegroundWindow() -> Hwnd;
+        fn AttachThreadInput(id_attach: u32, id_attach_to: u32, attach: i32) -> i32;
+        fn AllowSetForegroundWindow(process_id: u32) -> i32;
+    }
+
+    #[link(name = "Kernel32")]
+    extern "system" {
+        fn GetCurrentProcessId() -> u32;
+        fn GetCurrentThreadId() -> u32;
+    }
+
+    unsafe extern "system" fn enum_kpassword_windows(hwnd: Hwnd, l_param: isize) -> i32 {
+        if hwnd == 0 || IsWindowVisible(hwnd) == 0 {
+            return 1;
+        }
+
+        let state = &mut *(l_param as *mut WindowSearchState);
+        let mut process_id = 0u32;
+        let _ = GetWindowThreadProcessId(hwnd, &mut process_id as *mut u32);
+
+        if process_id != state.process_id {
+            return 1;
+        }
+
+        let title_len = GetWindowTextLengthW(hwnd);
+        if title_len <= 0 {
+            return 1;
+        }
+
+        let mut title_buffer = vec![0u16; (title_len as usize) + 1];
+        let copied = GetWindowTextW(hwnd, title_buffer.as_mut_ptr(), title_buffer.len() as i32);
+        if copied <= 0 {
+            return 1;
+        }
+
+        let title = String::from_utf16_lossy(&title_buffer[..copied as usize]);
+        if title.contains("KPassword") {
+            state.hwnd = hwnd;
+            return 0;
+        }
+
+        1
+    }
+
+    fn find_kpassword_hwnd() -> Option<Hwnd> {
+        let mut state = WindowSearchState {
+            process_id: unsafe { GetCurrentProcessId() },
+            hwnd: 0,
+        };
+
+        unsafe {
+            let _ = EnumWindows(Some(enum_kpassword_windows), &mut state as *mut WindowSearchState as isize);
+        }
+
+        if state.hwnd == 0 {
+            None
+        } else {
+            Some(state.hwnd)
+        }
+    }
+
+    fn force_windows_hello_foreground() {
+        let Some(hwnd) = find_kpassword_hwnd() else {
+            return;
+        };
+
+        unsafe {
+            let _ = AllowSetForegroundWindow(ASFW_ANY);
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+
+            let foreground_hwnd = GetForegroundWindow();
+            let current_thread = GetCurrentThreadId();
+            let mut attached = false;
+
+            if foreground_hwnd != 0 {
+                let foreground_thread = GetWindowThreadProcessId(foreground_hwnd, std::ptr::null_mut());
+                if foreground_thread != 0 && foreground_thread != current_thread {
+                    attached = AttachThreadInput(current_thread, foreground_thread, 1) != 0;
+                }
+            }
+
+            let flags = SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW;
+            let _ = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags);
+            let _ = BringWindowToTop(hwnd);
+            let _ = SetActiveWindow(hwnd);
+            let _ = SetFocus(hwnd);
+            let _ = SetForegroundWindow(hwnd);
+            std::thread::sleep(std::time::Duration::from_millis(180));
+
+            let _ = SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
+            let _ = BringWindowToTop(hwnd);
+            let _ = SetActiveWindow(hwnd);
+            let _ = SetFocus(hwnd);
+            let _ = SetForegroundWindow(hwnd);
+
+            if attached && foreground_hwnd != 0 {
+                let foreground_thread = GetWindowThreadProcessId(foreground_hwnd, std::ptr::null_mut());
+                let _ = AttachThreadInput(current_thread, foreground_thread, 0);
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(120));
+        }
+    }
+
     fn hello_dir(app: &AppHandle) -> Result<PathBuf, String> {
         let data_dir = app
             .path()
@@ -396,6 +530,8 @@ mod windows_hello_native {
     }
 
     fn verify_user(reason: &str) -> Result<(), String> {
+        force_windows_hello_foreground();
+
         let availability = check_availability()?;
 
         if availability != UserConsentVerifierAvailability::Available {
@@ -617,6 +753,7 @@ async fn enable_windows_hello(
 ) -> Result<WindowsHelloStatus, String> {
     #[cfg(windows)]
     {
+        show_main_window(&app);
         run_windows_hello_task("enable", move || {
             windows_hello_native::enable(app, vault_name, master_password, reason)
         })
@@ -664,6 +801,7 @@ async fn unlock_with_windows_hello(
 ) -> Result<String, String> {
     #[cfg(windows)]
     {
+        show_main_window(&app);
         run_windows_hello_task("unlock", move || {
             windows_hello_native::unlock(app, vault_name, reason)
         })

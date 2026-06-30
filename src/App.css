@@ -4188,3 +4188,91 @@ textarea {
   }
 }
 /* === KPassword v0.6.0 hotfix desktop login + dashboard END === */
+
+/* === KPassword v0.6.1 taskbar + dashboard compact START === */
+.compactDashboard {
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+}
+
+.compactDashboard .dashboardTotalCard {
+  grid-column: span 8 !important;
+  min-height: 150px !important;
+}
+
+.compactDashboard .dashboardMoreControl {
+  grid-column: span 4 !important;
+  display: grid !important;
+  align-content: center !important;
+  justify-items: stretch !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+  padding: 18px !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018)), rgba(15, 23, 42, 0.68) !important;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.16) !important;
+}
+
+.compactDashboard .dashboardMoreControl button {
+  width: 100% !important;
+  min-height: 52px !important;
+  border-radius: 16px !important;
+}
+
+.compactDashboard .dashboardMoreControl small {
+  color: rgba(148, 163, 184, 0.86) !important;
+  line-height: 1.45 !important;
+  text-align: center !important;
+}
+
+.dashboardMorePanel {
+  grid-column: 1 / -1 !important;
+  display: grid !important;
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  gap: clamp(12px, 1.5vw, 18px) !important;
+  min-width: 0 !important;
+  animation: dashboardMoreIn 160ms ease-out;
+}
+
+@keyframes dashboardMoreIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dashboardMorePanel .metricCard {
+  grid-column: span 3 !important;
+}
+
+.dashboardMorePanel .wideCard {
+  grid-column: span 4 !important;
+}
+
+@media (max-width: 1180px) {
+  .compactDashboard .dashboardTotalCard,
+  .compactDashboard .dashboardMoreControl {
+    grid-column: span 6 !important;
+  }
+
+  .dashboardMorePanel .metricCard {
+    grid-column: span 4 !important;
+  }
+
+  .dashboardMorePanel .wideCard {
+    grid-column: span 6 !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .compactDashboard .dashboardTotalCard,
+  .compactDashboard .dashboardMoreControl,
+  .dashboardMorePanel .metricCard,
+  .dashboardMorePanel .wideCard {
+    grid-column: 1 / -1 !important;
+  }
+
+  .compactDashboard .dashboardTotalCard {
+    min-height: 120px !important;
+  }
+}
+/* === KPassword v0.6.1 taskbar + dashboard compact END === */

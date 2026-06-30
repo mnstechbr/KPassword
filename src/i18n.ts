@@ -1957,8 +1957,32 @@ const v051Translations: Record<AppLanguage, Record<string, string>> = {
 };
 
 
+
+const v061Translations: Record<AppLanguage, Record<string, string>> = {
+  pt: {
+    "dashboard.showMore": "Mostrar mais",
+    "dashboard.hideMore": "Ocultar detalhes",
+    "dashboard.moreAutoCollapse": "Os detalhes recolhem automaticamente em 1 minuto.",
+  },
+  en: {
+    "dashboard.showMore": "Show more",
+    "dashboard.hideMore": "Hide details",
+    "dashboard.moreAutoCollapse": "Details collapse automatically after 1 minute.",
+  },
+  es: {
+    "dashboard.showMore": "Mostrar más",
+    "dashboard.hideMore": "Ocultar detalles",
+    "dashboard.moreAutoCollapse": "Los detalles se contraen automáticamente en 1 minuto.",
+  },
+  tr: {
+    "dashboard.showMore": "Daha fazla göster",
+    "dashboard.hideMore": "Ayrıntıları gizle",
+    "dashboard.moreAutoCollapse": "Ayrıntılar 1 dakika sonra otomatik kapanır.",
+  },
+};
+
 export function translate(language: AppLanguage, key: TranslationKey, values: TranslationValues = {}) {
-  const template = v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
+  const template = v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
 
   return String(template).replace(/\{(\w+)\}/g, (_, name: string) =>
     values[name] === undefined ? `{${name}}` : String(values[name]),

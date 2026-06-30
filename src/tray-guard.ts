@@ -265,6 +265,7 @@ async function startCloseProtection() {
 
 function startMinimizeProtection() {
   const appWindow = getCurrentWindow();
+  let lockedForCurrentMinimize = false;
 
   if (minimizedCheckTimer) {
     clearInterval(minimizedCheckTimer);
@@ -275,9 +276,17 @@ function startMinimizeProtection() {
       try {
         const minimized = await appWindow.isMinimized();
 
-        if (minimized && getBooleanSetting("kpassword:lock-on-minimize", true)) {
-          await hideToTray("minimized");
+        if (!minimized) {
+          lockedForCurrentMinimize = false;
+          return;
         }
+
+        if (lockedForCurrentMinimize || !getBooleanSetting("kpassword:lock-on-minimize", true)) {
+          return;
+        }
+
+        lockedForCurrentMinimize = true;
+        window.dispatchEvent(new CustomEvent("kpassword:lock"));
       } catch (error) {
         console.error("Erro ao verificar janela minimizada:", error);
       }
