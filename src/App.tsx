@@ -16,10 +16,14 @@ import {
 import { generatePassword, getPasswordLabel, getPasswordScore, type PasswordGeneratorMode } from "./password";
 import {
   getStorageInfo,
+  disableWindowsHello,
+  enableWindowsHello,
+  getWindowsHelloStatus,
   listBackupFiles,
   listVaultFiles,
   loadVaultFile,
   saveVaultFile,
+  unlockWithWindowsHello,
 } from "./vault-storage";
 import type {
   BackupFile,
@@ -29,6 +33,7 @@ import type {
   VaultAttachment,
   VaultFileInfo,
   VaultItemType,
+  WindowsHelloStatus,
   EncryptedVaultFile,
   PlainVault,
   StorageInfo,
@@ -88,10 +93,16 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "0.5.0";
+const APP_VERSION = "0.5.1";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
+const DEFAULT_WINDOWS_HELLO_STATUS: WindowsHelloStatus = {
+  available: false,
+  enabled: false,
+  reason: "",
+  vault_name: DEFAULT_VAULT_NAME,
+};
 
 type Screen = "credentials" | "dashboard" | "trash" | "settings" | "preferences";
 
@@ -825,6 +836,8 @@ export default function App() {
   const [activeVaultName, setActiveVaultName] = useState(() =>
     getStoredValue<string>("kpassword:active-vault", DEFAULT_VAULT_NAME),
   );
+  const [windowsHelloStatus, setWindowsHelloStatus] = useState<WindowsHelloStatus>(DEFAULT_WINDOWS_HELLO_STATUS);
+  const [windowsHelloBusy, setWindowsHelloBusy] = useState(false);
   const [vaultFiles, setVaultFiles] = useState<VaultFileInfo[]>([]);
   const [newVaultName, setNewVaultName] = useState("");
   const [totpTick, setTotpTick] = useState(Date.now());
@@ -948,12 +961,30 @@ export default function App() {
     }
   }, [activeVaultName]);
 
+  const refreshWindowsHelloStatus = useCallback(async (vaultName = activeVaultName) => {
+    try {
+      const status = await getWindowsHelloStatus(vaultName);
+      setWindowsHelloStatus(status);
+      return status;
+    } catch (error) {
+      console.error("Erro ao consultar Windows Hello:", error);
+      const fallback = {
+        ...DEFAULT_WINDOWS_HELLO_STATUS,
+        vault_name: vaultName,
+        reason: "",
+      };
+      setWindowsHelloStatus(fallback);
+      return fallback;
+    }
+  }, [activeVaultName]);
+
   useEffect(() => {
     void (async () => {
       try {
         setMessage("");
         setMode("loading");
         await refreshVaultFiles();
+        await refreshWindowsHelloStatus(activeVaultName);
         const raw = await loadVaultFile(activeVaultName);
 
         if (!raw) {
@@ -976,7 +1007,7 @@ export default function App() {
         setMode("setup");
       }
     })();
-  }, [activeVaultName, refreshStorageInfo, refreshVaultFiles]);
+  }, [activeVaultName, refreshStorageInfo, refreshVaultFiles, refreshWindowsHelloStatus]);
 
   const lockVault = useCallback(() => {
     setVault(null);
@@ -1080,6 +1111,7 @@ export default function App() {
       setStorageInfo(info);
       setBackups(info.backups);
       await refreshVaultFiles();
+      await refreshWindowsHelloStatus(activeVaultName);
       setScreen("credentials");
       setMode("unlocked");
       setMessage("");
@@ -1112,12 +1144,118 @@ export default function App() {
       setMode("unlocked");
       setMessage("");
       await refreshStorageInfo();
+      await refreshWindowsHelloStatus(activeVaultName);
       void maybeShowPasswordRotationReminder(plainVault);
       void maybeShowPasswordExpiryReminder(plainVault);
     } catch (error) {
       console.error(error);
       setMessage(t("errors.unlock"));
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUnlockWithWindowsHello() {
+    setMessage("");
+
+    if (!encryptedVault) {
+      setMode("setup");
+      return;
+    }
+
+    setBusy(true);
+    setWindowsHelloBusy(true);
+
+    try {
+      const password = await unlockWithWindowsHello(activeVaultName, t("windowsHello.promptUnlock"));
+      const plainVault = normalizeVault(await decryptVault(encryptedVault, password));
+
+      setVault(plainVault);
+      setMasterPassword(password);
+      setUnlockPassword("");
+      setScreen("credentials");
+      setMode("unlocked");
+      setMessage("");
+      await refreshStorageInfo();
+      await refreshWindowsHelloStatus(activeVaultName);
+      void maybeShowPasswordRotationReminder(plainVault);
+      void maybeShowPasswordExpiryReminder(plainVault);
+    } catch (error) {
+      console.error(error);
+      setMessage(t("windowsHello.unlockError"));
+      await refreshWindowsHelloStatus(activeVaultName);
+    } finally {
+      setWindowsHelloBusy(false);
+      setBusy(false);
+    }
+  }
+
+  async function handleEnableWindowsHello() {
+    setMessage("");
+
+    if (!masterPassword) {
+      setMessage(t("errors.masterPasswordUnavailable"));
+      return;
+    }
+
+    if (!windowsHelloStatus.available) {
+      setMessage(t("windowsHello.unavailable"));
+      await refreshWindowsHelloStatus(activeVaultName);
+      return;
+    }
+
+    const confirmed = await askConfirmation({
+      title: t("windowsHello.enableTitle"),
+      message: t("windowsHello.enableMessage"),
+      confirmText: t("windowsHello.enable"),
+      cancelText: t("dialog.cancel"),
+    });
+
+    if (!confirmed) return;
+
+    setBusy(true);
+    setWindowsHelloBusy(true);
+
+    try {
+      const status = await enableWindowsHello(activeVaultName, masterPassword, t("windowsHello.promptEnable"));
+      setWindowsHelloStatus(status);
+      setMessage(t("windowsHello.enabledSuccess"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("windowsHello.enableError"));
+      await refreshWindowsHelloStatus(activeVaultName);
+    } finally {
+      setWindowsHelloBusy(false);
+      setBusy(false);
+    }
+  }
+
+  async function handleDisableWindowsHello() {
+    setMessage("");
+
+    const confirmed = await askConfirmation({
+      title: t("windowsHello.disableTitle"),
+      message: t("windowsHello.disableMessage"),
+      confirmText: t("windowsHello.disable"),
+      cancelText: t("dialog.cancel"),
+      tone: "danger",
+    });
+
+    if (!confirmed) return;
+
+    setBusy(true);
+    setWindowsHelloBusy(true);
+
+    try {
+      const status = await disableWindowsHello(activeVaultName);
+      setWindowsHelloStatus(status);
+      setMessage(t("windowsHello.disabledSuccess"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("windowsHello.disableError"));
+      await refreshWindowsHelloStatus(activeVaultName);
+    } finally {
+      setWindowsHelloBusy(false);
       setBusy(false);
     }
   }
@@ -1145,6 +1283,7 @@ export default function App() {
     setDetailCredentialId(null);
     setFormOpen(false);
     setSearch("");
+    setWindowsHelloStatus({ ...DEFAULT_WINDOWS_HELLO_STATUS, vault_name: nextVaultName });
     setActiveVaultName(nextVaultName);
   }
 
@@ -1182,6 +1321,7 @@ export default function App() {
     setDetailCredentialId(null);
     setFormOpen(false);
     setSearch("");
+    setWindowsHelloStatus({ ...DEFAULT_WINDOWS_HELLO_STATUS, vault_name: slug });
     setActiveVaultName(slug);
     setMessage(t("vault.newVaultReady"));
   }
@@ -1297,6 +1437,20 @@ export default function App() {
       setNewMasterConfirm("");
       setStorageInfo(info);
       setBackups(info.backups);
+
+      if (windowsHelloStatus.enabled) {
+        try {
+          const status = await enableWindowsHello(activeVaultName, newMasterPassword, t("windowsHello.promptEnable"));
+          setWindowsHelloStatus(status);
+        } catch (helloError) {
+          console.error(helloError);
+          const status = await disableWindowsHello(activeVaultName);
+          setWindowsHelloStatus(status);
+          setMessage(t("windowsHello.reenableNeeded"));
+          return;
+        }
+      }
+
       setMessage(t("success.masterPasswordChanged"));
     } catch (error) {
       console.error(error);
@@ -2508,6 +2662,18 @@ export default function App() {
               <button disabled={busy} className="primaryButton">
                 {busy ? t("auth.unlocking") : t("auth.unlock")}
               </button>
+
+              {windowsHelloStatus.enabled && windowsHelloStatus.available && (
+                <button
+                  type="button"
+                  className="windowsHelloButton"
+                  disabled={busy || windowsHelloBusy}
+                  onClick={() => void handleUnlockWithWindowsHello()}
+                >
+                  <span aria-hidden="true">🪟</span>
+                  {windowsHelloBusy ? t("auth.unlocking") : t("windowsHello.unlock")}
+                </button>
+              )}
             </form>
 
             <button
@@ -3142,6 +3308,40 @@ export default function App() {
             <article className="wideCard securityActionCard">
               <h2>{t("settings.securitySettings")}</h2>
               <p>{t("settings.securitySettingsDescription")}</p>
+
+              <div className={windowsHelloStatus.enabled ? "windowsHelloPanel enabled" : "windowsHelloPanel"}>
+                <div className="windowsHelloPanelText">
+                  <strong>{t("windowsHello.title")}</strong>
+                  <span>{t("windowsHello.description")}</span>
+                  <small>
+                    {windowsHelloStatus.enabled
+                      ? t("windowsHello.statusEnabled")
+                      : windowsHelloStatus.available
+                        ? t("windowsHello.statusDisabled")
+                        : t("windowsHello.unavailable")}
+                  </small>
+                </div>
+
+                {windowsHelloStatus.enabled ? (
+                  <button
+                    type="button"
+                    className="dangerConfirmButton"
+                    disabled={busy || windowsHelloBusy}
+                    onClick={() => void handleDisableWindowsHello()}
+                  >
+                    {windowsHelloBusy ? t("windowsHello.processing") : t("windowsHello.disable")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={busy || windowsHelloBusy || !windowsHelloStatus.available}
+                    onClick={() => void handleEnableWindowsHello()}
+                  >
+                    {windowsHelloBusy ? t("windowsHello.processing") : t("windowsHello.enable")}
+                  </button>
+                )}
+              </div>
 
               <div className="settingsControlGrid">
                 <label>

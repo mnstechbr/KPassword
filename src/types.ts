@@ -114,6 +114,13 @@ export type EncryptedVaultFile = {
   payload: string;
 };
 
+export type WindowsHelloStatus = {
+  available: boolean;
+  enabled: boolean;
+  reason: string;
+  vault_name: string;
+};
+
 export type BackupFile = {
   filename: string;
   size_bytes: number;

@@ -2917,3 +2917,94 @@ button,
   }
 }
 /* === KPassword v0.5.0 login premium responsive END === */
+
+/* === KPassword v0.5.1 Windows Hello START === */
+.windowsHelloButton {
+  display: inline-flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid rgba(125, 211, 252, 0.26);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(124, 58, 237, 0.16)),
+    rgba(255, 255, 255, 0.055);
+  color: #e0f2fe;
+  font-weight: 900;
+  box-shadow:
+    0 14px 34px rgba(14, 165, 233, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.035) inset;
+}
+
+.windowsHelloButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(125, 211, 252, 0.45);
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.24), rgba(124, 58, 237, 0.22)),
+    rgba(255, 255, 255, 0.07);
+}
+
+.windowsHelloButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.windowsHelloPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid rgba(125, 211, 252, 0.17);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(14, 165, 233, 0.14), transparent 34%),
+    rgba(255, 255, 255, 0.055);
+}
+
+.windowsHelloPanel.enabled {
+  border-color: rgba(34, 197, 94, 0.28);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.13), transparent 34%),
+    rgba(255, 255, 255, 0.055);
+}
+
+.windowsHelloPanelText {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.windowsHelloPanelText strong {
+  color: #f8fbff;
+  font-size: 1rem;
+}
+
+.windowsHelloPanelText span {
+  color: #c7d2fe;
+  line-height: 1.5;
+}
+
+.windowsHelloPanelText small {
+  color: #9ca3af;
+  line-height: 1.45;
+}
+
+.windowsHelloPanel button {
+  min-width: 190px;
+  white-space: nowrap;
+}
+
+@media (max-width: 780px) {
+  .windowsHelloPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .windowsHelloPanel button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+/* === KPassword v0.5.1 Windows Hello END === */

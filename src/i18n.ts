@@ -1860,8 +1860,105 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
 };
 
 
+
+const v051Translations: Record<AppLanguage, Record<string, string>> = {
+  pt: {
+    "windowsHello.title": "Windows Hello",
+    "windowsHello.description": "Desbloqueio rápido opcional neste dispositivo. A senha mestra continua sendo o método principal e permanece como fallback.",
+    "windowsHello.unlock": "Desbloquear com Windows Hello",
+    "windowsHello.enable": "Ativar Windows Hello",
+    "windowsHello.disable": "Desativar Windows Hello",
+    "windowsHello.processing": "Processando...",
+    "windowsHello.statusEnabled": "Ativado para este cofre.",
+    "windowsHello.statusDisabled": "Disponível neste dispositivo. Ative após desbloquear com a senha mestra.",
+    "windowsHello.unavailable": "Windows Hello indisponível neste dispositivo ou usuário.",
+    "windowsHello.enableTitle": "Ativar Windows Hello",
+    "windowsHello.enableMessage": "Depois de confirmar no Windows Hello, este cofre poderá ser desbloqueado rapidamente neste usuário do Windows. A senha mestra continuará funcionando como fallback.",
+    "windowsHello.disableTitle": "Desativar Windows Hello",
+    "windowsHello.disableMessage": "O desbloqueio rápido será removido apenas deste cofre e deste dispositivo. A senha mestra continuará funcionando.",
+    "windowsHello.promptEnable": "Confirmar ativação do Windows Hello no KPassword",
+    "windowsHello.promptUnlock": "Desbloquear KPassword com Windows Hello",
+    "windowsHello.enabledSuccess": "Windows Hello ativado para este cofre.",
+    "windowsHello.disabledSuccess": "Windows Hello desativado para este cofre.",
+    "windowsHello.enableError": "Não foi possível ativar o Windows Hello.",
+    "windowsHello.disableError": "Não foi possível desativar o Windows Hello.",
+    "windowsHello.unlockError": "Não foi possível desbloquear com Windows Hello. Use a senha mestra.",
+    "windowsHello.reenableNeeded": "Senha mestra alterada. O Windows Hello foi desativado para este cofre; ative novamente nas configurações."
+  },
+  en: {
+    "windowsHello.title": "Windows Hello",
+    "windowsHello.description": "Optional quick unlock on this device. The master password remains the primary method and stays available as fallback.",
+    "windowsHello.unlock": "Unlock with Windows Hello",
+    "windowsHello.enable": "Enable Windows Hello",
+    "windowsHello.disable": "Disable Windows Hello",
+    "windowsHello.processing": "Processing...",
+    "windowsHello.statusEnabled": "Enabled for this vault.",
+    "windowsHello.statusDisabled": "Available on this device. Enable it after unlocking with the master password.",
+    "windowsHello.unavailable": "Windows Hello is unavailable on this device or user.",
+    "windowsHello.enableTitle": "Enable Windows Hello",
+    "windowsHello.enableMessage": "After confirming in Windows Hello, this vault can be unlocked quickly on this Windows user. The master password will continue to work as fallback.",
+    "windowsHello.disableTitle": "Disable Windows Hello",
+    "windowsHello.disableMessage": "Quick unlock will be removed only from this vault and this device. The master password will continue to work.",
+    "windowsHello.promptEnable": "Confirm Windows Hello activation in KPassword",
+    "windowsHello.promptUnlock": "Unlock KPassword with Windows Hello",
+    "windowsHello.enabledSuccess": "Windows Hello enabled for this vault.",
+    "windowsHello.disabledSuccess": "Windows Hello disabled for this vault.",
+    "windowsHello.enableError": "Could not enable Windows Hello.",
+    "windowsHello.disableError": "Could not disable Windows Hello.",
+    "windowsHello.unlockError": "Could not unlock with Windows Hello. Use the master password.",
+    "windowsHello.reenableNeeded": "Master password changed. Windows Hello was disabled for this vault; enable it again in settings."
+  },
+  es: {
+    "windowsHello.title": "Windows Hello",
+    "windowsHello.description": "Desbloqueo rápido opcional en este dispositivo. La contraseña maestra sigue siendo el método principal y permanece como alternativa.",
+    "windowsHello.unlock": "Desbloquear con Windows Hello",
+    "windowsHello.enable": "Activar Windows Hello",
+    "windowsHello.disable": "Desactivar Windows Hello",
+    "windowsHello.processing": "Procesando...",
+    "windowsHello.statusEnabled": "Activado para esta bóveda.",
+    "windowsHello.statusDisabled": "Disponible en este dispositivo. Actívalo después de desbloquear con la contraseña maestra.",
+    "windowsHello.unavailable": "Windows Hello no está disponible en este dispositivo o usuario.",
+    "windowsHello.enableTitle": "Activar Windows Hello",
+    "windowsHello.enableMessage": "Después de confirmar en Windows Hello, esta bóveda podrá desbloquearse rápidamente en este usuario de Windows. La contraseña maestra seguirá funcionando como alternativa.",
+    "windowsHello.disableTitle": "Desactivar Windows Hello",
+    "windowsHello.disableMessage": "El desbloqueo rápido se eliminará solo de esta bóveda y de este dispositivo. La contraseña maestra seguirá funcionando.",
+    "windowsHello.promptEnable": "Confirmar activación de Windows Hello en KPassword",
+    "windowsHello.promptUnlock": "Desbloquear KPassword con Windows Hello",
+    "windowsHello.enabledSuccess": "Windows Hello activado para esta bóveda.",
+    "windowsHello.disabledSuccess": "Windows Hello desactivado para esta bóveda.",
+    "windowsHello.enableError": "No se pudo activar Windows Hello.",
+    "windowsHello.disableError": "No se pudo desactivar Windows Hello.",
+    "windowsHello.unlockError": "No se pudo desbloquear con Windows Hello. Usa la contraseña maestra.",
+    "windowsHello.reenableNeeded": "Contraseña maestra cambiada. Windows Hello se desactivó para esta bóveda; actívalo nuevamente en la configuración."
+  },
+  tr: {
+    "windowsHello.title": "Windows Hello",
+    "windowsHello.description": "Bu cihazda isteğe bağlı hızlı kilit açma. Ana parola birincil yöntem olarak kalır ve yedek seçenek olmaya devam eder.",
+    "windowsHello.unlock": "Windows Hello ile kilidi aç",
+    "windowsHello.enable": "Windows Hello'yu etkinleştir",
+    "windowsHello.disable": "Windows Hello'yu devre dışı bırak",
+    "windowsHello.processing": "İşleniyor...",
+    "windowsHello.statusEnabled": "Bu kasa için etkin.",
+    "windowsHello.statusDisabled": "Bu cihazda kullanılabilir. Ana parola ile kilidi açtıktan sonra etkinleştirin.",
+    "windowsHello.unavailable": "Windows Hello bu cihazda veya kullanıcıda kullanılamıyor.",
+    "windowsHello.enableTitle": "Windows Hello'yu etkinleştir",
+    "windowsHello.enableMessage": "Windows Hello ile onayladıktan sonra bu kasa bu Windows kullanıcısında hızlıca açılabilir. Ana parola yedek seçenek olarak çalışmaya devam eder.",
+    "windowsHello.disableTitle": "Windows Hello'yu devre dışı bırak",
+    "windowsHello.disableMessage": "Hızlı kilit açma yalnızca bu kasa ve bu cihazdan kaldırılır. Ana parola çalışmaya devam eder.",
+    "windowsHello.promptEnable": "KPassword içinde Windows Hello etkinleştirmesini onayla",
+    "windowsHello.promptUnlock": "KPassword kilidini Windows Hello ile aç",
+    "windowsHello.enabledSuccess": "Windows Hello bu kasa için etkinleştirildi.",
+    "windowsHello.disabledSuccess": "Windows Hello bu kasa için devre dışı bırakıldı.",
+    "windowsHello.enableError": "Windows Hello etkinleştirilemedi.",
+    "windowsHello.disableError": "Windows Hello devre dışı bırakılamadı.",
+    "windowsHello.unlockError": "Windows Hello ile kilit açılamadı. Ana parolayı kullanın.",
+    "windowsHello.reenableNeeded": "Ana parola değiştirildi. Windows Hello bu kasa için devre dışı bırakıldı; ayarlardan tekrar etkinleştirin."
+  },
+};
+
+
 export function translate(language: AppLanguage, key: TranslationKey, values: TranslationValues = {}) {
-  const template = v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
+  const template = v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
 
   return String(template).replace(/\{(\w+)\}/g, (_, name: string) =>
     values[name] === undefined ? `{${name}}` : String(values[name]),
