@@ -21,7 +21,7 @@ O objetivo do projeto é manter dados sensíveis em um cofre criptografado no pr
 - Exportação JSON criptografada.
 - Exportação CSV aberta com confirmação da senha mestra.
 - Backups criptografados.
-- Analítico de saúde do cofre.
+- Analítico com Diagnóstico do Cofre.
 - Temas Escuro, Claro e Misto.
 - Idiomas: Português, Inglês, Espanhol e Turco.
 - Bandeja do sistema com modo completo, modo compacto e sair.
@@ -66,20 +66,20 @@ Use o script principal mantido no projeto:
 
 ```powershell
 cd C:\Projetos\KPassword
-powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "0.7.2"
+powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "0.8.0"
 ```
 
 Os arquivos de release serão gerados em:
 
 ```text
-C:\Projetos\KPassword\dist-release\v0.7.2
+C:\Projetos\KPassword\dist-release\v0.8.0
 ```
 
 Anexe estes arquivos na release do GitHub:
 
 ```text
-KPassword-Setup-v0.7.2.exe
-KPassword-Setup-v0.7.2.exe.sig
+KPassword-Setup-v0.8.0.exe
+KPassword-Setup-v0.8.0.exe.sig
 latest.json
 ```
 
@@ -96,4 +96,5 @@ A chave privada de assinatura do updater não deve ser colocada no repositório.
 - `docs/SECURITY.md`
 - `docs/ARCHITECTURE.md`
 - `docs/USER_GUIDE.md`
+- `docs/VAULT_DIAGNOSTIC.md`
 - `docs/MAINTENANCE.md`

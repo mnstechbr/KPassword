@@ -96,7 +96,7 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "0.7.2";
+const APP_VERSION = "0.8.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -118,6 +118,20 @@ const PASSWORD_EXPIRY_OPTIONS = [0, 30, 60, 90, 180, 365];
 const PASSWORD_NOTICE_OPTIONS = [7, 15, 30, 60];
 
 type PasswordExpiryStatus = "never" | "valid" | "soon" | "expired";
+
+type DiagnosticFilter =
+  | "all"
+  | "weak"
+  | "reused"
+  | "old"
+  | "expired"
+  | "expiring"
+  | "missingTotp"
+  | "incomplete";
+
+type DiagnosticIssue = Exclude<DiagnosticFilter, "all">;
+
+const OLD_PASSWORD_DAYS = 180;
 
 type ConfirmDialog = {
   title: string;
@@ -778,6 +792,65 @@ function getExpiryBadgeClass(status: PasswordExpiryStatus) {
   return "expiryBadge never";
 }
 
+function getCredentialDiagnosticIssues(
+  credential: CredentialRecord,
+  passwordCounts: Map<string, number>,
+): DiagnosticIssue[] {
+  if (!isCredentialItem(credential)) return [];
+
+  const issues: DiagnosticIssue[] = [];
+  const normalizedPassword = credential.password.trim();
+  const expiryInfo = getPasswordExpiryInfo(credential);
+
+  if (!normalizedPassword || getPasswordScore(normalizedPassword) < 60) {
+    issues.push("weak");
+  }
+
+  if (normalizedPassword && (passwordCounts.get(normalizedPassword) ?? 0) > 1) {
+    issues.push("reused");
+  }
+
+  if (expiryInfo.status === "expired") {
+    issues.push("expired");
+  } else if (expiryInfo.status === "soon") {
+    issues.push("expiring");
+  }
+
+  if (daysBetween(getCredentialPasswordChangedAt(credential)) >= OLD_PASSWORD_DAYS) {
+    issues.push("old");
+  }
+
+  if (!credential.totpSecret?.trim()) {
+    issues.push("missingTotp");
+  }
+
+  if (!credential.url.trim() || !credential.username.trim()) {
+    issues.push("incomplete");
+  }
+
+  return issues;
+}
+
+function getVaultHealthTone(score: number) {
+  if (score >= 85) return "safe";
+  if (score >= 70) return "good";
+  if (score >= 50) return "warning";
+  return "danger";
+}
+
+function getVaultHealthScore(issueCounts: Record<DiagnosticIssue, number>) {
+  const penalties =
+    issueCounts.expired * 12 +
+    issueCounts.reused * 10 +
+    issueCounts.weak * 8 +
+    issueCounts.expiring * 5 +
+    issueCounts.old * 4 +
+    issueCounts.missingTotp * 3 +
+    issueCounts.incomplete * 2;
+
+  return Math.max(0, Math.min(100, 100 - penalties));
+}
+
 function normalizeVault(vault: PlainVault): PlainVault {
   const now = new Date().toISOString();
 
@@ -861,6 +934,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
+  const [activeDiagnosticFilter, setActiveDiagnosticFilter] = useState<DiagnosticFilter>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailCredentialId, setDetailCredentialId] = useState<string | null>(null);
@@ -1358,6 +1432,7 @@ export default function App() {
     setDetailCredentialId(null);
     setFormOpen(false);
     setSearch("");
+    setActiveDiagnosticFilter("all");
     setWindowsHelloStatus({ ...DEFAULT_WINDOWS_HELLO_STATUS, vault_name: nextVaultName });
     setActiveVaultName(nextVaultName);
   }
@@ -1396,6 +1471,7 @@ export default function App() {
     setDetailCredentialId(null);
     setFormOpen(false);
     setSearch("");
+    setActiveDiagnosticFilter("all");
     setWindowsHelloStatus({ ...DEFAULT_WINDOWS_HELLO_STATUS, vault_name: slug });
     setActiveVaultName(slug);
     setMessage(t("vault.newVaultReady"));
@@ -2373,6 +2449,36 @@ export default function App() {
   }
 
 
+  const diagnosticPasswordCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    getActiveCredentials(vault?.credentials ?? [])
+      .filter(isCredentialItem)
+      .forEach((credential) => {
+        const password = credential.password.trim();
+        if (!password) return;
+        counts.set(password, (counts.get(password) ?? 0) + 1);
+      });
+
+    return counts;
+  }, [vault]);
+
+  const getDiagnosticIssuesFor = useCallback(
+    (credential: CredentialRecord) => getCredentialDiagnosticIssues(credential, diagnosticPasswordCounts),
+    [diagnosticPasswordCounts],
+  );
+
+  const getDiagnosticLabel = useCallback(
+    (issue: DiagnosticFilter) => t(`diagnostic.issue.${issue}`),
+    [t],
+  );
+
+  const openDiagnosticFilter = useCallback((filter: DiagnosticFilter) => {
+    setActiveDiagnosticFilter(filter);
+    setSearch("");
+    setScreen("credentials");
+  }, []);
+
   const filteredCredentials = useMemo(() => {
     if (!vault) return [];
 
@@ -2383,6 +2489,10 @@ export default function App() {
       .filter(Boolean);
 
     return getOrderedCredentials(getActiveCredentials(vault.credentials)).filter((credential) => {
+      if (activeDiagnosticFilter !== "all" && !getDiagnosticIssuesFor(credential).includes(activeDiagnosticFilter)) {
+        return false;
+      }
+
       if (terms.length === 0) return true;
 
       const searchable = [
@@ -2415,7 +2525,7 @@ export default function App() {
 
       return terms.every((term) => searchable.includes(term));
     });
-  }, [appLanguage, search, vault]);
+  }, [activeDiagnosticFilter, appLanguage, getDiagnosticIssuesFor, search, vault]);
 
   const detailCredential = useMemo(() => {
     if (!vault || !detailCredentialId) return null;
@@ -2429,9 +2539,11 @@ export default function App() {
     const repeatedPasswords = new Map<string, number>();
 
     credentialItems.forEach((credential) => {
+      const password = credential.password.trim();
+      if (!password) return;
       repeatedPasswords.set(
-        credential.password,
-        (repeatedPasswords.get(credential.password) ?? 0) + 1,
+        password,
+        (repeatedPasswords.get(password) ?? 0) + 1,
       );
     });
 
@@ -2439,7 +2551,7 @@ export default function App() {
       (credential) => getPasswordScore(credential.password) < 60,
     ).length;
     const repeated = credentialItems.filter(
-      (credential) => (repeatedPasswords.get(credential.password) ?? 0) > 1,
+      (credential) => credential.password.trim() && (repeatedPasswords.get(credential.password.trim()) ?? 0) > 1,
     ).length;
     const expired = credentialItems.filter(
       (credential) => getPasswordExpiryInfo(credential).status === "expired",
@@ -2484,38 +2596,55 @@ export default function App() {
   const weakCredentials = credentialItems.filter(
     (credential) => getPasswordScore(credential.password) < 60,
   );
-  const repeatedPasswordCounts = new Map<string, number>();
-  credentialItems.forEach((credential) => {
-    repeatedPasswordCounts.set(credential.password, (repeatedPasswordCounts.get(credential.password) ?? 0) + 1);
-  });
   const repeatedCredentials = credentialItems.filter(
-    (credential) => (repeatedPasswordCounts.get(credential.password) ?? 0) > 1,
+    (credential) => credential.password.trim() && (diagnosticPasswordCounts.get(credential.password.trim()) ?? 0) > 1,
+  );
+  const oldPasswordCredentials = credentialItems.filter(
+    (credential) => daysBetween(getCredentialPasswordChangedAt(credential)) >= OLD_PASSWORD_DAYS,
+  );
+  const missingTotpCredentials = credentialItems.filter(
+    (credential) => !credential.totpSecret?.trim(),
   );
   const incompleteCredentials = credentialItems.filter(
-    (credential) => !credential.url || !credential.username || !credential.category,
+    (credential) => !credential.url.trim() || !credential.username.trim() || !credential.category,
   );
 
+  const diagnosticIssueCounts: Record<DiagnosticIssue, number> = {
+    weak: weakCredentials.length,
+    reused: repeatedCredentials.length,
+    old: oldPasswordCredentials.length,
+    expired: expiredCredentials.length,
+    expiring: expiringSoonCredentials.length,
+    missingTotp: missingTotpCredentials.length,
+    incomplete: incompleteCredentials.length,
+  };
 
-  const analyticIssueCount =
-    stats.weak +
-    stats.repeated +
-    stats.expired +
-    stats.expiringSoon +
-    stats.missingUrl +
-    stats.missingUser +
-    stats.oldPasswords +
-    stats.deleted;
+  const vaultHealthScore = getVaultHealthScore(diagnosticIssueCounts);
+  const vaultHealthTone = getVaultHealthTone(vaultHealthScore);
+  const analyticIssueCount = Object.values(diagnosticIssueCounts).reduce((total, count) => total + count, 0);
 
-  const analyticSignals = [
-    { label: t("dashboard.expiredCount", { count: stats.expired }), count: stats.expired, tone: "danger" },
-    { label: t("dashboard.expiringSoonCount", { count: stats.expiringSoon }), count: stats.expiringSoon, tone: "warning" },
-    { label: t("dashboard.weakCount", { count: stats.weak }), count: stats.weak, tone: "warning" },
-    { label: t("dashboard.repeatedCount", { count: stats.repeated }), count: stats.repeated, tone: "warning" },
-    { label: t("dashboard.missingUrlCount", { count: stats.missingUrl }), count: stats.missingUrl, tone: "neutral" },
-    { label: t("dashboard.missingUserCount", { count: stats.missingUser }), count: stats.missingUser, tone: "neutral" },
-    { label: t("dashboard.oldPasswordCount", { count: stats.oldPasswords }), count: stats.oldPasswords, tone: "neutral" },
-    { label: t("dashboard.deletedCount", { count: stats.deleted }), count: stats.deleted, tone: "neutral" },
-  ].filter((item) => item.count > 0);
+  const diagnosticCards: Array<{
+    filter: DiagnosticFilter;
+    count: number;
+    tone: "danger" | "warning" | "neutral";
+    description: string;
+  }> = [
+    { filter: "expired", count: diagnosticIssueCounts.expired, tone: "danger", description: t("diagnostic.description.expired") },
+    { filter: "reused", count: diagnosticIssueCounts.reused, tone: "danger", description: t("diagnostic.description.reused") },
+    { filter: "weak", count: diagnosticIssueCounts.weak, tone: "warning", description: t("diagnostic.description.weak") },
+    { filter: "expiring", count: diagnosticIssueCounts.expiring, tone: "warning", description: t("diagnostic.description.expiring") },
+    { filter: "old", count: diagnosticIssueCounts.old, tone: "neutral", description: t("diagnostic.description.old", { days: OLD_PASSWORD_DAYS }) },
+    { filter: "missingTotp", count: diagnosticIssueCounts.missingTotp, tone: "neutral", description: t("diagnostic.description.missingTotp") },
+    { filter: "incomplete", count: diagnosticIssueCounts.incomplete, tone: "neutral", description: t("diagnostic.description.incomplete") },
+  ];
+
+  const analyticSignals = diagnosticCards
+    .filter((item) => item.count > 0)
+    .map((item) => ({
+      label: t("diagnostic.signal", { label: getDiagnosticLabel(item.filter), count: item.count }),
+      count: item.count,
+      tone: item.tone,
+    }));
 
   const analyticSummaryItems = [
     { label: t("itemType.credential"), count: stats.credentialItems },
@@ -2527,17 +2656,16 @@ export default function App() {
     { label: t("nav.trash"), count: stats.deleted },
   ];
 
-  const analyticAttentionItems = [
-    ...expiredCredentials,
-    ...expiringSoonCredentials,
-    ...weakCredentials,
-    ...repeatedCredentials,
-    ...incompleteCredentials,
-  ]
-    .filter((credential, index, list) => list.findIndex((item) => item.id === credential.id) === index)
-    .slice(0, 5);
+  const analyticAttentionItems = credentialItems
+    .map((credential) => ({
+      credential,
+      issues: getDiagnosticIssuesFor(credential),
+    }))
+    .filter((item) => item.issues.length > 0)
+    .sort((first, second) => second.issues.length - first.issues.length)
+    .slice(0, 6);
 
-  const canReorderCredentials = search.trim().length === 0;
+  const canReorderCredentials = search.trim().length === 0 && activeDiagnosticFilter === "all";
   const masterIssues = validateMasterPassword(setupPassword);
   const score = getPasswordScore(credentialForm.password);
 
@@ -3061,6 +3189,18 @@ export default function App() {
               <span>{t("search.results", { count: filteredCredentials.length })}</span>
             </div>
 
+            {activeDiagnosticFilter !== "all" && (
+              <div className="diagnosticFilterBanner">
+                <div>
+                  <strong>{t("diagnostic.filteringBy")}</strong>
+                  <span>{getDiagnosticLabel(activeDiagnosticFilter)}</span>
+                </div>
+                <button type="button" className="secondaryButton" onClick={() => setActiveDiagnosticFilter("all")}>
+                  {t("diagnostic.clearFilter")}
+                </button>
+              </div>
+            )}
+
             <section className="credentialRows">
               {filteredCredentials.map((credential, index) => {
                 const itemType = getItemType(credential);
@@ -3135,6 +3275,11 @@ export default function App() {
                           <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
                             {getExpiryLabel(credential)}
                           </span>
+                          {getDiagnosticIssuesFor(credential).slice(0, 2).map((issue) => (
+                            <span key={issue} className={`diagnosticMiniBadge issue-${issue}`}>
+                              {getDiagnosticLabel(issue)}
+                            </span>
+                          ))}
                         </>
                       ) : (
                         <>
@@ -3198,22 +3343,39 @@ export default function App() {
 
         {screen === "dashboard" && (
           <div className="analyticsPage">
-            <section className={`analyticsHero ${analyticIssueCount > 0 ? "attention" : "safe"}`}>
+            <section className={`analyticsHero vaultHealthHero ${analyticIssueCount > 0 ? "attention" : "safe"} tone-${vaultHealthTone}`}>
               <div>
-                <p className="eyebrow">{t("nav.dashboard")}</p>
-                <h2>{analyticIssueCount > 0 ? t("dashboard.attentionList") : t("dashboard.noAttentionItems")}</h2>
+                <p className="eyebrow">{t("diagnostic.title")}</p>
+                <h2>{t(`diagnostic.health.${vaultHealthTone}`)}</h2>
                 <p>
                   {analyticIssueCount > 0
-                    ? `${analyticIssueCount} ${t("dashboard.reviewNeeded")}`
-                    : getVaultDisplayName(activeVaultName, vaultFiles)}
+                    ? t("diagnostic.heroIssues", { count: analyticIssueCount })
+                    : t("diagnostic.heroSafe")}
                 </p>
               </div>
 
-              <div className="analyticsTotalBadge" aria-label={t("dashboard.total")}>
-                <span>{t("dashboard.total")}</span>
-                <strong>{stats.total}</strong>
-                <small>{getVaultDisplayName(activeVaultName, vaultFiles)}</small>
+              <div className="vaultScoreBadge" aria-label={t("diagnostic.score")}>
+                <span>{t("diagnostic.score")}</span>
+                <strong>{vaultHealthScore}</strong>
+                <small>/100 · {getVaultDisplayName(activeVaultName, vaultFiles)}</small>
               </div>
+            </section>
+
+            <section className="diagnosticCardGrid">
+              {diagnosticCards.map((card) => (
+                <button
+                  key={card.filter}
+                  type="button"
+                  className={`diagnosticCard tone-${card.tone} ${card.count > 0 ? "hasIssues" : "clear"}`}
+                  onClick={() => card.count > 0 && openDiagnosticFilter(card.filter)}
+                  disabled={card.count === 0}
+                >
+                  <span>{getDiagnosticLabel(card.filter)}</span>
+                  <strong>{card.count}</strong>
+                  <small>{card.description}</small>
+                  <em>{card.count > 0 ? t("diagnostic.viewItems") : t("diagnostic.ok")}</em>
+                </button>
+              ))}
             </section>
 
             <section className="analyticsGrid">
@@ -3227,29 +3389,29 @@ export default function App() {
                       </span>
                     ))
                   ) : (
-                    <p className="emptyText">{t("dashboard.noAttentionItems")}</p>
+                    <p className="emptyText">{t("diagnostic.noIssues")}</p>
                   )}
                 </div>
               </article>
 
               <article className="wideCard analyticsCard analyticsAttentionCard">
-                <h2>{t("dashboard.attentionList")}</h2>
+                <h2>{t("diagnostic.reviewFirst")}</h2>
                 <div className="miniList analyticsMiniList">
                   {analyticAttentionItems.length > 0 ? (
-                    analyticAttentionItems.map((credential) => (
+                    analyticAttentionItems.map((item) => (
                       <button
-                        key={credential.id}
+                        key={item.credential.id}
                         onClick={() => {
-                          setDetailCredentialId(credential.id);
+                          setDetailCredentialId(item.credential.id);
                           setScreen("credentials");
                         }}
                       >
-                        <strong>{credential.title}</strong>
-                        <span>{getExpiryLabel(credential)} · {translatePasswordLabel(getPasswordLabel(getPasswordScore(credential.password)), appLanguage)}</span>
+                        <strong>{item.credential.title}</strong>
+                        <span>{item.issues.map((issue) => getDiagnosticLabel(issue)).slice(0, 3).join(" · ")}</span>
                       </button>
                     ))
                   ) : (
-                    <p className="emptyText">{t("dashboard.noAttentionItems")}</p>
+                    <p className="emptyText">{t("diagnostic.noIssues")}</p>
                   )}
                 </div>
               </article>
@@ -3929,6 +4091,31 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {itemType === "credential" && (() => {
+                const issues = getDiagnosticIssuesFor(detailCredential);
+
+                return (
+                  <div className={issues.length > 0 ? "credentialDiagnosisBox attention" : "credentialDiagnosisBox safe"}>
+                    <div>
+                      <strong>{t("diagnostic.itemTitle")}</strong>
+                      <span>{issues.length > 0 ? t("diagnostic.itemAttention") : t("diagnostic.itemSafe")}</span>
+                    </div>
+
+                    {issues.length > 0 ? (
+                      <div className="credentialDiagnosisList">
+                        {issues.map((issue) => (
+                          <span key={issue} className={`diagnosticMiniBadge issue-${issue}`}>
+                            {getDiagnosticLabel(issue)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="diagnosticMiniBadge issue-safe">{t("diagnostic.ok")}</span>
+                    )}
+                  </div>
+                );
+              })()}
 
               {itemType === "credential" && detailCredential.totpSecret && (
                 <div className="totpBox">

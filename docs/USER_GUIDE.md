@@ -62,3 +62,11 @@ A tela Configurações concentra preferências de interface:
 ## Importante
 
 O KPassword não consegue recuperar sua senha mestra. Isso é parte do modelo de segurança.
+
+## Diagnóstico do Cofre
+
+Na tela **Analítico**, o KPassword mostra a saúde geral do cofre.
+
+Você pode clicar em cards como **Senhas fracas**, **Senhas reutilizadas** ou **Sem TOTP** para abrir o Cofre já filtrado pelos itens que precisam de revisão.
+
+Ao abrir uma credencial, o detalhe também mostra o diagnóstico individual daquele item.

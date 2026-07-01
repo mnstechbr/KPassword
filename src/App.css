@@ -7734,3 +7734,314 @@ select option {
   }
 }
 /* === KPassword v0.7.1 hotfix compacto topo menor END === */
+
+/* === KPassword v0.8.0 Diagnóstico do Cofre START === */
+.vaultHealthHero {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.vaultHealthHero.tone-safe {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.18), transparent 34%),
+    var(--kp-panel-bg) !important;
+}
+
+.vaultHealthHero.tone-good {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.18), transparent 34%),
+    var(--kp-panel-bg) !important;
+}
+
+.vaultHealthHero.tone-warning {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.18), transparent 34%),
+    var(--kp-panel-bg) !important;
+}
+
+.vaultHealthHero.tone-danger {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(248, 113, 113, 0.18), transparent 34%),
+    var(--kp-panel-bg) !important;
+}
+
+.vaultScoreBadge {
+  display: grid;
+  min-width: 168px;
+  justify-items: end;
+  gap: 4px;
+  padding: 18px 20px;
+  border: 1px solid var(--kp-line);
+  border-radius: 24px;
+  background: var(--kp-field-bg);
+}
+
+.vaultScoreBadge span,
+.vaultScoreBadge small {
+  color: var(--kp-readable-muted) !important;
+  line-height: 1.25;
+}
+
+.vaultScoreBadge strong {
+  color: var(--kp-readable) !important;
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  line-height: 0.92;
+  letter-spacing: -0.08em;
+}
+
+.diagnosticCardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(12px, 1.7vw, 18px);
+}
+
+.diagnosticCard {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 154px;
+  padding: 16px;
+  border: 1px solid var(--kp-line);
+  border-radius: 22px;
+  background: var(--kp-panel-bg);
+  color: var(--kp-readable);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--kp-shadow, 0 14px 40px rgba(0, 0, 0, 0.18));
+}
+
+.diagnosticCard:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.diagnosticCard span {
+  color: var(--kp-readable-muted) !important;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.diagnosticCard strong {
+  color: var(--kp-readable) !important;
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.diagnosticCard small {
+  color: var(--kp-readable-muted) !important;
+  line-height: 1.35;
+}
+
+.diagnosticCard em {
+  align-self: end;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--kp-readable) !important;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.diagnosticCard.tone-danger.hasIssues {
+  border-color: rgba(248, 113, 113, 0.34);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(248, 113, 113, 0.15), transparent 42%),
+    var(--kp-panel-bg);
+}
+
+.diagnosticCard.tone-warning.hasIssues {
+  border-color: rgba(245, 158, 11, 0.34);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.15), transparent 42%),
+    var(--kp-panel-bg);
+}
+
+.diagnosticCard.clear {
+  border-color: rgba(34, 197, 94, 0.24);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.09), transparent 42%),
+    var(--kp-panel-bg);
+}
+
+.diagnosticFilterBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 18px;
+  background: rgba(56, 189, 248, 0.09);
+}
+
+.diagnosticFilterBanner div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.diagnosticFilterBanner strong {
+  color: var(--kp-readable) !important;
+  font-size: 0.82rem;
+}
+
+.diagnosticFilterBanner span {
+  color: var(--kp-readable-muted) !important;
+  font-size: 0.78rem;
+}
+
+.diagnosticMiniBadge {
+  display: inline-flex !important;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid var(--kp-line);
+  border-radius: 999px;
+  color: var(--kp-readable) !important;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 0.68rem !important;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.diagnosticMiniBadge.issue-expired,
+.diagnosticMiniBadge.issue-reused,
+.diagnosticMiniBadge.issue-weak {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.diagnosticMiniBadge.issue-expiring,
+.diagnosticMiniBadge.issue-old {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.diagnosticMiniBadge.issue-missingTotp,
+.diagnosticMiniBadge.issue-incomplete {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.diagnosticMiniBadge.issue-safe {
+  border-color: rgba(34, 197, 94, 0.34);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.credentialDiagnosisBox {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--kp-line);
+  border-radius: 18px;
+  background: var(--kp-field-bg);
+}
+
+.credentialDiagnosisBox > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.credentialDiagnosisBox strong {
+  color: var(--kp-readable) !important;
+}
+
+.credentialDiagnosisBox span {
+  color: var(--kp-readable-muted) !important;
+}
+
+.credentialDiagnosisBox.attention {
+  border-color: rgba(245, 158, 11, 0.28);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.10), transparent 36%),
+    var(--kp-field-bg);
+}
+
+.credentialDiagnosisBox.safe {
+  border-color: rgba(34, 197, 94, 0.24);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.10), transparent 36%),
+    var(--kp-field-bg);
+}
+
+.credentialDiagnosisList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+:root[data-theme="light"] .vaultScoreBadge,
+:root[data-theme="mixed"] .vaultScoreBadge,
+:root[data-theme="light"] .diagnosticCard,
+:root[data-theme="mixed"] .diagnosticCard,
+:root[data-theme="light"] .credentialDiagnosisBox,
+:root[data-theme="mixed"] .credentialDiagnosisBox,
+:root[data-theme="light"] .diagnosticFilterBanner,
+:root[data-theme="mixed"] .diagnosticFilterBanner {
+  background: var(--kp-surface-soft) !important;
+  color: var(--kp-readable) !important;
+  border-color: var(--kp-border-soft) !important;
+}
+
+:root[data-theme="light"] .diagnosticCard.tone-danger.hasIssues,
+:root[data-theme="mixed"] .diagnosticCard.tone-danger.hasIssues {
+  border-color: rgba(220, 38, 38, 0.25) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(248, 113, 113, 0.14), transparent 42%),
+    var(--kp-surface-soft) !important;
+}
+
+:root[data-theme="light"] .diagnosticCard.tone-warning.hasIssues,
+:root[data-theme="mixed"] .diagnosticCard.tone-warning.hasIssues {
+  border-color: rgba(217, 119, 6, 0.25) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.14), transparent 42%),
+    var(--kp-surface-soft) !important;
+}
+
+:root[data-theme="light"] .diagnosticMiniBadge,
+:root[data-theme="mixed"] .diagnosticMiniBadge,
+:root[data-theme="light"] .diagnosticCard em,
+:root[data-theme="mixed"] .diagnosticCard em {
+  color: var(--kp-readable) !important;
+  background: rgba(15, 23, 42, 0.06) !important;
+}
+
+@media (max-width: 1180px) {
+  .diagnosticCardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .vaultHealthHero {
+    grid-template-columns: 1fr;
+  }
+
+  .vaultScoreBadge {
+    justify-items: start;
+    width: 100%;
+  }
+
+  .diagnosticCardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnosticFilterBanner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .diagnosticFilterBanner button {
+    width: 100%;
+  }
+}
+/* === KPassword v0.8.0 Diagnóstico do Cofre END === */

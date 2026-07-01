@@ -2,6 +2,21 @@
 
 Todas as mudanças relevantes do KPassword ficam registradas aqui.
 
+## v0.8.0
+
+Diagnóstico do Cofre e segurança percebida.
+
+- Adicionado diagnóstico local do cofre na tela Analítico.
+- Adicionada pontuação de saúde do cofre de 0 a 100.
+- Adicionados alertas para senhas fracas, reutilizadas, antigas, vencidas e próximas do vencimento.
+- Adicionado alerta para credenciais sem TOTP/2FA cadastrado.
+- Adicionado alerta para credenciais incompletas.
+- Cards do diagnóstico permitem filtrar o Cofre pelos itens problemáticos.
+- Detalhe da credencial passa a exibir diagnóstico individual.
+- Selo de risco exibido na lista de credenciais.
+- Diagnóstico calculado localmente em memória, sem servidor e sem alterar a criptografia do cofre.
+- Versão ajustada para `0.8.0`.
+
 ## v0.7.2
 
 Manutenção, documentação e estabilidade do projeto.
