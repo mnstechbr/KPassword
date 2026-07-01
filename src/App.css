@@ -8045,3 +8045,653 @@ select option {
   }
 }
 /* === KPassword v0.8.0 Diagnóstico do Cofre END === */
+
+/* === KPassword v0.8.2 hotfix contraste claro/misto START === */
+
+.app.theme-light,
+.app.theme-mixed,
+body.theme-light,
+body.theme-mixed,
+[data-theme="light"],
+[data-theme="mixed"] {
+  --kp-light-text: #111827;
+  --kp-light-muted: #475569;
+  --kp-light-card: rgba(255, 255, 255, 0.94);
+  --kp-light-card-strong: rgba(248, 250, 252, 0.97);
+  --kp-light-blue-bg: #d8f1ff;
+  --kp-light-blue-border: #9bd8f5;
+  --kp-light-blue-text: #082f49;
+  --kp-light-red-bg: #fee2e2;
+  --kp-light-red-border: #fecaca;
+  --kp-light-red-text: #7f1d1d;
+  --kp-light-red-bg-active: linear-gradient(135deg, #dc2626, #991b1b);
+  --kp-light-red-text-active: #ffffff;
+}
+
+/* Login: botÃ£o PIN legÃ­vel em claro/misto */
+.app.theme-light .pinButton,
+.app.theme-mixed .pinButton,
+.app.theme-light .helloButton,
+.app.theme-mixed .helloButton,
+.app.theme-light button[title*="PIN"],
+.app.theme-mixed button[title*="PIN"],
+.app.theme-light button[aria-label*="PIN"],
+.app.theme-mixed button[aria-label*="PIN"] {
+  color: var(--kp-light-blue-text) !important;
+  background: var(--kp-light-blue-bg) !important;
+  border-color: var(--kp-light-blue-border) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.app.theme-light .pinButton:disabled,
+.app.theme-mixed .pinButton:disabled,
+.app.theme-light .helloButton:disabled,
+.app.theme-mixed .helloButton:disabled,
+.app.theme-light button[title*="PIN"]:disabled,
+.app.theme-mixed button[title*="PIN"]:disabled,
+.app.theme-light button[aria-label*="PIN"]:disabled,
+.app.theme-mixed button[aria-label*="PIN"]:disabled {
+  color: #334155 !important;
+  background: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+  opacity: 0.82 !important;
+  text-shadow: none !important;
+}
+
+/* Lixeira: botÃµes legÃ­veis */
+.app.theme-light .trashPage button,
+.app.theme-mixed .trashPage button,
+.app.theme-light .trashCard button,
+.app.theme-mixed .trashCard button,
+.app.theme-light .trashItem button,
+.app.theme-mixed .trashItem button,
+.app.theme-light .deletedItem button,
+.app.theme-mixed .deletedItem button {
+  color: var(--kp-light-blue-text) !important;
+  background: var(--kp-light-blue-bg) !important;
+  border-color: var(--kp-light-blue-border) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.app.theme-light .trashPage button.danger,
+.app.theme-mixed .trashPage button.danger,
+.app.theme-light .trashCard button.danger,
+.app.theme-mixed .trashCard button.danger,
+.app.theme-light .trashItem button.danger,
+.app.theme-mixed .trashItem button.danger,
+.app.theme-light .deletedItem button.danger,
+.app.theme-mixed .deletedItem button.danger,
+.app.theme-light .dangerButton,
+.app.theme-mixed .dangerButton,
+.app.theme-light .danger,
+.app.theme-mixed .danger {
+  color: var(--kp-light-red-text) !important;
+  background: var(--kp-light-red-bg) !important;
+  border-color: var(--kp-light-red-border) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.app.theme-light button.danger:disabled,
+.app.theme-mixed button.danger:disabled,
+.app.theme-light .dangerButton:disabled,
+.app.theme-mixed .dangerButton:disabled,
+.app.theme-light .trashPage button:disabled,
+.app.theme-mixed .trashPage button:disabled {
+  color: var(--kp-light-red-text) !important;
+  background: #f2c7c7 !important;
+  border-color: #e9b4b4 !important;
+  opacity: 0.86 !important;
+  text-shadow: none !important;
+}
+
+/* Cofre: itens, textos e aÃ§Ãµes visÃ­veis em claro/misto */
+.app.theme-light .credentialRow,
+.app.theme-mixed .credentialRow,
+.app.theme-light .vaultItem,
+.app.theme-mixed .vaultItem,
+.app.theme-light .itemRow,
+.app.theme-mixed .itemRow,
+.app.theme-light .credentialCard,
+.app.theme-mixed .credentialCard {
+  color: var(--kp-light-text) !important;
+  background: var(--kp-light-card) !important;
+  border-color: rgba(148, 163, 184, 0.36) !important;
+  text-shadow: none !important;
+}
+
+.app.theme-light .credentialRow *,
+.app.theme-mixed .credentialRow *,
+.app.theme-light .vaultItem *,
+.app.theme-mixed .vaultItem *,
+.app.theme-light .itemRow *,
+.app.theme-mixed .itemRow *,
+.app.theme-light .credentialCard *,
+.app.theme-mixed .credentialCard * {
+  text-shadow: none !important;
+}
+
+.app.theme-light .credentialRow strong,
+.app.theme-mixed .credentialRow strong,
+.app.theme-light .credentialRow b,
+.app.theme-mixed .credentialRow b,
+.app.theme-light .credentialRow h3,
+.app.theme-mixed .credentialRow h3,
+.app.theme-light .vaultItem strong,
+.app.theme-mixed .vaultItem strong,
+.app.theme-light .itemRow strong,
+.app.theme-mixed .itemRow strong,
+.app.theme-light .credentialCard strong,
+.app.theme-mixed .credentialCard strong {
+  color: var(--kp-light-text) !important;
+}
+
+.app.theme-light .credentialRow span,
+.app.theme-mixed .credentialRow span,
+.app.theme-light .credentialRow p,
+.app.theme-mixed .credentialRow p,
+.app.theme-light .vaultItem span,
+.app.theme-mixed .vaultItem span,
+.app.theme-light .vaultItem p,
+.app.theme-mixed .vaultItem p,
+.app.theme-light .itemRow span,
+.app.theme-mixed .itemRow span,
+.app.theme-light .itemRow p,
+.app.theme-mixed .itemRow p,
+.app.theme-light .credentialCard span,
+.app.theme-mixed .credentialCard span,
+.app.theme-light .credentialCard p,
+.app.theme-mixed .credentialCard p {
+  color: var(--kp-light-muted) !important;
+}
+
+.app.theme-light .passwordDots,
+.app.theme-mixed .passwordDots,
+.app.theme-light .maskedPassword,
+.app.theme-mixed .maskedPassword,
+.app.theme-light .credentialPassword,
+.app.theme-mixed .credentialPassword {
+  color: #1e3a8a !important;
+  -webkit-text-fill-color: #1e3a8a !important;
+}
+
+/* AÃ§Ãµes das credenciais: copiar usuÃ¡rio, copiar senha, editar */
+.app.theme-light .credentialActions button,
+.app.theme-mixed .credentialActions button,
+.app.theme-light .vaultActions button,
+.app.theme-mixed .vaultActions button,
+.app.theme-light .itemActions button,
+.app.theme-mixed .itemActions button,
+.app.theme-light .credentialRow button,
+.app.theme-mixed .credentialRow button,
+.app.theme-light .vaultItem button,
+.app.theme-mixed .vaultItem button,
+.app.theme-light .itemRow button,
+.app.theme-mixed .itemRow button,
+.app.theme-light .credentialCard button,
+.app.theme-mixed .credentialCard button {
+  color: var(--kp-light-blue-text) !important;
+  background: var(--kp-light-blue-bg) !important;
+  border-color: var(--kp-light-blue-border) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* Detalhe/modal da credencial */
+.app.theme-light .itemDetail,
+.app.theme-mixed .itemDetail,
+.app.theme-light .detailCard,
+.app.theme-mixed .detailCard,
+.app.theme-light .detailPanel,
+.app.theme-mixed .detailPanel,
+.app.theme-light .modalContent,
+.app.theme-mixed .modalContent,
+.app.theme-light .modalBody,
+.app.theme-mixed .modalBody {
+  color: var(--kp-light-text) !important;
+  background: var(--kp-light-card) !important;
+  text-shadow: none !important;
+}
+
+.app.theme-light .itemDetail .wideCard,
+.app.theme-mixed .itemDetail .wideCard,
+.app.theme-light .itemDetail .sectionCard,
+.app.theme-mixed .itemDetail .sectionCard,
+.app.theme-light .detailCard .wideCard,
+.app.theme-mixed .detailCard .wideCard,
+.app.theme-light .attachmentPanel,
+.app.theme-mixed .attachmentPanel,
+.app.theme-light .passwordHistoryPanel,
+.app.theme-mixed .passwordHistoryPanel,
+.app.theme-light .attachmentsCard,
+.app.theme-mixed .attachmentsCard,
+.app.theme-light .historyCard,
+.app.theme-mixed .historyCard {
+  color: var(--kp-light-text) !important;
+  background: var(--kp-light-card-strong) !important;
+  border-color: rgba(148, 163, 184, 0.34) !important;
+  text-shadow: none !important;
+}
+
+.app.theme-light .itemDetail h1,
+.app.theme-mixed .itemDetail h1,
+.app.theme-light .itemDetail h2,
+.app.theme-mixed .itemDetail h2,
+.app.theme-light .itemDetail h3,
+.app.theme-mixed .itemDetail h3,
+.app.theme-light .itemDetail strong,
+.app.theme-mixed .itemDetail strong,
+.app.theme-light .detailCard h1,
+.app.theme-mixed .detailCard h1,
+.app.theme-light .detailCard h2,
+.app.theme-mixed .detailCard h2,
+.app.theme-light .detailCard h3,
+.app.theme-mixed .detailCard h3,
+.app.theme-light .detailCard strong,
+.app.theme-mixed .detailCard strong {
+  color: var(--kp-light-text) !important;
+}
+
+.app.theme-light .itemDetail p,
+.app.theme-mixed .itemDetail p,
+.app.theme-light .itemDetail span,
+.app.theme-mixed .itemDetail span,
+.app.theme-light .detailCard p,
+.app.theme-mixed .detailCard p,
+.app.theme-light .detailCard span,
+.app.theme-mixed .detailCard span {
+  color: var(--kp-light-muted) !important;
+}
+
+/* BotÃµes do detalhe: copiar, mostrar senha, abrir site, editar */
+.app.theme-light .itemDetail button,
+.app.theme-mixed .itemDetail button,
+.app.theme-light .detailCard button,
+.app.theme-mixed .detailCard button,
+.app.theme-light .modalContent button,
+.app.theme-mixed .modalContent button {
+  text-shadow: none !important;
+}
+
+.app.theme-light .itemDetail button:not(.danger):not(.dangerButton),
+.app.theme-mixed .itemDetail button:not(.danger):not(.dangerButton),
+.app.theme-light .detailCard button:not(.danger):not(.dangerButton),
+.app.theme-mixed .detailCard button:not(.danger):not(.dangerButton) {
+  color: var(--kp-light-blue-text) !important;
+  background: var(--kp-light-blue-bg) !important;
+  border-color: var(--kp-light-blue-border) !important;
+  opacity: 1 !important;
+}
+
+.app.theme-light .itemDetail button.danger,
+.app.theme-mixed .itemDetail button.danger,
+.app.theme-light .detailCard button.danger,
+.app.theme-mixed .detailCard button.danger,
+.app.theme-light .itemDetail .dangerButton,
+.app.theme-mixed .itemDetail .dangerButton,
+.app.theme-light .detailCard .dangerButton,
+.app.theme-mixed .detailCard .dangerButton {
+  color: var(--kp-light-red-text) !important;
+  background: var(--kp-light-red-bg) !important;
+  border-color: var(--kp-light-red-border) !important;
+  opacity: 1 !important;
+}
+
+/* Fallback para cards brancos com botoes brancos */
+.app.theme-light .wideCard button:not(.primaryButton):not(.addItemIconButton),
+.app.theme-mixed .wideCard button:not(.primaryButton):not(.addItemIconButton),
+.app.theme-light .sectionCard button:not(.primaryButton):not(.addItemIconButton),
+.app.theme-mixed .sectionCard button:not(.primaryButton):not(.addItemIconButton) {
+  text-shadow: none !important;
+  color: var(--kp-light-blue-text) !important;
+}
+
+.app.theme-light .wideCard button.danger,
+.app.theme-mixed .wideCard button.danger,
+.app.theme-light .sectionCard button.danger,
+.app.theme-mixed .sectionCard button.danger {
+  color: var(--kp-light-red-text) !important;
+}
+
+.app.theme-light input,
+.app.theme-mixed input,
+.app.theme-light textarea,
+.app.theme-mixed textarea,
+.app.theme-light select,
+.app.theme-mixed select {
+  color: var(--kp-light-text) !important;
+  -webkit-text-fill-color: var(--kp-light-text) !important;
+}
+
+.app.theme-light input::placeholder,
+.app.theme-mixed input::placeholder,
+.app.theme-light textarea::placeholder,
+.app.theme-mixed textarea::placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+}
+
+/* === KPassword v0.8.2 hotfix contraste claro/misto END === */
+
+/* === KPassword v0.8.2 HOTFIX REAL contraste Claro/Misto START === */
+
+/*
+  CorreÃ§Ã£o real usando os seletores que o app usa:
+  :root[data-theme="light"] e :root[data-theme="mixed"].
+
+  Corrige:
+  - Login: .authForm .windowsHelloButton
+  - Cofre: .credentialRow, .rowActions, .rowPassword, .rowCategory, .rowHealth
+  - Lixeira: .trashActions .secondaryButton e .trashActions .dangerButton
+  - Detalhe: .detailPopup, .detailActions, .attachmentsBox, .historyBox
+  - BotÃµes internos: .attachmentActions, .historyActions, .fileImportButton
+*/
+
+:root[data-theme="light"],
+:root[data-theme="mixed"] {
+  --kp-fix-text: #0f172a;
+  --kp-fix-muted: #475569;
+  --kp-fix-soft: #64748b;
+  --kp-fix-card: rgba(255, 255, 255, 0.96);
+  --kp-fix-card-soft: rgba(248, 250, 252, 0.96);
+  --kp-fix-blue-bg: #d8f1ff;
+  --kp-fix-blue-bg-hover: #bae6fd;
+  --kp-fix-blue-border: #93c5fd;
+  --kp-fix-blue-text: #082f49;
+  --kp-fix-red-bg: #fee2e2;
+  --kp-fix-red-bg-hover: #fecaca;
+  --kp-fix-red-border: #fca5a5;
+  --kp-fix-red-text: #7f1d1d;
+}
+
+/* LOGIN - Acessar com PIN */
+:root[data-theme="light"] .authForm .windowsHelloButton,
+:root[data-theme="mixed"] .authForm .windowsHelloButton,
+:root[data-theme="light"] .authPanel .windowsHelloButton,
+:root[data-theme="mixed"] .authPanel .windowsHelloButton {
+  background: var(--kp-fix-blue-bg) !important;
+  color: var(--kp-fix-blue-text) !important;
+  border: 1px solid var(--kp-fix-blue-border) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--kp-fix-blue-text) !important;
+}
+
+:root[data-theme="light"] .authForm .windowsHelloButton:disabled,
+:root[data-theme="mixed"] .authForm .windowsHelloButton:disabled,
+:root[data-theme="light"] .authPanel .windowsHelloButton:disabled,
+:root[data-theme="mixed"] .authPanel .windowsHelloButton:disabled {
+  background: #e2e8f0 !important;
+  color: #334155 !important;
+  border-color: #cbd5e1 !important;
+  opacity: 0.82 !important;
+  -webkit-text-fill-color: #334155 !important;
+}
+
+/* COFRE - linha da credencial */
+:root[data-theme="light"] .credentialRow,
+:root[data-theme="mixed"] .credentialRow {
+  background: var(--kp-fix-card) !important;
+  color: var(--kp-fix-text) !important;
+  border-color: rgba(148, 163, 184, 0.36) !important;
+  text-shadow: none !important;
+}
+
+:root[data-theme="light"] .credentialRow:hover,
+:root[data-theme="mixed"] .credentialRow:hover {
+  background: #ffffff !important;
+  border-color: rgba(14, 165, 233, 0.34) !important;
+}
+
+:root[data-theme="light"] .credentialRow *,
+:root[data-theme="mixed"] .credentialRow * {
+  text-shadow: none !important;
+}
+
+:root[data-theme="light"] .rowMain strong,
+:root[data-theme="mixed"] .rowMain strong,
+:root[data-theme="light"] .credentialRow strong,
+:root[data-theme="mixed"] .credentialRow strong {
+  color: var(--kp-fix-text) !important;
+  -webkit-text-fill-color: var(--kp-fix-text) !important;
+}
+
+:root[data-theme="light"] .rowMain small,
+:root[data-theme="mixed"] .rowMain small,
+:root[data-theme="light"] .rowHealth,
+:root[data-theme="mixed"] .rowHealth,
+:root[data-theme="light"] .rowHealth span,
+:root[data-theme="mixed"] .rowHealth span {
+  color: var(--kp-fix-muted) !important;
+  -webkit-text-fill-color: var(--kp-fix-muted) !important;
+}
+
+:root[data-theme="light"] .rowPassword,
+:root[data-theme="mixed"] .rowPassword {
+  color: #1e3a8a !important;
+  -webkit-text-fill-color: #1e3a8a !important;
+}
+
+:root[data-theme="light"] .rowCategory,
+:root[data-theme="mixed"] .rowCategory {
+  background: #e0f2fe !important;
+  color: #075985 !important;
+  border: 1px solid rgba(14, 165, 233, 0.18) !important;
+  -webkit-text-fill-color: #075985 !important;
+}
+
+:root[data-theme="light"] .rowStar,
+:root[data-theme="mixed"] .rowStar {
+  color: #475569 !important;
+}
+
+:root[data-theme="light"] .rowStar.active,
+:root[data-theme="mixed"] .rowStar.active {
+  color: #b45309 !important;
+}
+
+:root[data-theme="light"] .reorderControls button,
+:root[data-theme="mixed"] .reorderControls button {
+  background: #eef2ff !important;
+  color: #334155 !important;
+  border: 1px solid rgba(99, 102, 241, 0.14) !important;
+  -webkit-text-fill-color: #334155 !important;
+}
+
+:root[data-theme="light"] .reorderControls button:disabled,
+:root[data-theme="mixed"] .reorderControls button:disabled {
+  background: #f1f5f9 !important;
+  color: #94a3b8 !important;
+  opacity: 0.76 !important;
+  -webkit-text-fill-color: #94a3b8 !important;
+}
+
+/* COFRE - botÃµes Copiar usuÃ¡rio / Copiar senha / Editar */
+:root[data-theme="light"] .rowActions button,
+:root[data-theme="mixed"] .rowActions button {
+  background: var(--kp-fix-blue-bg) !important;
+  color: var(--kp-fix-blue-text) !important;
+  border: 1px solid var(--kp-fix-blue-border) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--kp-fix-blue-text) !important;
+}
+
+:root[data-theme="light"] .rowActions button:hover:not(:disabled),
+:root[data-theme="mixed"] .rowActions button:hover:not(:disabled) {
+  background: var(--kp-fix-blue-bg-hover) !important;
+  color: #082f49 !important;
+  -webkit-text-fill-color: #082f49 !important;
+}
+
+/* LIXEIRA */
+:root[data-theme="light"] .trashItem,
+:root[data-theme="mixed"] .trashItem {
+  background: var(--kp-fix-card) !important;
+  color: var(--kp-fix-text) !important;
+  border-color: rgba(148, 163, 184, 0.36) !important;
+}
+
+:root[data-theme="light"] .trashItem strong,
+:root[data-theme="mixed"] .trashItem strong {
+  color: var(--kp-fix-text) !important;
+  -webkit-text-fill-color: var(--kp-fix-text) !important;
+}
+
+:root[data-theme="light"] .trashItem span,
+:root[data-theme="mixed"] .trashItem span {
+  color: var(--kp-fix-muted) !important;
+  -webkit-text-fill-color: var(--kp-fix-muted) !important;
+}
+
+:root[data-theme="light"] .trashActions .secondaryButton,
+:root[data-theme="mixed"] .trashActions .secondaryButton {
+  background: var(--kp-fix-blue-bg) !important;
+  color: var(--kp-fix-blue-text) !important;
+  border: 1px solid var(--kp-fix-blue-border) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--kp-fix-blue-text) !important;
+}
+
+:root[data-theme="light"] .trashActions .dangerButton,
+:root[data-theme="mixed"] .trashActions .dangerButton {
+  background: var(--kp-fix-red-bg) !important;
+  color: var(--kp-fix-red-text) !important;
+  border: 1px solid var(--kp-fix-red-border) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--kp-fix-red-text) !important;
+}
+
+:root[data-theme="light"] .trashActions .dangerButton:hover:not(:disabled),
+:root[data-theme="mixed"] .trashActions .dangerButton:hover:not(:disabled) {
+  background: var(--kp-fix-red-bg-hover) !important;
+  color: #7f1d1d !important;
+  -webkit-text-fill-color: #7f1d1d !important;
+}
+
+/* DETALHE DA CREDENCIAL */
+:root[data-theme="light"] .detailPopup,
+:root[data-theme="mixed"] .detailPopup {
+  background: #ffffff !important;
+  color: var(--kp-fix-text) !important;
+  border-color: rgba(148, 163, 184, 0.42) !important;
+  text-shadow: none !important;
+}
+
+:root[data-theme="light"] .detailPopup h2,
+:root[data-theme="mixed"] .detailPopup h2,
+:root[data-theme="light"] .detailPopup h3,
+:root[data-theme="mixed"] .detailPopup h3,
+:root[data-theme="light"] .detailPopup strong,
+:root[data-theme="mixed"] .detailPopup strong {
+  color: var(--kp-fix-text) !important;
+  -webkit-text-fill-color: var(--kp-fix-text) !important;
+}
+
+:root[data-theme="light"] .detailPopup p,
+:root[data-theme="mixed"] .detailPopup p,
+:root[data-theme="light"] .detailPopup span,
+:root[data-theme="mixed"] .detailPopup span,
+:root[data-theme="light"] .detailPopup small,
+:root[data-theme="mixed"] .detailPopup small {
+  color: var(--kp-fix-muted) !important;
+  -webkit-text-fill-color: var(--kp-fix-muted) !important;
+}
+
+:root[data-theme="light"] .detailGrid div,
+:root[data-theme="mixed"] .detailGrid div,
+:root[data-theme="light"] .notesBox,
+:root[data-theme="mixed"] .notesBox,
+:root[data-theme="light"] .attachmentsBox,
+:root[data-theme="mixed"] .attachmentsBox,
+:root[data-theme="light"] .historyBox,
+:root[data-theme="mixed"] .historyBox,
+:root[data-theme="light"] .attachmentItem,
+:root[data-theme="mixed"] .attachmentItem,
+:root[data-theme="light"] .historyItem,
+:root[data-theme="mixed"] .historyItem {
+  background: var(--kp-fix-card-soft) !important;
+  color: var(--kp-fix-text) !important;
+  border-color: rgba(148, 163, 184, 0.32) !important;
+  text-shadow: none !important;
+}
+
+/* DETALHE - botÃµes inferiores e internos */
+:root[data-theme="light"] .detailActions button,
+:root[data-theme="mixed"] .detailActions button,
+:root[data-theme="light"] .attachmentActions button,
+:root[data-theme="mixed"] .attachmentActions button,
+:root[data-theme="light"] .historyActions button,
+:root[data-theme="mixed"] .historyActions button,
+:root[data-theme="light"] .detailPopup .fileImportButton,
+:root[data-theme="mixed"] .detailPopup .fileImportButton,
+:root[data-theme="light"] .detailPopup .inlineFileButton,
+:root[data-theme="mixed"] .detailPopup .inlineFileButton {
+  background: var(--kp-fix-blue-bg) !important;
+  color: var(--kp-fix-blue-text) !important;
+  border: 1px solid var(--kp-fix-blue-border) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--kp-fix-blue-text) !important;
+}
+
+:root[data-theme="light"] .detailActions .dangerButton,
+:root[data-theme="mixed"] .detailActions .dangerButton,
+:root[data-theme="light"] .attachmentActions .dangerButton,
+:root[data-theme="mixed"] .attachmentActions .dangerButton,
+:root[data-theme="light"] .historyBox .dangerButton,
+:root[data-theme="mixed"] .historyBox .dangerButton,
+:root[data-theme="light"] .detailPopup .dangerButton,
+:root[data-theme="mixed"] .detailPopup .dangerButton {
+  background: var(--kp-fix-red-bg) !important;
+  color: var(--kp-fix-red-text) !important;
+  border: 1px solid var(--kp-fix-red-border) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--kp-fix-red-text) !important;
+}
+
+:root[data-theme="light"] .historyBox .dangerButton:disabled,
+:root[data-theme="mixed"] .historyBox .dangerButton:disabled,
+:root[data-theme="light"] .detailPopup .dangerButton:disabled,
+:root[data-theme="mixed"] .detailPopup .dangerButton:disabled {
+  background: #f2c7c7 !important;
+  color: #7f1d1d !important;
+  border-color: #e9b4b4 !important;
+  opacity: 0.86 !important;
+  -webkit-text-fill-color: #7f1d1d !important;
+}
+
+/* Fallback final: qualquer secondary/ghost dentro de superfÃ­cie clara */
+:root[data-theme="light"] .wideCard .secondaryButton,
+:root[data-theme="mixed"] .wideCard .secondaryButton,
+:root[data-theme="light"] .wideCard .ghostButton,
+:root[data-theme="mixed"] .wideCard .ghostButton,
+:root[data-theme="light"] .detailPopup button:not(.primaryButton):not(.dangerButton),
+:root[data-theme="mixed"] .detailPopup button:not(.primaryButton):not(.dangerButton) {
+  color: var(--kp-fix-blue-text) !important;
+  -webkit-text-fill-color: var(--kp-fix-blue-text) !important;
+  text-shadow: none !important;
+}
+
+:root[data-theme="light"] input,
+:root[data-theme="mixed"] input,
+:root[data-theme="light"] textarea,
+:root[data-theme="mixed"] textarea,
+:root[data-theme="light"] select,
+:root[data-theme="mixed"] select {
+  color: var(--kp-fix-text) !important;
+  -webkit-text-fill-color: var(--kp-fix-text) !important;
+}
+
+/* === KPassword v0.8.2 HOTFIX REAL contraste Claro/Misto END === */

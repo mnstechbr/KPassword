@@ -1,5 +1,15 @@
 # Changelog
 
+
+## [0.8.2] - Hotfix
+
+### Correcoes
+- Corrige contraste no tema Claro e Misto.
+- Corrige botao de acesso por PIN na tela de login.
+- Corrige botoes Restaurar e Excluir definitivamente na Lixeira.
+- Corrige botoes de acao das credenciais no Cofre.
+- Corrige botoes do detalhe da credencial.
+- Corrige textos claros sobre fundo claro em listas, cards e modais.
 ## v0.8.1
 
 Correções:
