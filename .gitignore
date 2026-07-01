@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 dist-release/
 src-tauri/target/
@@ -14,6 +14,11 @@ src-tauri/gen/
 *.tmp
 *.sig
 
-# Não subir chave privada do updater, caso exista dentro do projeto por acidente
+# Chaves privadas do updater nunca devem ser versionadas.
 *.key
 *.key.pub
+
+# Backups locais gerados por scripts de manutenção.
+*.bak
+*.old
+*.orig
