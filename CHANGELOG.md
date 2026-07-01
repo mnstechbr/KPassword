@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.1
+
+Correções:
+- Corrige lógica de inatividade quando o app já está na bandeja.
+- Impede notificação duplicada de “inativo” depois que o app foi fechado/minimizado para a bandeja.
+- Pausa o temporizador de inatividade quando a janela está oculta ou minimizada.
+- Retoma o temporizador somente quando a janela volta a ficar visível.
+- Ajusta a mensagem de inatividade para respeitar o tempo configurado.
+
 Todas as mudanças relevantes do KPassword ficam registradas aqui.
 
 ## v0.8.0

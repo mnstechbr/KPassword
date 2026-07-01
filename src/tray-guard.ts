@@ -13,6 +13,7 @@ type TrayReason = "minimized" | "closed" | "inactive";
 let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
 let minimizedCheckTimer: ReturnType<typeof setInterval> | null = null;
 let alreadySentToTray = false;
+let windowUnavailableForInactivity = false;
 let notificationPermissionChecked = false;
 let notificationAllowed = false;
 let audioContext: AudioContext | null = null;
@@ -38,10 +39,54 @@ function getNumberSetting(key: string, fallback: number, min: number, max: numbe
   }
 }
 
-function getAutoLockLimitMs() {
-  return getNumberSetting("kpassword:auto-lock-minutes", 3, 1, 120) * 60 * 1000;
+function getAutoLockMinutes() {
+  return getNumberSetting("kpassword:auto-lock-minutes", 3, 1, 120);
 }
 
+function getAutoLockLimitMs() {
+  return getAutoLockMinutes() * 60 * 1000;
+}
+
+function clearInactivityTimer() {
+  if (inactivityTimer) {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = null;
+  }
+}
+
+function pauseInactivityBecauseWindowIsUnavailable() {
+  windowUnavailableForInactivity = true;
+  clearInactivityTimer();
+}
+
+function resumeInactivityBecauseWindowIsAvailable() {
+  windowUnavailableForInactivity = false;
+  alreadySentToTray = false;
+  resetInactivityTimer();
+}
+
+async function refreshWindowAvailability() {
+  try {
+    const appWindow = getCurrentWindow();
+    const [visible, minimized] = await Promise.all([
+      appWindow.isVisible(),
+      appWindow.isMinimized(),
+    ]);
+
+    if (visible && !minimized) {
+      if (windowUnavailableForInactivity) {
+        resumeInactivityBecauseWindowIsAvailable();
+      }
+      return true;
+    }
+
+    pauseInactivityBecauseWindowIsUnavailable();
+    return false;
+  } catch (error) {
+    console.error("Erro ao verificar estado da janela do KPassword:", error);
+    return !windowUnavailableForInactivity;
+  }
+}
 
 function getNotificationBody(reason: TrayReason) {
   switch (reason) {
@@ -49,8 +94,11 @@ function getNotificationBody(reason: TrayReason) {
       return "KPassword foi minimizado e continua protegido na bandeja.";
     case "closed":
       return "KPassword continua em execução na bandeja.";
-    case "inactive":
-      return "KPassword ficou inativo por 3 minutos e foi enviado para a bandeja.";
+    case "inactive": {
+      const minutes = getAutoLockMinutes();
+      const minuteLabel = minutes === 1 ? "1 minuto" : `${minutes} minutos`;
+      return `KPassword ficou inativo por ${minuteLabel} e foi enviado para a bandeja.`;
+    }
     default:
       return "KPassword continua em execução na bandeja.";
   }
@@ -188,11 +236,12 @@ async function showTrayNotification(reason: TrayReason) {
 }
 
 async function hideToTray(reason: TrayReason) {
-  if (alreadySentToTray) {
+  if (alreadySentToTray && windowUnavailableForInactivity) {
     return;
   }
 
   alreadySentToTray = true;
+  pauseInactivityBecauseWindowIsUnavailable();
 
   try {
     window.dispatchEvent(new CustomEvent("kpassword:lock"));
@@ -207,23 +256,31 @@ async function hideToTray(reason: TrayReason) {
       await showTrayNotification(reason);
     }
   } catch (error) {
+    windowUnavailableForInactivity = false;
     console.error("Erro ao enviar KPassword para a bandeja:", error);
   }
 }
 
 function resetInactivityTimer() {
-  alreadySentToTray = false;
-
-  if (inactivityTimer) {
-    clearTimeout(inactivityTimer);
+  if (windowUnavailableForInactivity) {
+    clearInactivityTimer();
+    return;
   }
+
+  alreadySentToTray = false;
+  clearInactivityTimer();
 
   if (!getBooleanSetting("kpassword:lock-on-inactive", true)) {
     return;
   }
 
   inactivityTimer = setTimeout(() => {
-    void hideToTray("inactive");
+    void (async () => {
+      const available = await refreshWindowAvailability();
+      if (available) {
+        await hideToTray("inactive");
+      }
+    })();
   }, getAutoLockLimitMs());
 }
 
@@ -243,7 +300,12 @@ function startActivityListeners() {
       eventName,
       () => {
         void unlockAudio();
-        resetInactivityTimer();
+        void (async () => {
+          const available = await refreshWindowAvailability();
+          if (available) {
+            resetInactivityTimer();
+          }
+        })();
       },
       { passive: true },
     );
@@ -253,7 +315,7 @@ function startActivityListeners() {
 async function startCloseProtection() {
   const appWindow = getCurrentWindow();
 
-  await appWindow.onCloseRequested(async (event) => {
+  await appWindow.onCloseRequested(async (event: { preventDefault: () => void }) => {
     if (!getBooleanSetting("kpassword:lock-on-close", true)) {
       return;
     }
@@ -274,19 +336,27 @@ function startMinimizeProtection() {
   minimizedCheckTimer = setInterval(() => {
     void (async () => {
       try {
-        const minimized = await appWindow.isMinimized();
+        const [visible, minimized] = await Promise.all([
+          appWindow.isVisible(),
+          appWindow.isMinimized(),
+        ]);
 
-        if (!minimized) {
-          lockedForCurrentMinimize = false;
+        if (!visible || minimized) {
+          pauseInactivityBecauseWindowIsUnavailable();
+
+          if (minimized && !lockedForCurrentMinimize && getBooleanSetting("kpassword:lock-on-minimize", true)) {
+            lockedForCurrentMinimize = true;
+            window.dispatchEvent(new CustomEvent("kpassword:lock"));
+          }
+
           return;
         }
 
-        if (lockedForCurrentMinimize || !getBooleanSetting("kpassword:lock-on-minimize", true)) {
-          return;
-        }
+        lockedForCurrentMinimize = false;
 
-        lockedForCurrentMinimize = true;
-        window.dispatchEvent(new CustomEvent("kpassword:lock"));
+        if (windowUnavailableForInactivity) {
+          resumeInactivityBecauseWindowIsAvailable();
+        }
       } catch (error) {
         console.error("Erro ao verificar janela minimizada:", error);
       }
@@ -297,16 +367,16 @@ function startMinimizeProtection() {
 async function startFocusProtection() {
   const appWindow = getCurrentWindow();
 
-  await appWindow.onFocusChanged(({ payload: focused }) => {
+  await appWindow.onFocusChanged(({ payload: focused }: { payload: boolean }) => {
     if (focused) {
-      resetInactivityTimer();
+      resumeInactivityBecauseWindowIsAvailable();
     }
   });
 }
 
 export async function setupTrayGuard() {
   startActivityListeners();
-  resetInactivityTimer();
+  void refreshWindowAvailability();
 
   await startCloseProtection();
   startMinimizeProtection();
