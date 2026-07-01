@@ -5002,3 +5002,2735 @@ select option:checked {
   }
 }
 /* === KPassword v0.7.0 hotfix gerador sem baloes END === */
+
+
+/* === KPassword v0.7.1 premium desktop login + typography START === */
+:root {
+  --font-sans: Inter, "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --title-tracking: -0.055em;
+  --text-smooth: antialiased;
+}
+
+* {
+  min-width: 0;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-sans) !important;
+}
+
+body {
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: var(--text-smooth);
+}
+
+h1,
+h2,
+h3,
+.topbarTitle h1,
+.authHeroBlock h1,
+.detailHeader h2,
+.modalHeader h2,
+.confirmCard h2 {
+  letter-spacing: var(--title-tracking) !important;
+  font-weight: 820 !important;
+  line-height: 1.02 !important;
+}
+
+.eyebrow,
+.authPanelLabel,
+.metricCard span,
+.sidebar .navLabel,
+label > span:first-child {
+  letter-spacing: 0.105em !important;
+  font-weight: 760 !important;
+}
+
+.authDesktopShell {
+  min-height: 100dvh !important;
+  padding: clamp(18px, 3.4vw, 44px) !important;
+  place-items: stretch !important;
+  align-items: stretch !important;
+  overflow: auto !important;
+  background:
+    radial-gradient(circle at 8% 10%, rgba(59, 130, 246, 0.20), transparent 30%),
+    radial-gradient(circle at 88% 86%, rgba(14, 165, 233, 0.13), transparent 34%),
+    linear-gradient(135deg, rgba(3, 7, 18, 0.98), rgba(8, 13, 24, 0.98) 48%, rgba(0, 32, 38, 0.95)) !important;
+}
+
+.authCard.authExperience {
+  width: 100% !important;
+  min-height: calc(100dvh - clamp(36px, 6.8vw, 88px)) !important;
+  max-height: none !important;
+  max-width: none !important;
+  overflow: visible !important;
+  display: grid !important;
+  grid-template-columns: minmax(360px, 1fr) minmax(390px, 0.72fr) !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: clamp(24px, 4vw, 64px) !important;
+  align-items: center !important;
+  padding: clamp(24px, 4vw, 56px) !important;
+  border-radius: clamp(24px, 3vw, 42px) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.060), rgba(255, 255, 255, 0.024)),
+    radial-gradient(circle at 18% 20%, rgba(56, 189, 248, 0.16), transparent 34%),
+    radial-gradient(circle at 76% 78%, rgba(124, 58, 237, 0.12), transparent 34%),
+    rgba(8, 13, 24, 0.70) !important;
+  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  box-shadow:
+    0 40px 120px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  backdrop-filter: blur(18px) saturate(128%) !important;
+}
+
+.authCard.authExperience::before,
+.authCard.authExperience::after {
+  pointer-events: none !important;
+}
+
+.authUtilityBar {
+  grid-column: 1 / -1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  align-self: start !important;
+}
+
+.authProductMark {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+  padding: 10px 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  border-radius: 18px !important;
+  background: rgba(15, 23, 42, 0.28) !important;
+}
+
+.authProductMark .appLogo.sm {
+  width: 34px !important;
+  height: 34px !important;
+  flex: 0 0 auto !important;
+}
+
+.authProductMark strong {
+  display: block !important;
+  font-size: 0.94rem !important;
+  letter-spacing: -0.02em !important;
+}
+
+.authProductMark span {
+  display: block !important;
+  margin-top: 2px !important;
+  font-size: 0.74rem !important;
+  color: rgba(203, 213, 225, 0.64) !important;
+}
+
+.authQuickSettings {
+  position: relative !important;
+  z-index: 25 !important;
+}
+
+.authQuickSettings > summary {
+  list-style: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 9px !important;
+  min-height: 44px !important;
+  padding: 0 16px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(125, 211, 252, 0.22) !important;
+  background: rgba(15, 23, 42, 0.52) !important;
+  color: #e5f5ff !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.20) !important;
+}
+
+.authQuickSettings > summary::-webkit-details-marker {
+  display: none !important;
+}
+
+.authQuickSettings > summary strong {
+  font-size: 0.86rem !important;
+  letter-spacing: -0.01em !important;
+}
+
+.authQuickPanel {
+  position: absolute !important;
+  top: calc(100% + 12px) !important;
+  right: 0 !important;
+  width: min(420px, calc(100vw - 40px)) !important;
+  display: grid !important;
+  gap: 14px !important;
+  padding: 16px !important;
+  border-radius: 22px !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  background:
+    linear-gradient(180deg, rgba(18, 24, 38, 0.98), rgba(10, 15, 26, 0.98)) !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.52) !important;
+  backdrop-filter: blur(20px) saturate(135%) !important;
+}
+
+.quickSettingGroup {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.quickSettingGroup > span {
+  font-size: 0.76rem !important;
+  color: rgba(203, 213, 225, 0.70) !important;
+  font-weight: 780 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.quickThemeButtons {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.quickThemeButton,
+.authQuickAction {
+  min-height: 42px !important;
+  border-radius: 13px !important;
+  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  background: rgba(15, 23, 42, 0.46) !important;
+  color: rgba(226, 232, 240, 0.90) !important;
+  font-weight: 760 !important;
+}
+
+.quickThemeButton.active {
+  border-color: rgba(56, 189, 248, 0.38) !important;
+  background: rgba(14, 116, 144, 0.28) !important;
+  color: #e0f7ff !important;
+}
+
+.authQuickAction {
+  width: 100% !important;
+  background: rgba(8, 47, 73, 0.62) !important;
+  border-color: rgba(56, 189, 248, 0.24) !important;
+}
+
+.authQuickPanel .vaultSwitcher {
+  margin: 0 !important;
+  padding: 12px !important;
+  border-radius: 16px !important;
+  background: rgba(2, 6, 23, 0.30) !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  box-shadow: none !important;
+}
+
+.authQuickPanel .vaultSwitcher .newVaultRow {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 8px !important;
+}
+
+.authQuickPanel .vaultSwitcher select,
+.authQuickPanel .vaultSwitcher input,
+.authQuickPanel .vaultSwitcher button,
+.authQuickPanel .languageSelect select {
+  min-height: 42px !important;
+  border-radius: 12px !important;
+}
+
+.authQuickPanel .languageSelect {
+  width: 100% !important;
+}
+
+.authHeroBlock {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  display: grid !important;
+  justify-items: start !important;
+  align-content: center !important;
+  gap: clamp(14px, 2vw, 22px) !important;
+  max-width: 660px !important;
+}
+
+.authHeroBlock > .appLogo.lg {
+  width: clamp(72px, 9vw, 112px) !important;
+  height: clamp(72px, 9vw, 112px) !important;
+  margin: 0 !important;
+  filter: drop-shadow(0 28px 54px rgba(0, 0, 0, 0.48)) !important;
+}
+
+.authHeroBlock > .eyebrow {
+  margin: 0 !important;
+  color: rgba(125, 211, 252, 0.92) !important;
+  text-align: left !important;
+}
+
+.authHeroBlock > h1 {
+  max-width: 680px !important;
+  margin: 0 !important;
+  text-align: left !important;
+  font-size: clamp(3rem, 7vw, 6.6rem) !important;
+  line-height: 0.92 !important;
+  letter-spacing: -0.085em !important;
+}
+
+.authHeroBlock > p:not(.eyebrow) {
+  max-width: 570px !important;
+  margin: 0 !important;
+  text-align: left !important;
+  font-size: clamp(1rem, 1.6vw, 1.26rem) !important;
+  line-height: 1.65 !important;
+  color: rgba(203, 213, 225, 0.78) !important;
+}
+
+.authTrustRow {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-top: 4px !important;
+}
+
+.authTrustRow span {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  background: rgba(15, 23, 42, 0.42) !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  color: rgba(226, 232, 240, 0.78) !important;
+  font-size: 0.82rem !important;
+  font-weight: 720 !important;
+}
+
+.authPanel {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  align-self: center !important;
+  width: 100% !important;
+  max-width: 500px !important;
+  justify-self: end !important;
+  display: grid !important;
+  gap: 16px !important;
+  padding: clamp(22px, 3vw, 34px) !important;
+  border-radius: 30px !important;
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.070), rgba(255, 255, 255, 0.026)),
+    rgba(15, 23, 42, 0.62) !important;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.authPanelLabel {
+  display: block !important;
+  color: rgba(125, 211, 252, 0.86) !important;
+  font-size: 0.78rem !important;
+  text-transform: uppercase !important;
+}
+
+.authPanel .authForm {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  display: grid !important;
+  gap: 14px !important;
+}
+
+.authPanel .authForm label {
+  gap: 8px !important;
+  color: rgba(226, 232, 240, 0.92) !important;
+  font-weight: 760 !important;
+}
+
+.authPanel .authForm input {
+  min-height: 56px !important;
+  border-radius: 18px !important;
+  background: rgba(2, 6, 23, 0.34) !important;
+}
+
+.authPanel .primaryButton,
+.authPanel .windowsHelloButton {
+  min-height: 56px !important;
+  border-radius: 18px !important;
+  letter-spacing: -0.015em !important;
+}
+
+.authPanel .windowsHelloButton span {
+  font-size: 1.1rem !important;
+}
+
+.authLoadingPanel {
+  max-width: 440px !important;
+}
+
+.authLoadingBar {
+  height: 8px !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+}
+
+.authLoadingBar::before {
+  content: "";
+  display: block;
+  width: 48%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #38bdf8, #7c3aed);
+  animation: kpasswordAuthLoad 1.35s ease-in-out infinite alternate;
+}
+
+@keyframes kpasswordAuthLoad {
+  from { transform: translateX(-20%); }
+  to { transform: translateX(132%); }
+}
+
+.refinedFirstUseGuide {
+  max-width: 590px !important;
+  margin: 4px 0 0 !important;
+  padding: 14px !important;
+  border-radius: 18px !important;
+  background: rgba(15, 23, 42, 0.32) !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+}
+
+.refinedFirstUseGuide span {
+  color: rgba(203, 213, 225, 0.72) !important;
+}
+
+.languageSelect select,
+select {
+  padding-right: 34px !important;
+  background-position: right 13px center !important;
+}
+
+.languageSelect.compact select {
+  width: auto !important;
+  min-width: 72px !important;
+  max-width: 80px !important;
+  padding-right: 30px !important;
+  background-position: right 11px center !important;
+}
+
+@media (max-width: 980px) {
+  .authDesktopShell {
+    place-items: start center !important;
+    padding: 14px !important;
+  }
+
+  .authCard.authExperience {
+    width: min(100%, 620px) !important;
+    min-height: calc(100dvh - 28px) !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto !important;
+    gap: 18px !important;
+    padding: clamp(20px, 5vw, 32px) !important;
+    border-radius: 28px !important;
+  }
+
+  .authHeroBlock,
+  .authPanel {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+    justify-self: stretch !important;
+    max-width: none !important;
+  }
+
+  .authHeroBlock {
+    justify-items: center !important;
+    text-align: center !important;
+  }
+
+  .authHeroBlock > .appLogo.lg {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  .authHeroBlock > .eyebrow,
+  .authHeroBlock > h1,
+  .authHeroBlock > p:not(.eyebrow) {
+    text-align: center !important;
+    max-width: 100% !important;
+  }
+
+  .authHeroBlock > h1 {
+    font-size: clamp(2rem, 8vw, 3.1rem) !important;
+    line-height: 0.98 !important;
+  }
+
+  .authTrustRow {
+    justify-content: center !important;
+  }
+
+  .authPanel {
+    padding: 20px !important;
+  }
+
+  .authQuickPanel {
+    right: 0 !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .authUtilityBar {
+    align-items: flex-start !important;
+  }
+
+  .authProductMark span {
+    display: none !important;
+  }
+
+  .authQuickSettings > summary strong {
+    display: none !important;
+  }
+
+  .authQuickSettings > summary {
+    width: 44px !important;
+    padding: 0 !important;
+  }
+
+  .authQuickPanel {
+    width: calc(100vw - 28px) !important;
+  }
+
+  .quickThemeButtons {
+    grid-template-columns: 1fr !important;
+  }
+
+  .authQuickPanel .vaultSwitcher .newVaultRow {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* === KPassword v0.7.1 premium desktop login + typography END === */
+
+/* === KPassword v0.7.1 hotfix login desktop real START === */
+
+/*
+  Login desktop real:
+  - remove o "app dentro do app"
+  - usa a área inteira da janela
+  - mantém só uma marca visual do KPassword
+  - reduz títulos exagerados
+  - coloca Ajustes rápidos acima de tudo
+*/
+.authShell.authDesktopShell {
+  min-height: 100dvh !important;
+  width: 100% !important;
+  display: block !important;
+  padding: 0 !important;
+  overflow: auto !important;
+  background:
+    radial-gradient(circle at 4% 6%, rgba(56, 189, 248, 0.14), transparent 28%),
+    radial-gradient(circle at 96% 12%, rgba(124, 58, 237, 0.13), transparent 24%),
+    radial-gradient(circle at 76% 92%, rgba(0, 225, 255, 0.10), transparent 26%),
+    linear-gradient(135deg, #070a13 0%, #0b1020 48%, #04171c 100%) !important;
+}
+
+.authCard.authExperience {
+  width: 100% !important;
+  min-height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: clamp(24px, 3.4vw, 54px) clamp(28px, 4.6vw, 76px) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px) !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: clamp(24px, 4vw, 72px) !important;
+  align-items: center !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  isolation: isolate !important;
+}
+
+.authCard.authExperience::before,
+.authCard.authExperience::after {
+  display: none !important;
+}
+
+.authUtilityBar {
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  position: relative !important;
+  z-index: 50 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  min-height: 54px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.authProductMark {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 9px 12px !important;
+  border-radius: 18px !important;
+  background: rgba(15, 23, 42, 0.36) !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+.authProductMark .appLogo.sm {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.authProductMark strong {
+  font-size: 0.98rem !important;
+  letter-spacing: -0.02em !important;
+}
+
+.authProductMark span {
+  font-size: 0.82rem !important;
+  color: rgba(203, 213, 225, 0.70) !important;
+}
+
+/* Remove a logo grande duplicada do bloco principal */
+.authHeroBlock > .appLogo.lg {
+  display: none !important;
+}
+
+.authHeroBlock {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  align-self: center !important;
+  max-width: 640px !important;
+  display: grid !important;
+  gap: 18px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  text-align: left !important;
+}
+
+.authHeroBlock .eyebrow {
+  margin: 0 !important;
+  font-size: 0.78rem !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0.16em !important;
+  color: rgba(125, 211, 252, 0.90) !important;
+}
+
+.authHeroBlock h1 {
+  max-width: 680px !important;
+  margin: 0 !important;
+  font-size: clamp(2.25rem, 5.3vw, 4.35rem) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.075em !important;
+  font-weight: 850 !important;
+  color: rgba(248, 250, 252, 0.98) !important;
+}
+
+.authHeroBlock p:not(.eyebrow) {
+  max-width: 580px !important;
+  margin: 0 !important;
+  font-size: clamp(1rem, 1.28vw, 1.16rem) !important;
+  line-height: 1.65 !important;
+  color: rgba(203, 213, 225, 0.76) !important;
+}
+
+.authTrustRow {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-top: 6px !important;
+}
+
+.authTrustRow span {
+  padding: 8px 11px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  background: rgba(15, 23, 42, 0.30) !important;
+  color: rgba(226, 232, 240, 0.78) !important;
+  font-size: 0.82rem !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+
+.authPanel {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  align-self: center !important;
+  padding: clamp(22px, 2.6vw, 30px) !important;
+  border-radius: 26px !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  background:
+    linear-gradient(180deg, rgba(17, 24, 39, 0.84), rgba(15, 23, 42, 0.66)),
+    rgba(15, 23, 42, 0.76) !important;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.36),
+    0 0 0 1px rgba(255, 255, 255, 0.026) inset !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+.authPanelLabel {
+  display: inline-flex !important;
+  margin-bottom: 18px !important;
+  font-size: 0.76rem !important;
+  letter-spacing: 0.13em !important;
+  color: rgba(148, 163, 184, 0.86) !important;
+}
+
+.authForm {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  gap: 15px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.authForm label {
+  display: grid !important;
+  gap: 8px !important;
+  font-size: 0.88rem !important;
+  color: rgba(226, 232, 240, 0.90) !important;
+}
+
+.authForm input,
+.authPanel input,
+.authPanel select {
+  min-height: 52px !important;
+  font-size: 0.98rem !important;
+  border-radius: 16px !important;
+}
+
+.authForm .primaryButton,
+.authForm .windowsHelloButton {
+  min-height: 54px !important;
+  border-radius: 17px !important;
+  font-size: 0.98rem !important;
+}
+
+/* Ajustes rápidos: sempre por cima, sem entrar atrás do painel */
+.authQuickSettings {
+  position: relative !important;
+  z-index: 200 !important;
+}
+
+.authQuickSettings summary {
+  min-height: 48px !important;
+  padding: 0 18px !important;
+  border-radius: 17px !important;
+  border: 1px solid rgba(125, 211, 252, 0.22) !important;
+  background: rgba(15, 23, 42, 0.42) !important;
+  backdrop-filter: blur(18px) !important;
+  box-shadow: none !important;
+}
+
+.authQuickSettings summary strong {
+  font-size: 0.92rem !important;
+  letter-spacing: -0.01em !important;
+}
+
+.authQuickSettings[open] summary {
+  border-color: rgba(125, 211, 252, 0.40) !important;
+  background: rgba(15, 23, 42, 0.68) !important;
+}
+
+.authQuickPanel {
+  position: absolute !important;
+  top: calc(100% + 12px) !important;
+  right: 0 !important;
+  z-index: 500 !important;
+  width: min(430px, calc(100vw - 36px)) !important;
+  max-height: min(70dvh, 570px) !important;
+  overflow: auto !important;
+  padding: 18px !important;
+  border-radius: 22px !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(8, 13, 24, 0.98)) !important;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.58),
+    0 0 0 1px rgba(255, 255, 255, 0.030) inset !important;
+  backdrop-filter: blur(22px) !important;
+}
+
+.quickSettingGroup {
+  gap: 10px !important;
+}
+
+.quickThemeButtons {
+  gap: 8px !important;
+}
+
+.quickThemeButton {
+  min-height: 44px !important;
+  border-radius: 14px !important;
+}
+
+.quickVaultGroup .vaultSwitcher {
+  padding: 12px !important;
+  border-radius: 16px !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.authQuickAction {
+  min-height: 46px !important;
+  border-radius: 15px !important;
+}
+
+/* Primeiro uso: menos cara de manual */
+.refinedFirstUseGuide {
+  max-width: 540px !important;
+  display: grid !important;
+  gap: 8px !important;
+  margin-top: 6px !important;
+  padding: 14px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  background: rgba(15, 23, 42, 0.26) !important;
+}
+
+.refinedFirstUseGuide strong {
+  font-size: 0.9rem !important;
+}
+
+.refinedFirstUseGuide span {
+  font-size: 0.88rem !important;
+  line-height: 1.45 !important;
+  color: rgba(203, 213, 225, 0.74) !important;
+}
+
+/* Estados de carregamento */
+.authLoadingPanel {
+  min-height: 170px !important;
+  display: grid !important;
+  align-content: center !important;
+}
+
+/* Janela média: continua desktop, mas mais compacto */
+@media (max-width: 980px) {
+  .authCard.authExperience {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto !important;
+    gap: 22px !important;
+    padding: 22px !important;
+    align-items: start !important;
+  }
+
+  .authHeroBlock,
+  .authPanel {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+
+  .authHeroBlock {
+    max-width: 100% !important;
+    gap: 12px !important;
+  }
+
+  .authHeroBlock h1 {
+    max-width: 720px !important;
+    font-size: clamp(2rem, 8vw, 3.2rem) !important;
+  }
+
+  .authPanel {
+    max-width: 560px !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .authCard.authExperience {
+    min-height: 100dvh !important;
+    padding: 16px !important;
+    gap: 18px !important;
+  }
+
+  .authUtilityBar {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .authProductMark,
+  .authQuickSettings,
+  .authQuickSettings summary {
+    width: 100% !important;
+  }
+
+  .authQuickSettings summary {
+    justify-content: center !important;
+  }
+
+  .authQuickPanel {
+    position: static !important;
+    width: 100% !important;
+    max-height: none !important;
+    margin-top: 10px !important;
+  }
+
+  .authHeroBlock {
+    text-align: left !important;
+  }
+
+  .authHeroBlock h1 {
+    font-size: clamp(2rem, 12vw, 2.7rem) !important;
+    letter-spacing: -0.065em !important;
+  }
+
+  .authHeroBlock p:not(.eyebrow) {
+    font-size: 0.98rem !important;
+  }
+
+  .authPanel {
+    max-width: none !important;
+    padding: 18px !important;
+    border-radius: 22px !important;
+  }
+
+  .authTrustRow span {
+    white-space: normal !important;
+  }
+}
+/* === KPassword v0.7.1 hotfix login desktop real END === */
+
+
+/* === KPassword v0.7.1 hotfix login sem app-dentro-do-app START === */
+.authShell.authDesktopShell {
+  min-height: 100dvh !important;
+  width: 100% !important;
+  display: block !important;
+  padding: 0 !important;
+  overflow: auto !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(14, 165, 233, 0.16), transparent 30%),
+    radial-gradient(circle at 100% 8%, rgba(99, 102, 241, 0.14), transparent 28%),
+    radial-gradient(circle at 72% 100%, rgba(20, 184, 166, 0.12), transparent 30%),
+    linear-gradient(135deg, #070b14 0%, #0b1020 50%, #04191f 100%) !important;
+}
+
+.authCard.authExperience {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 100dvh !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: clamp(24px, 3.3vw, 48px) clamp(28px, 4.8vw, 72px) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px) !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: clamp(26px, 4vw, 68px) !important;
+  align-items: center !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.authCard.authExperience::before,
+.authCard.authExperience::after {
+  display: none !important;
+}
+
+.authUtilityBar {
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  min-height: 46px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  position: relative !important;
+  z-index: 30 !important;
+}
+
+.authProductMark {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.authProductMark .appLogo.sm {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.authProductMark .appLogo > span {
+  display: none !important;
+}
+
+.authProductMark strong {
+  display: block !important;
+  font-size: 0.98rem !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.025em !important;
+  color: rgba(248, 250, 252, 0.95) !important;
+}
+
+.authProductMark div > span {
+  display: block !important;
+  margin-top: 2px !important;
+  font-size: 0.80rem !important;
+  line-height: 1.2 !important;
+  color: rgba(203, 213, 225, 0.62) !important;
+}
+
+.authLoginTools {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  flex-wrap: wrap !important;
+}
+
+.authLoginTools .languageSelect {
+  display: flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+}
+
+.authLoginTools .languageSelect > span {
+  display: none !important;
+}
+
+.authLoginTools .languageSelect.compact select {
+  width: 68px !important;
+  min-width: 68px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 26px 0 14px !important;
+  border-radius: 14px !important;
+  font-size: 0.88rem !important;
+  text-align: left !important;
+  background-position: right 10px center !important;
+}
+
+.authThemeButtons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.authThemeButton,
+.authToolButton,
+.authVaultSelect,
+.authNewVaultInput {
+  height: 42px !important;
+  min-height: 42px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  background: rgba(15, 23, 42, 0.28) !important;
+  color: rgba(248, 250, 252, 0.88) !important;
+  box-shadow: none !important;
+}
+
+.authThemeButton,
+.authToolButton {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 12px !important;
+  font-size: 0.84rem !important;
+  font-weight: 750 !important;
+  cursor: pointer !important;
+}
+
+.authThemeButton.active {
+  border-color: rgba(125, 211, 252, 0.48) !important;
+  background: rgba(14, 165, 233, 0.18) !important;
+  color: rgba(224, 242, 254, 0.98) !important;
+}
+
+.authVaultSelect {
+  width: min(150px, 22vw) !important;
+  padding: 0 32px 0 13px !important;
+  background-position: right 11px center !important;
+}
+
+.authNewVaultInput {
+  width: min(180px, 24vw) !important;
+  padding: 0 13px !important;
+}
+
+.authToolButton:hover,
+.authThemeButton:hover,
+.authVaultSelect:hover,
+.authNewVaultInput:hover,
+.authLoginTools .languageSelect.compact select:hover {
+  border-color: rgba(125, 211, 252, 0.34) !important;
+  background-color: rgba(15, 23, 42, 0.42) !important;
+}
+
+.authHeroBlock > .appLogo.lg {
+  display: none !important;
+}
+
+.authHeroBlock {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  align-self: center !important;
+  max-width: 650px !important;
+  display: grid !important;
+  gap: 16px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: left !important;
+}
+
+.authHeroBlock .eyebrow {
+  margin: 0 !important;
+  font-size: 0.76rem !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0.16em !important;
+  color: rgba(125, 211, 252, 0.88) !important;
+}
+
+.authHeroBlock h1 {
+  max-width: 680px !important;
+  margin: 0 !important;
+  font-size: clamp(2.05rem, 4.2vw, 3.35rem) !important;
+  line-height: 1.02 !important;
+  letter-spacing: -0.06em !important;
+  font-weight: 820 !important;
+  color: rgba(248, 250, 252, 0.96) !important;
+}
+
+.authHeroBlock p:not(.eyebrow) {
+  max-width: 610px !important;
+  margin: 0 !important;
+  font-size: clamp(0.98rem, 1.1vw, 1.08rem) !important;
+  line-height: 1.62 !important;
+  color: rgba(203, 213, 225, 0.74) !important;
+}
+
+.authTrustRow {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 4px !important;
+}
+
+.authTrustRow span {
+  padding: 7px 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(148, 163, 184, 0.13) !important;
+  background: rgba(15, 23, 42, 0.24) !important;
+  color: rgba(226, 232, 240, 0.76) !important;
+  font-size: 0.80rem !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+
+.authPanel {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  align-self: center !important;
+  width: 100% !important;
+  padding: clamp(22px, 2.4vw, 28px) !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  background: rgba(15, 23, 42, 0.54) !important;
+  box-shadow: 0 22px 62px rgba(0, 0, 0, 0.30) !important;
+  backdrop-filter: blur(16px) !important;
+}
+
+.authPanelLabel {
+  display: inline-flex !important;
+  margin-bottom: 16px !important;
+  font-size: 0.74rem !important;
+  letter-spacing: 0.12em !important;
+  color: rgba(148, 163, 184, 0.82) !important;
+}
+
+.authForm {
+  margin: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  gap: 13px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.authForm label {
+  display: grid !important;
+  gap: 8px !important;
+  font-size: 0.88rem !important;
+  color: rgba(226, 232, 240, 0.88) !important;
+}
+
+.authForm input,
+.authPanel input,
+.authPanel select {
+  min-height: 50px !important;
+  font-size: 0.98rem !important;
+  border-radius: 16px !important;
+}
+
+.authForm .primaryButton,
+.authForm .windowsHelloButton {
+  min-height: 52px !important;
+  border-radius: 17px !important;
+  font-size: 0.98rem !important;
+}
+
+.authForm .windowsHelloButton {
+  line-height: 1.18 !important;
+  white-space: normal !important;
+  padding-inline: 18px !important;
+}
+
+/* Esconde a implementação antiga de ajustes rápidos se algum resto existir */
+.authQuickSettings,
+.authQuickPanel {
+  display: none !important;
+}
+
+/* Temas realmente aplicados na tela bloqueada */
+:root[data-theme="light"] .authShell.authDesktopShell {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.13), transparent 30%),
+    radial-gradient(circle at 100% 0%, rgba(14, 165, 233, 0.12), transparent 28%),
+    linear-gradient(135deg, #f8fafc 0%, #eef4ff 48%, #e8fbff 100%) !important;
+}
+
+:root[data-theme="light"] .authHeroBlock h1,
+:root[data-theme="light"] .authProductMark strong,
+:root[data-theme="light"] .authForm label {
+  color: rgba(15, 23, 42, 0.94) !important;
+}
+
+:root[data-theme="light"] .authHeroBlock p:not(.eyebrow),
+:root[data-theme="light"] .authProductMark div > span,
+:root[data-theme="light"] .authTrustRow span {
+  color: rgba(51, 65, 85, 0.78) !important;
+}
+
+:root[data-theme="light"] .authPanel,
+:root[data-theme="light"] .authTrustRow span,
+:root[data-theme="light"] .authThemeButton,
+:root[data-theme="light"] .authToolButton,
+:root[data-theme="light"] .authVaultSelect,
+:root[data-theme="light"] .authNewVaultInput,
+:root[data-theme="light"] .authLoginTools .languageSelect.compact select {
+  background: rgba(255, 255, 255, 0.66) !important;
+  border-color: rgba(59, 130, 246, 0.16) !important;
+  color: rgba(15, 23, 42, 0.88) !important;
+}
+
+:root[data-theme="light"] .authPanel {
+  box-shadow: 0 22px 62px rgba(15, 23, 42, 0.12) !important;
+}
+
+:root[data-theme="mixed"] .authShell.authDesktopShell {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.15), transparent 30%),
+    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.12), transparent 28%),
+    linear-gradient(135deg, #eef7ff 0%, #101827 52%, #04191f 100%) !important;
+}
+
+@media (max-width: 1120px) {
+  .authCard.authExperience {
+    grid-template-columns: minmax(0, 1fr) minmax(330px, 400px) !important;
+    gap: 28px !important;
+    padding-inline: 34px !important;
+  }
+
+  .authNewVaultInput {
+    display: none !important;
+  }
+}
+
+@media (max-width: 920px) {
+  .authCard.authExperience {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto !important;
+    gap: 22px !important;
+    padding: 20px !important;
+    align-items: start !important;
+  }
+
+  .authHeroBlock,
+  .authPanel {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+
+  .authHeroBlock {
+    max-width: 100% !important;
+  }
+
+  .authHeroBlock h1 {
+    font-size: clamp(1.95rem, 7vw, 2.85rem) !important;
+  }
+
+  .authPanel {
+    max-width: 540px !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .authUtilityBar {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .authLoginTools {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  .authThemeButtons {
+    order: 3 !important;
+    width: 100% !important;
+  }
+
+  .authThemeButton {
+    flex: 1 1 0 !important;
+  }
+
+  .authVaultSelect {
+    flex: 1 1 150px !important;
+    width: auto !important;
+  }
+
+  .authToolButton {
+    flex: 1 1 auto !important;
+  }
+
+  .authHeroBlock h1 {
+    font-size: clamp(1.85rem, 10vw, 2.5rem) !important;
+  }
+
+  .authPanel {
+    max-width: none !important;
+    padding: 18px !important;
+    border-radius: 22px !important;
+  }
+}
+/* === KPassword v0.7.1 hotfix login sem app-dentro-do-app END === */
+
+/* === KPassword v0.7.1 hotfix tema conectado logo e PIN START === */
+
+/* Marca do app: a barra do Windows já mostra KPassword. Na tela, a logo entra como elemento visual principal. */
+.authProductMark {
+  display: none !important;
+}
+
+.authUtilityBar {
+  justify-content: flex-end !important;
+}
+
+/* Logo integrada ao hero, sem duplicação de nome e com assinatura visual própria. */
+.authHeroBlock {
+  position: relative !important;
+  padding-top: 6px !important;
+}
+
+.authHeroBlock > .appLogo.lg {
+  display: grid !important;
+  position: relative !important;
+  width: clamp(76px, 9vw, 118px) !important;
+  height: clamp(76px, 9vw, 118px) !important;
+  margin: 0 0 clamp(14px, 2vw, 22px) !important;
+  border-radius: 24px !important;
+  isolation: isolate !important;
+}
+
+.authHeroBlock > .appLogo.lg::before {
+  content: "";
+  position: absolute;
+  left: calc(100% + 18px);
+  top: 50%;
+  width: min(34vw, 360px);
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(125, 211, 252, 0.58), rgba(124, 58, 237, 0.26), transparent);
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.18);
+  transform: translateY(-50%);
+  z-index: -1;
+}
+
+.authHeroBlock > .appLogo.lg::after {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  pointer-events: none;
+  border-radius: 34px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.14), transparent 62%);
+  z-index: -2;
+}
+
+.authHeroBlock > .appLogo.lg img {
+  filter:
+    drop-shadow(0 18px 34px rgba(0, 0, 0, 0.34))
+    drop-shadow(0 0 26px rgba(56, 189, 248, 0.13)) !important;
+}
+
+/* Título: menos infantil/exagerado, mais produto premium. */
+.authHeroBlock h1 {
+  font-size: clamp(2rem, 3.55vw, 3rem) !important;
+  line-height: 1.04 !important;
+  letter-spacing: -0.052em !important;
+  font-weight: 820 !important;
+}
+
+.authHeroBlock p:not(.eyebrow) {
+  max-width: 620px !important;
+  font-size: clamp(0.98rem, 1.05vw, 1.08rem) !important;
+}
+
+/* Controles de tema conectados e com ícones. */
+.authThemeButtons {
+  display: inline-flex !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  padding: 3px !important;
+  min-height: 44px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  background: rgba(15, 23, 42, 0.22) !important;
+}
+
+.authThemeButton {
+  gap: 7px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: rgba(203, 213, 225, 0.78) !important;
+}
+
+.authThemeButton + .authThemeButton {
+  margin-left: 2px !important;
+}
+
+.authThemeButton.active {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(124, 58, 237, 0.18)) !important;
+  color: rgba(248, 250, 252, 0.98) !important;
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.14) !important;
+}
+
+.authThemeButton:hover {
+  background: rgba(148, 163, 184, 0.10) !important;
+}
+
+.authThemeButton.active:hover {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.33), rgba(124, 58, 237, 0.22)) !important;
+}
+
+.authThemeIcon {
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 0.92rem !important;
+  line-height: 1 !important;
+}
+
+/* Botão de PIN: limpo, sem ícone insignificante e com texto curto. */
+.authForm .windowsHelloButton {
+  min-height: 52px !important;
+  padding-inline: 18px !important;
+  white-space: nowrap !important;
+  line-height: 1.15 !important;
+  font-weight: 850 !important;
+}
+
+.authForm .windowsHelloButton span[aria-hidden="true"] {
+  display: none !important;
+}
+
+/* Modo misto: manter contraste consistente na tela de login. */
+:root[data-theme="mixed"] .authShell.authDesktopShell {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.11), transparent 30%),
+    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.12), transparent 28%),
+    linear-gradient(135deg, #f2f8ff 0%, #eaf2ff 42%, #0b1220 42%, #04191f 100%) !important;
+}
+
+:root[data-theme="mixed"] .authHeroBlock h1,
+:root[data-theme="mixed"] .authHeroBlock p:not(.eyebrow) {
+  color: rgba(15, 23, 42, 0.92) !important;
+}
+
+:root[data-theme="mixed"] .authHeroBlock .eyebrow {
+  color: rgba(3, 105, 161, 0.92) !important;
+}
+
+:root[data-theme="mixed"] .authTrustRow span {
+  color: rgba(30, 41, 59, 0.82) !important;
+  background: rgba(255, 255, 255, 0.62) !important;
+  border-color: rgba(59, 130, 246, 0.16) !important;
+}
+
+:root[data-theme="mixed"] .authPanel {
+  background: rgba(15, 23, 42, 0.76) !important;
+  border-color: rgba(125, 211, 252, 0.16) !important;
+  color: rgba(248, 250, 252, 0.94) !important;
+}
+
+:root[data-theme="mixed"] .authPanelLabel,
+:root[data-theme="mixed"] .authForm label {
+  color: rgba(226, 232, 240, 0.88) !important;
+}
+
+:root[data-theme="mixed"] .authLoginTools .languageSelect.compact select,
+:root[data-theme="mixed"] .authThemeButtons,
+:root[data-theme="mixed"] .authToolButton,
+:root[data-theme="mixed"] .authVaultSelect,
+:root[data-theme="mixed"] .authNewVaultInput {
+  background: rgba(15, 23, 42, 0.70) !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  color: rgba(248, 250, 252, 0.92) !important;
+}
+
+/* Modo claro: tema conectado sem botões lavados. */
+:root[data-theme="light"] .authThemeButtons {
+  background: rgba(255, 255, 255, 0.70) !important;
+  border-color: rgba(59, 130, 246, 0.16) !important;
+}
+
+:root[data-theme="light"] .authThemeButton {
+  color: rgba(30, 41, 59, 0.74) !important;
+}
+
+:root[data-theme="light"] .authThemeButton.active {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(99, 102, 241, 0.10)) !important;
+  color: rgba(15, 23, 42, 0.94) !important;
+}
+
+@media (max-width: 920px) {
+  .authHeroBlock > .appLogo.lg::before {
+    width: min(42vw, 260px) !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .authHeroBlock > .appLogo.lg {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  .authHeroBlock > .appLogo.lg::before {
+    width: min(54vw, 220px) !important;
+  }
+
+  .authThemeButtons {
+    width: 100% !important;
+  }
+
+  .authThemeButton {
+    flex: 1 1 0 !important;
+    padding-inline: 8px !important;
+  }
+
+  .authForm .windowsHelloButton {
+    white-space: normal !important;
+  }
+}
+/* === KPassword v0.7.1 hotfix tema conectado logo e PIN END === */
+
+/* === KPassword v0.7.1 hotfix scroll login sem mover layout START === */
+
+/*
+  Apenas habilita rolagem quando o conteúdo da tela bloqueada ultrapassar
+  a altura disponível. Não muda grid, colunas, posição do painel, tamanho da
+  logo, título, painel de login ou breakpoints.
+*/
+html:has(.authDesktopShell),
+body:has(.authDesktopShell),
+#root:has(.authDesktopShell) {
+  min-height: 100% !important;
+  height: auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.authShell.authDesktopShell {
+  height: auto !important;
+  min-height: 100dvh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.authCard.authExperience {
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Só garante espaço no final para o último elemento não ficar colado/cortado. */
+.authCard.authExperience {
+  padding-bottom: max(clamp(28px, 4vw, 64px), env(safe-area-inset-bottom)) !important;
+}
+/* === KPassword v0.7.1 hotfix scroll login sem mover layout END === */
+
+
+/* === KPassword v0.7.1 hotfix temas analitico lateral START === */
+
+/* Menu lateral: a barra superior do sistema já mostra KPassword. */
+.sidebarBrand .brandText {
+  display: none !important;
+}
+
+.sidebarBrand {
+  justify-content: center !important;
+}
+
+.sidebarOpen .sidebarBrand,
+.sidebarClosed .sidebarBrand {
+  justify-content: center !important;
+}
+
+/* Guarda de contraste para os 3 temas. */
+:root[data-theme="dark"] {
+  --kp-page-bg: #08090d;
+  --kp-panel-bg: rgba(16, 18, 27, 0.86);
+  --kp-panel-bg-strong: rgba(18, 22, 34, 0.96);
+  --kp-field-bg: rgba(255, 255, 255, 0.055);
+  --kp-line: rgba(255, 255, 255, 0.11);
+  --kp-readable: #f7f7fb;
+  --kp-readable-muted: #aab0c5;
+}
+
+:root[data-theme="light"] {
+  --kp-page-bg: #eef3fb;
+  --kp-panel-bg: rgba(255, 255, 255, 0.92);
+  --kp-panel-bg-strong: rgba(255, 255, 255, 0.98);
+  --kp-field-bg: rgba(15, 23, 42, 0.055);
+  --kp-line: rgba(15, 23, 42, 0.12);
+  --kp-readable: #111827;
+  --kp-readable-muted: #4b5563;
+}
+
+:root[data-theme="mixed"] {
+  --kp-page-bg: #edf2f8;
+  --kp-panel-bg: rgba(255, 255, 255, 0.92);
+  --kp-panel-bg-strong: rgba(255, 255, 255, 0.98);
+  --kp-field-bg: rgba(15, 23, 42, 0.06);
+  --kp-line: rgba(15, 23, 42, 0.12);
+  --kp-readable: #111827;
+  --kp-readable-muted: #4b5563;
+}
+
+.wideCard,
+.metricCard,
+.credentialRow,
+.emptyState,
+.credentialModal,
+.detailPopup,
+.confirmCard,
+.restoreDialog,
+.updateStatus,
+.languagePreferenceBox,
+.optionButton,
+.toggleRow,
+.pathBox,
+.backupList div,
+.detailGrid div,
+.notesBox,
+.securityGrid span,
+.analyticsCard,
+.analyticsHero {
+  color: var(--kp-readable) !important;
+}
+
+.wideCard h2,
+.metricCard strong,
+.credentialRow strong,
+.detailGrid strong,
+.pathBox strong,
+.analyticsCard h2,
+.analyticsHero h2,
+label {
+  color: var(--kp-readable) !important;
+}
+
+.wideCard p,
+.metricCard small,
+.metricCard span,
+.credentialRow small,
+.rowMain small,
+.rowStrength,
+.rowCategory,
+.storageHint,
+.backupList span,
+.pathBox span,
+.toggleRow small,
+.optionButton small,
+.emptyText,
+.analyticsCard small,
+.analyticsHero p,
+.analyticsProtectionList span,
+.analyticsSignal,
+.analyticsMiniList button span {
+  color: var(--kp-readable-muted) !important;
+}
+
+input,
+select,
+textarea,
+.toggleRow,
+.optionButton,
+.pathBox,
+.backupList div,
+.miniList button,
+.detailGrid div,
+.notesBox,
+.securityGrid span,
+.analyticsSignal,
+.analyticsSummaryList span,
+.analyticsProtectionList span {
+  background: var(--kp-field-bg) !important;
+  color: var(--kp-readable) !important;
+  border-color: var(--kp-line) !important;
+}
+
+select option {
+  background: var(--kp-panel-bg-strong) !important;
+  color: var(--kp-readable) !important;
+}
+
+:root[data-theme="light"] .sidebar,
+:root[data-theme="mixed"] .sidebar {
+  background: rgba(10, 15, 30, 0.94) !important;
+  color: #f8fafc !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+:root[data-theme="light"] .sidebar .navList button,
+:root[data-theme="mixed"] .sidebar .navList button,
+:root[data-theme="light"] .sidebar .lockButton,
+:root[data-theme="mixed"] .sidebar .lockButton,
+:root[data-theme="light"] .sidebar .navLabel,
+:root[data-theme="mixed"] .sidebar .navLabel {
+  color: rgba(226, 232, 240, 0.84) !important;
+}
+
+:root[data-theme="light"] .sidebar .navList button.active,
+:root[data-theme="mixed"] .sidebar .navList button.active {
+  color: #f8fafc !important;
+  background: rgba(14, 165, 233, 0.18) !important;
+  border-color: rgba(125, 211, 252, 0.25) !important;
+}
+
+:root[data-theme="light"] .topbar,
+:root[data-theme="mixed"] .topbar {
+  color: var(--kp-readable) !important;
+}
+
+:root[data-theme="mixed"] .content,
+:root[data-theme="light"] .content {
+  color: var(--kp-readable) !important;
+}
+
+/* Analítico: menos estatística solta, mais leitura de saúde e ação. */
+.analyticsPage {
+  display: grid;
+  gap: clamp(16px, 2vw, 24px);
+  min-width: 0;
+}
+
+.analyticsHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(16px, 3vw, 34px);
+  min-width: 0;
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid var(--kp-line);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.18), transparent 32%),
+    var(--kp-panel-bg);
+  box-shadow: var(--kp-shadow, 0 18px 50px rgba(0, 0, 0, 0.22));
+}
+
+.analyticsHero.safe {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.13), transparent 34%),
+    var(--kp-panel-bg);
+}
+
+.analyticsHero.attention {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.16), transparent 34%),
+    var(--kp-panel-bg);
+}
+
+.analyticsHero .eyebrow {
+  margin: 0 0 10px !important;
+}
+
+.analyticsHero h2 {
+  margin: 0 0 8px;
+  font-size: clamp(1.55rem, 2.6vw, 2.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.analyticsHero p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.analyticsTotalBadge {
+  display: grid;
+  min-width: 154px;
+  justify-items: end;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--kp-line);
+  border-radius: 22px;
+  background: var(--kp-field-bg);
+}
+
+.analyticsTotalBadge span,
+.analyticsTotalBadge small {
+  color: var(--kp-readable-muted) !important;
+  line-height: 1.25;
+}
+
+.analyticsTotalBadge strong {
+  color: var(--kp-readable) !important;
+  font-size: clamp(2rem, 4vw, 3.15rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.analyticsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
+  gap: clamp(14px, 2vw, 20px);
+  align-items: stretch;
+}
+
+.analyticsCard {
+  min-height: auto !important;
+  padding: clamp(18px, 2vw, 24px) !important;
+  border-radius: 24px !important;
+  background: var(--kp-panel-bg) !important;
+  border-color: var(--kp-line) !important;
+}
+
+.analyticsCard h2 {
+  margin: 0 0 16px !important;
+  font-size: clamp(1.02rem, 1.4vw, 1.2rem) !important;
+  letter-spacing: -0.02em !important;
+}
+
+.analyticsSignals,
+.analyticsSummaryList,
+.analyticsProtectionList {
+  display: grid;
+  gap: 10px;
+}
+
+.analyticsSignals {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analyticsSignal,
+.analyticsProtectionList span,
+.analyticsSummaryList span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--kp-line);
+  border-radius: 14px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.analyticsSignal.tone-danger {
+  border-color: rgba(248, 113, 113, 0.26) !important;
+  background: rgba(248, 113, 113, 0.08) !important;
+}
+
+.analyticsSignal.tone-warning {
+  border-color: rgba(245, 158, 11, 0.28) !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+.analyticsSummaryList span small {
+  color: var(--kp-readable-muted) !important;
+}
+
+.analyticsSummaryList span strong {
+  color: var(--kp-readable) !important;
+  font-size: 1.2rem;
+}
+
+.analyticsMiniList button {
+  background: var(--kp-field-bg) !important;
+  color: var(--kp-readable) !important;
+  border-color: var(--kp-line) !important;
+}
+
+.analyticsMiniList button strong {
+  color: var(--kp-readable) !important;
+}
+
+.analyticsProtectionCard {
+  grid-column: 1 / -1;
+}
+
+.analyticsProtectionList {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1080px) {
+  .analyticsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .analyticsProtectionList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .analyticsHero {
+    grid-template-columns: 1fr;
+  }
+
+  .analyticsTotalBadge {
+    justify-items: start;
+    width: 100%;
+  }
+
+  .analyticsSignals,
+  .analyticsProtectionList {
+    grid-template-columns: 1fr;
+  }
+}
+/* === KPassword v0.7.1 hotfix temas analitico lateral END === */
+
+/* === KPassword v0.7.1 hotfix contraste final temas e sidebar START === */
+
+/*
+  Regra final de contraste:
+  - superfície clara = texto escuro
+  - superfície escura = texto claro
+  - botões claros deixam de usar texto branco
+  - botões desativados continuam legíveis
+*/
+
+/* Corrige desalinhamento herdado do menu fechado. */
+.sidebarClosed .sidebarBrand .sidebarToggle,
+.sidebarOpen .sidebarBrand .sidebarToggle {
+  transform: none !important;
+}
+
+.sidebarClosed .sidebarBrand {
+  width: 100% !important;
+  justify-content: center !important;
+}
+
+.sidebarClosed .sidebarToggle {
+  margin-inline: auto !important;
+  justify-self: center !important;
+}
+
+/* Remove qualquer sobra textual da marca interna. */
+.sidebarBrand .brandText {
+  display: none !important;
+}
+
+/* Bases dos temas claros/mistos */
+:root[data-theme="light"],
+:root[data-theme="mixed"] {
+  --kp-readable: #0f172a;
+  --kp-readable-muted: #475569;
+  --kp-readable-soft: #64748b;
+  --kp-surface: rgba(255, 255, 255, 0.94);
+  --kp-surface-solid: #ffffff;
+  --kp-surface-soft: #f1f5f9;
+  --kp-surface-raised: #f8fafc;
+  --kp-border-soft: rgba(15, 23, 42, 0.12);
+  --kp-blue-soft: #d7f0fb;
+  --kp-blue-soft-hover: #bae6fd;
+  --kp-blue-text: #083344;
+  --kp-danger-soft: #fee2e2;
+  --kp-danger-soft-hover: #fecaca;
+  --kp-danger-text: #7f1d1d;
+  --kp-warning-soft: #fef3c7;
+  --kp-warning-text: #78350f;
+  color: var(--kp-readable) !important;
+}
+
+/* Páginas e conteúdo */
+:root[data-theme="light"] .content,
+:root[data-theme="mixed"] .content {
+  color: var(--kp-readable) !important;
+}
+
+:root[data-theme="light"] .topbar,
+:root[data-theme="mixed"] .topbar,
+:root[data-theme="light"] .topbar h1,
+:root[data-theme="mixed"] .topbar h1,
+:root[data-theme="light"] .topbarTitle,
+:root[data-theme="mixed"] .topbarTitle {
+  color: var(--kp-readable) !important;
+}
+
+:root[data-theme="light"] .topbar .eyebrow,
+:root[data-theme="mixed"] .topbar .eyebrow {
+  color: #334155 !important;
+}
+
+/* Cards/superfícies claras: texto escuro obrigatório */
+:root[data-theme="light"] .wideCard,
+:root[data-theme="mixed"] .wideCard,
+:root[data-theme="light"] .storageCard,
+:root[data-theme="mixed"] .storageCard,
+:root[data-theme="light"] .securityActionCard,
+:root[data-theme="mixed"] .securityActionCard,
+:root[data-theme="light"] .preferenceCard,
+:root[data-theme="mixed"] .preferenceCard,
+:root[data-theme="light"] .metricCard,
+:root[data-theme="mixed"] .metricCard,
+:root[data-theme="light"] .emptyState,
+:root[data-theme="mixed"] .emptyState,
+:root[data-theme="light"] .credentialRow,
+:root[data-theme="mixed"] .credentialRow,
+:root[data-theme="light"] .credentialModal,
+:root[data-theme="mixed"] .credentialModal,
+:root[data-theme="light"] .detailPopup,
+:root[data-theme="mixed"] .detailPopup,
+:root[data-theme="light"] .confirmCard,
+:root[data-theme="mixed"] .confirmCard,
+:root[data-theme="light"] .analyticsCard,
+:root[data-theme="mixed"] .analyticsCard,
+:root[data-theme="light"] .analyticsHero {
+  background: var(--kp-surface) !important;
+  color: var(--kp-readable) !important;
+  border-color: var(--kp-border-soft) !important;
+}
+
+:root[data-theme="mixed"] .analyticsHero {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.14), transparent 34%),
+    var(--kp-surface) !important;
+}
+
+/* Texto em superfícies claras */
+:root[data-theme="light"] .wideCard h2,
+:root[data-theme="mixed"] .wideCard h2,
+:root[data-theme="light"] .wideCard h3,
+:root[data-theme="mixed"] .wideCard h3,
+:root[data-theme="light"] .wideCard strong,
+:root[data-theme="mixed"] .wideCard strong,
+:root[data-theme="light"] .preferenceCard strong,
+:root[data-theme="mixed"] .preferenceCard strong,
+:root[data-theme="light"] .securityActionCard strong,
+:root[data-theme="mixed"] .securityActionCard strong,
+:root[data-theme="light"] .storageCard strong,
+:root[data-theme="mixed"] .storageCard strong,
+:root[data-theme="light"] .trashItem strong,
+:root[data-theme="mixed"] .trashItem strong,
+:root[data-theme="light"] .analyticsCard h2,
+:root[data-theme="mixed"] .analyticsCard h2,
+:root[data-theme="light"] .analyticsHero h2,
+:root[data-theme="mixed"] .analyticsHero h2,
+:root[data-theme="light"] label,
+:root[data-theme="mixed"] label {
+  color: var(--kp-readable) !important;
+}
+
+:root[data-theme="light"] .wideCard p,
+:root[data-theme="mixed"] .wideCard p,
+:root[data-theme="light"] .wideCard small,
+:root[data-theme="mixed"] .wideCard small,
+:root[data-theme="light"] .wideCard span,
+:root[data-theme="mixed"] .wideCard span,
+:root[data-theme="light"] .preferenceCard small,
+:root[data-theme="mixed"] .preferenceCard small,
+:root[data-theme="light"] .securityActionCard p,
+:root[data-theme="mixed"] .securityActionCard p,
+:root[data-theme="light"] .storageCard p,
+:root[data-theme="mixed"] .storageCard p,
+:root[data-theme="light"] .trashItem span,
+:root[data-theme="mixed"] .trashItem span,
+:root[data-theme="light"] .emptyText,
+:root[data-theme="mixed"] .emptyText,
+:root[data-theme="light"] .analyticsHero p,
+:root[data-theme="mixed"] .analyticsHero p,
+:root[data-theme="light"] .analyticsCard small,
+:root[data-theme="mixed"] .analyticsCard small {
+  color: var(--kp-readable-muted) !important;
+}
+
+/* Campos internos claros */
+:root[data-theme="light"] input,
+:root[data-theme="mixed"] input,
+:root[data-theme="light"] select,
+:root[data-theme="mixed"] select,
+:root[data-theme="light"] textarea,
+:root[data-theme="mixed"] textarea,
+:root[data-theme="light"] .toggleRow,
+:root[data-theme="mixed"] .toggleRow,
+:root[data-theme="light"] .optionButton,
+:root[data-theme="mixed"] .optionButton,
+:root[data-theme="light"] .pathBox,
+:root[data-theme="mixed"] .pathBox,
+:root[data-theme="light"] .hiddenPathsBox,
+:root[data-theme="mixed"] .hiddenPathsBox,
+:root[data-theme="light"] .backupList div,
+:root[data-theme="mixed"] .backupList div,
+:root[data-theme="light"] .detailGrid div,
+:root[data-theme="mixed"] .detailGrid div,
+:root[data-theme="light"] .notesBox,
+:root[data-theme="mixed"] .notesBox,
+:root[data-theme="light"] .securityGrid span,
+:root[data-theme="mixed"] .securityGrid span,
+:root[data-theme="light"] .analyticsSignal,
+:root[data-theme="mixed"] .analyticsSignal,
+:root[data-theme="light"] .analyticsSummaryList span,
+:root[data-theme="mixed"] .analyticsSummaryList span,
+:root[data-theme="light"] .analyticsProtectionList span,
+:root[data-theme="mixed"] .analyticsProtectionList span,
+:root[data-theme="light"] .miniList button,
+:root[data-theme="mixed"] .miniList button {
+  background: var(--kp-surface-soft) !important;
+  color: var(--kp-readable) !important;
+  border-color: var(--kp-border-soft) !important;
+}
+
+:root[data-theme="light"] input::placeholder,
+:root[data-theme="mixed"] input::placeholder,
+:root[data-theme="light"] textarea::placeholder,
+:root[data-theme="mixed"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Cofre atual / idioma no topo */
+:root[data-theme="light"] .vaultIndicator,
+:root[data-theme="mixed"] .vaultIndicator,
+:root[data-theme="light"] .languageSelect.compact select,
+:root[data-theme="mixed"] .languageSelect.compact select {
+  background: rgba(255, 255, 255, 0.74) !important;
+  color: var(--kp-readable) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07) !important;
+}
+
+:root[data-theme="light"] .vaultIndicator span,
+:root[data-theme="mixed"] .vaultIndicator span {
+  color: #475569 !important;
+}
+
+:root[data-theme="light"] .vaultIndicator strong,
+:root[data-theme="mixed"] .vaultIndicator strong,
+:root[data-theme="light"] .languageSelect.compact select,
+:root[data-theme="mixed"] .languageSelect.compact select {
+  color: #0f172a !important;
+}
+
+/* Botões claros não podem usar texto branco */
+:root[data-theme="light"] .secondaryButton,
+:root[data-theme="mixed"] .secondaryButton,
+:root[data-theme="light"] .fileImportButton,
+:root[data-theme="mixed"] .fileImportButton,
+:root[data-theme="light"] .inlineFileButton,
+:root[data-theme="mixed"] .inlineFileButton,
+:root[data-theme="light"] .ghostButton,
+:root[data-theme="mixed"] .ghostButton {
+  background: var(--kp-blue-soft) !important;
+  color: var(--kp-blue-text) !important;
+  border: 1px solid rgba(2, 132, 199, 0.16) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .secondaryButton:hover:not(:disabled),
+:root[data-theme="mixed"] .secondaryButton:hover:not(:disabled),
+:root[data-theme="light"] .fileImportButton:hover,
+:root[data-theme="mixed"] .fileImportButton:hover,
+:root[data-theme="light"] .ghostButton:hover:not(:disabled),
+:root[data-theme="mixed"] .ghostButton:hover:not(:disabled) {
+  background: var(--kp-blue-soft-hover) !important;
+  color: #082f49 !important;
+}
+
+:root[data-theme="light"] .primaryButton:disabled,
+:root[data-theme="mixed"] .primaryButton:disabled,
+:root[data-theme="light"] .secondaryButton:disabled,
+:root[data-theme="mixed"] .secondaryButton:disabled,
+:root[data-theme="light"] .ghostButton:disabled,
+:root[data-theme="mixed"] .ghostButton:disabled {
+  opacity: 1 !important;
+  background: #e2e8f0 !important;
+  color: #64748b !important;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+  box-shadow: none !important;
+}
+
+/* Danger normal mantém contraste branco no vermelho. Disabled fica claro com texto vermelho escuro. */
+:root[data-theme="light"] .dangerConfirmButton:not(:disabled),
+:root[data-theme="mixed"] .dangerConfirmButton:not(:disabled),
+:root[data-theme="light"] .dangerButton:not(:disabled),
+:root[data-theme="mixed"] .dangerButton:not(:disabled) {
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .dangerConfirmButton:disabled,
+:root[data-theme="mixed"] .dangerConfirmButton:disabled,
+:root[data-theme="light"] .dangerButton:disabled,
+:root[data-theme="mixed"] .dangerButton:disabled {
+  opacity: 1 !important;
+  background: var(--kp-danger-soft) !important;
+  color: var(--kp-danger-text) !important;
+  border: 1px solid rgba(185, 28, 28, 0.16) !important;
+  box-shadow: none !important;
+}
+
+/* Painel PIN/biometria em Segurança */
+:root[data-theme="light"] .windowsHelloPanel,
+:root[data-theme="mixed"] .windowsHelloPanel {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(14, 165, 233, 0.10), transparent 34%),
+    var(--kp-surface-raised) !important;
+  color: var(--kp-readable) !important;
+  border-color: rgba(14, 165, 233, 0.18) !important;
+}
+
+:root[data-theme="light"] .windowsHelloPanel.enabled,
+:root[data-theme="mixed"] .windowsHelloPanel.enabled {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.12), transparent 34%),
+    #f0fdf4 !important;
+  border-color: rgba(34, 197, 94, 0.26) !important;
+}
+
+:root[data-theme="light"] .windowsHelloPanelText strong,
+:root[data-theme="mixed"] .windowsHelloPanelText strong {
+  color: var(--kp-readable) !important;
+}
+
+:root[data-theme="light"] .windowsHelloPanelText span,
+:root[data-theme="mixed"] .windowsHelloPanelText span,
+:root[data-theme="light"] .windowsHelloPanelText small,
+:root[data-theme="mixed"] .windowsHelloPanelText small {
+  color: var(--kp-readable-muted) !important;
+}
+
+/* Caixas de mensagem/listas */
+:root[data-theme="light"] .hiddenPathsBox strong,
+:root[data-theme="mixed"] .hiddenPathsBox strong,
+:root[data-theme="light"] .pathBox strong,
+:root[data-theme="mixed"] .pathBox strong,
+:root[data-theme="light"] .backupList strong,
+:root[data-theme="mixed"] .backupList strong,
+:root[data-theme="light"] .detailGrid strong,
+:root[data-theme="mixed"] .detailGrid strong {
+  color: var(--kp-readable) !important;
+}
+
+:root[data-theme="light"] .hiddenPathsBox span,
+:root[data-theme="mixed"] .hiddenPathsBox span,
+:root[data-theme="light"] .pathBox span,
+:root[data-theme="mixed"] .pathBox span,
+:root[data-theme="light"] .backupList span,
+:root[data-theme="mixed"] .backupList span,
+:root[data-theme="light"] .detailGrid span,
+:root[data-theme="mixed"] .detailGrid span {
+  color: var(--kp-readable-muted) !important;
+}
+
+/* Analítico: deixar o sentido mais claro visualmente. */
+.analyticsHero {
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08) !important;
+}
+
+.analyticsSignals {
+  grid-template-columns: 1fr !important;
+}
+
+.analyticsSignal {
+  justify-content: flex-start !important;
+  font-weight: 750 !important;
+}
+
+:root[data-theme="light"] .analyticsSignal.tone-danger,
+:root[data-theme="mixed"] .analyticsSignal.tone-danger {
+  background: #fee2e2 !important;
+  color: #7f1d1d !important;
+  border-color: rgba(185, 28, 28, 0.18) !important;
+}
+
+:root[data-theme="light"] .analyticsSignal.tone-warning,
+:root[data-theme="mixed"] .analyticsSignal.tone-warning {
+  background: #fef3c7 !important;
+  color: #78350f !important;
+  border-color: rgba(180, 83, 9, 0.18) !important;
+}
+
+:root[data-theme="light"] .analyticsMiniList button,
+:root[data-theme="mixed"] .analyticsMiniList button {
+  background: #f8fafc !important;
+  color: var(--kp-readable) !important;
+  border-color: var(--kp-border-soft) !important;
+}
+
+:root[data-theme="light"] .analyticsMiniList button strong,
+:root[data-theme="mixed"] .analyticsMiniList button strong {
+  color: var(--kp-readable) !important;
+}
+
+:root[data-theme="light"] .analyticsMiniList button span,
+:root[data-theme="mixed"] .analyticsMiniList button span {
+  color: var(--kp-readable-muted) !important;
+}
+/* === KPassword v0.7.1 hotfix contraste final temas e sidebar END === */
+
+/* === KPassword v0.7.1 hotfix contraste popup item START === */
+
+/*
+  Popup Adicionar/Editar item:
+  - no tema Claro/Misto, superfície clara sempre usa texto escuro
+  - botões/inputs/selects do gerador ficam legíveis
+  - textos internos do modal não herdam branco do tema escuro
+*/
+:root[data-theme="light"] .credentialModal,
+:root[data-theme="mixed"] .credentialModal {
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+:root[data-theme="light"] .credentialModal .modalHeader,
+:root[data-theme="mixed"] .credentialModal .modalHeader {
+  background: transparent !important;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+}
+
+:root[data-theme="light"] .credentialModal .eyebrow,
+:root[data-theme="mixed"] .credentialModal .eyebrow {
+  color: #0369a1 !important;
+}
+
+:root[data-theme="light"] .credentialModal h2,
+:root[data-theme="mixed"] .credentialModal h2,
+:root[data-theme="light"] .credentialModal h3,
+:root[data-theme="mixed"] .credentialModal h3,
+:root[data-theme="light"] .credentialModal strong,
+:root[data-theme="mixed"] .credentialModal strong,
+:root[data-theme="light"] .credentialModal label,
+:root[data-theme="mixed"] .credentialModal label,
+:root[data-theme="light"] .credentialModal .formGrid label,
+:root[data-theme="mixed"] .credentialModal .formGrid label,
+:root[data-theme="light"] .credentialModal .generatorPanel label,
+:root[data-theme="mixed"] .credentialModal .generatorPanel label,
+:root[data-theme="light"] .credentialModal .generatorOptions label,
+:root[data-theme="mixed"] .credentialModal .generatorOptions label {
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .credentialModal p,
+:root[data-theme="mixed"] .credentialModal p,
+:root[data-theme="light"] .credentialModal span,
+:root[data-theme="mixed"] .credentialModal span,
+:root[data-theme="light"] .credentialModal small,
+:root[data-theme="mixed"] .credentialModal small {
+  color: #475569 !important;
+}
+
+:root[data-theme="light"] .credentialModal input,
+:root[data-theme="mixed"] .credentialModal input,
+:root[data-theme="light"] .credentialModal select,
+:root[data-theme="mixed"] .credentialModal select,
+:root[data-theme="light"] .credentialModal textarea {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.14) !important;
+}
+
+:root[data-theme="light"] .credentialModal input::placeholder,
+:root[data-theme="mixed"] .credentialModal input::placeholder,
+:root[data-theme="light"] .credentialModal textarea::placeholder,
+:root[data-theme="mixed"] .credentialModal textarea::placeholder {
+  color: #64748b !important;
+}
+
+:root[data-theme="light"] .credentialModal select option,
+:root[data-theme="mixed"] .credentialModal select option {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .credentialModal .generatorPanel,
+:root[data-theme="mixed"] .credentialModal .generatorPanel,
+:root[data-theme="light"] .credentialModal .notesBox,
+:root[data-theme="mixed"] .credentialModal .notesBox,
+:root[data-theme="light"] .credentialModal .securityNotes,
+:root[data-theme="mixed"] .credentialModal .securityNotes {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+:root[data-theme="light"] .credentialModal .generatorOptions label,
+:root[data-theme="mixed"] .credentialModal .generatorOptions label {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+:root[data-theme="light"] .credentialModal .generatorOptions label:hover,
+:root[data-theme="mixed"] .credentialModal .generatorOptions label:hover {
+  background: #e0f2fe !important;
+  color: #082f49 !important;
+  border-color: rgba(2, 132, 199, 0.24) !important;
+}
+
+:root[data-theme="light"] .credentialModal .generatorOptions input[type="checkbox"],
+:root[data-theme="mixed"] .credentialModal .generatorOptions input[type="checkbox"] {
+  accent-color: #0284c7 !important;
+}
+
+:root[data-theme="light"] .credentialModal .primaryButton:not(:disabled),
+:root[data-theme="mixed"] .credentialModal .primaryButton:not(:disabled) {
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .credentialModal .secondaryButton,
+:root[data-theme="mixed"] .credentialModal .secondaryButton,
+:root[data-theme="light"] .credentialModal .ghostButton,
+:root[data-theme="mixed"] .credentialModal .ghostButton {
+  background: #d7f0fb !important;
+  color: #083344 !important;
+  border: 1px solid rgba(2, 132, 199, 0.16) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .credentialModal .secondaryButton:hover:not(:disabled),
+:root[data-theme="mixed"] .credentialModal .secondaryButton:hover:not(:disabled),
+:root[data-theme="light"] .credentialModal .ghostButton:hover:not(:disabled),
+:root[data-theme="mixed"] .credentialModal .ghostButton:hover:not(:disabled) {
+  background: #bae6fd !important;
+  color: #082f49 !important;
+}
+
+:root[data-theme="light"] .credentialModal button:disabled,
+:root[data-theme="mixed"] .credentialModal button:disabled {
+  opacity: 1 !important;
+  background: #e2e8f0 !important;
+  color: #64748b !important;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="light"] .credentialModal .iconButton,
+:root[data-theme="mixed"] .credentialModal .iconButton {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(15, 23, 42, 0.10) !important;
+}
+
+:root[data-theme="light"] .credentialModal .iconButton:hover,
+:root[data-theme="mixed"] .credentialModal .iconButton:hover {
+  background: #cbd5e1 !important;
+}
+
+:root[data-theme="light"] .credentialModal .message,
+:root[data-theme="mixed"] .credentialModal .message {
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .credentialModal .message.error,
+:root[data-theme="mixed"] .credentialModal .message.error {
+  background: #fee2e2 !important;
+  color: #7f1d1d !important;
+  border-color: rgba(185, 28, 28, 0.20) !important;
+}
+
+:root[data-theme="light"] .credentialModal .message.success,
+:root[data-theme="mixed"] .credentialModal .message.success {
+  background: #dcfce7 !important;
+  color: #14532d !important;
+  border-color: rgba(22, 163, 74, 0.20) !important;
+}
+
+/* Dark continua com contraste explícito para o popup */
+:root[data-theme="dark"] .credentialModal {
+  color: #f8fafc !important;
+}
+
+:root[data-theme="dark"] .credentialModal h2,
+:root[data-theme="dark"] .credentialModal h3,
+:root[data-theme="dark"] .credentialModal strong,
+:root[data-theme="dark"] .credentialModal label {
+  color: #f8fafc !important;
+}
+
+:root[data-theme="dark"] .credentialModal p,
+:root[data-theme="dark"] .credentialModal span,
+:root[data-theme="dark"] .credentialModal small {
+  color: #aab0c5 !important;
+}
+/* === KPassword v0.7.1 hotfix contraste popup item END === */
+
+/* === KPassword v0.7.1 hotfix compacto topo menor START === */
+
+/*
+  Modo compacto:
+  - o cabeçalho não pode ocupar metade da tela
+  - reduz espaço vertical antes do conteúdo
+  - mantém botões do topo acessíveis
+  - mantém navegação inferior menor
+  - não altera desktop
+*/
+@media (max-width: 860px) {
+  .appShell {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .content {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 14px 14px 82px !important;
+  }
+
+  .topbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 10px !important;
+    min-height: auto !important;
+    margin: 0 0 14px !important;
+    padding: 0 !important;
+  }
+
+  .topbarTitle {
+    min-width: 0 !important;
+  }
+
+  .topbarTitle > div {
+    min-width: 0 !important;
+  }
+
+  .topbarTitle .eyebrow {
+    margin: 0 0 3px !important;
+    font-size: 0.66rem !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.14em !important;
+  }
+
+  .topbarTitle h1 {
+    margin: 0 !important;
+    font-size: clamp(1.38rem, 7vw, 1.9rem) !important;
+    line-height: 1 !important;
+    letter-spacing: -0.05em !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .topbarActions {
+    display: grid !important;
+    grid-template-columns: auto auto auto !important;
+    align-items: center !important;
+    justify-content: end !important;
+    gap: 7px !important;
+    min-width: 0 !important;
+  }
+
+  .vaultIndicator {
+    max-width: 136px !important;
+    min-width: 0 !important;
+    padding: 7px 10px !important;
+    border-radius: 14px !important;
+  }
+
+  .vaultIndicator span {
+    font-size: 0.58rem !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  .vaultIndicator strong {
+    font-size: 0.78rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .languageSelect.compact select {
+    width: 58px !important;
+    max-width: 58px !important;
+    min-height: 42px !important;
+    padding: 0 24px 0 11px !important;
+    border-radius: 14px !important;
+    font-size: 0.84rem !important;
+    background-position: right 9px center !important;
+  }
+
+  .addItemIconButton {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+    border-radius: 14px !important;
+    padding: 0 !important;
+    font-size: 1.35rem !important;
+  }
+
+  .settingsGrid,
+  .analyticsPage,
+  .credentialRows {
+    margin-top: 0 !important;
+  }
+
+  .wideCard,
+  .analyticsHero,
+  .analyticsCard,
+  .emptyState {
+    border-radius: 18px !important;
+  }
+
+  .wideCard {
+    padding: 16px !important;
+  }
+
+  .analyticsHero {
+    padding: 16px !important;
+    gap: 12px !important;
+  }
+
+  .analyticsHero h2 {
+    font-size: clamp(1.22rem, 6vw, 1.55rem) !important;
+    line-height: 1.08 !important;
+  }
+
+  .analyticsTotalBadge {
+    min-width: 0 !important;
+    width: 100% !important;
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .analyticsCard {
+    padding: 16px !important;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .toolbar span {
+    white-space: normal !important;
+  }
+
+  .sidebar {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)) !important;
+  }
+
+  .navList {
+    gap: 6px !important;
+  }
+
+  .navList button,
+  .lockButton {
+    min-width: 46px !important;
+    min-height: 46px !important;
+    width: 46px !important;
+    height: 46px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+  }
+
+  .navIcon {
+    font-size: 1rem !important;
+  }
+
+  .sidebarBrand {
+    display: none !important;
+  }
+
+  .sidebarFooter {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    margin: 0 !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .content {
+    padding: 12px 12px 76px !important;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+    gap: 10px !important;
+  }
+
+  .topbarActions {
+    width: 100% !important;
+    grid-template-columns: minmax(0, 1fr) auto auto !important;
+    justify-content: stretch !important;
+  }
+
+  .vaultIndicator {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  .languageSelect.compact select {
+    width: 56px !important;
+    max-width: 56px !important;
+  }
+
+  .addItemIconButton {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+  }
+
+  .topbarTitle h1 {
+    font-size: clamp(1.3rem, 8vw, 1.72rem) !important;
+  }
+
+  .navList button,
+  .lockButton {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+}
+/* === KPassword v0.7.1 hotfix compacto topo menor END === */

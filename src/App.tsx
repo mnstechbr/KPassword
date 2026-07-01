@@ -96,7 +96,7 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "0.7.0";
+const APP_VERSION = "0.7.1";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -363,6 +363,18 @@ function LanguageSelector({
       </select>
     </label>
   );
+}
+
+
+function getPinUnlockLabel(language: AppLanguage) {
+  const labels: Record<AppLanguage, string> = {
+    pt: "Acessar com PIN",
+    en: "Unlock with PIN",
+    es: "Acceder con PIN",
+    tr: "PIN ile aç",
+  };
+
+  return labels[language];
 }
 
 function stopAction(event: MouseEvent) {
@@ -2483,6 +2495,48 @@ export default function App() {
     (credential) => !credential.url || !credential.username || !credential.category,
   );
 
+
+  const analyticIssueCount =
+    stats.weak +
+    stats.repeated +
+    stats.expired +
+    stats.expiringSoon +
+    stats.missingUrl +
+    stats.missingUser +
+    stats.oldPasswords +
+    stats.deleted;
+
+  const analyticSignals = [
+    { label: t("dashboard.expiredCount", { count: stats.expired }), count: stats.expired, tone: "danger" },
+    { label: t("dashboard.expiringSoonCount", { count: stats.expiringSoon }), count: stats.expiringSoon, tone: "warning" },
+    { label: t("dashboard.weakCount", { count: stats.weak }), count: stats.weak, tone: "warning" },
+    { label: t("dashboard.repeatedCount", { count: stats.repeated }), count: stats.repeated, tone: "warning" },
+    { label: t("dashboard.missingUrlCount", { count: stats.missingUrl }), count: stats.missingUrl, tone: "neutral" },
+    { label: t("dashboard.missingUserCount", { count: stats.missingUser }), count: stats.missingUser, tone: "neutral" },
+    { label: t("dashboard.oldPasswordCount", { count: stats.oldPasswords }), count: stats.oldPasswords, tone: "neutral" },
+    { label: t("dashboard.deletedCount", { count: stats.deleted }), count: stats.deleted, tone: "neutral" },
+  ].filter((item) => item.count > 0);
+
+  const analyticSummaryItems = [
+    { label: t("itemType.credential"), count: stats.credentialItems },
+    { label: t("itemType.secure_note"), count: stats.secureNotes },
+    { label: t("item.card"), count: stats.cards },
+    { label: t("item.identity"), count: stats.identities },
+    { label: t("item.license"), count: stats.licenses },
+    { label: t("dashboard.favorites"), count: stats.favorites },
+    { label: t("nav.trash"), count: stats.deleted },
+  ];
+
+  const analyticAttentionItems = [
+    ...expiredCredentials,
+    ...expiringSoonCredentials,
+    ...weakCredentials,
+    ...repeatedCredentials,
+    ...incompleteCredentials,
+  ]
+    .filter((credential, index, list) => list.findIndex((item) => item.id === credential.id) === index)
+    .slice(0, 5);
+
   const canReorderCredentials = search.trim().length === 0;
   const masterIssues = validateMasterPassword(setupPassword);
   const score = getPasswordScore(credentialForm.password);
@@ -2543,6 +2597,75 @@ export default function App() {
       </div>
 
       <small>{t("vault.currentFile", { name: getVaultDisplayName(activeVaultName, vaultFiles) })}</small>
+    </div>
+  );
+
+  const authLoginToolsElement = (
+    <div className="authLoginTools" aria-label={t("auth.quickSettings")}>
+      <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+
+      <div className="authThemeButtons" role="group" aria-label={t("preferences.theme")}>
+        <button
+          type="button"
+          title={t("preferences.dark")}
+          aria-label={t("preferences.dark")}
+          className={appTheme === "dark" ? "authThemeButton active" : "authThemeButton"}
+          onClick={() => setAppTheme("dark")}
+        >
+          <span className="authThemeIcon" aria-hidden="true">☾</span>
+          <span>{t("preferences.dark")}</span>
+        </button>
+        <button
+          type="button"
+          title={t("preferences.light")}
+          aria-label={t("preferences.light")}
+          className={appTheme === "light" ? "authThemeButton active" : "authThemeButton"}
+          onClick={() => setAppTheme("light")}
+        >
+          <span className="authThemeIcon" aria-hidden="true">☀</span>
+          <span>{t("preferences.light")}</span>
+        </button>
+        <button
+          type="button"
+          title={t("preferences.mixed")}
+          aria-label={t("preferences.mixed")}
+          className={appTheme === "mixed" ? "authThemeButton active" : "authThemeButton"}
+          onClick={() => setAppTheme("mixed")}
+        >
+          <span className="authThemeIcon" aria-hidden="true">◐</span>
+          <span>{t("preferences.mixed")}</span>
+        </button>
+      </div>
+
+      <select
+        className="authVaultSelect"
+        value={activeVaultName}
+        title={t("vault.current")}
+        aria-label={t("vault.current")}
+        onChange={(event) => void handleSwitchVault(event.target.value)}
+      >
+        {vaultOptions.map((item) => (
+          <option key={item.name} value={item.name}>
+            {item.display_name}
+          </option>
+        ))}
+      </select>
+
+      <input
+        className="authNewVaultInput"
+        value={newVaultName}
+        onChange={(event) => setNewVaultName(event.target.value)}
+        placeholder={t("vault.newNamePlaceholder")}
+        title={t("vault.newNamePlaceholder")}
+      />
+
+      <button type="button" className="authToolButton" onClick={() => void handleCreateNewVault()}>
+        {t("vault.create")}
+      </button>
+
+      <button type="button" className="authToolButton" onClick={() => setRestorePopupOpen(true)}>
+        {t("auth.restoreBackup")}
+      </button>
     </div>
   );
 
@@ -2627,15 +2750,35 @@ export default function App() {
   if (mode === "loading") {
     return (
       <>
-        <main className="authShell">
-          <section className="authCard">
-            <div className="authLanguageRow">
-              <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+        <main className="authShell authDesktopShell">
+          <section className="authCard authExperience authLoading">
+            <div className="authUtilityBar">
+              <div className="authProductMark">
+                <AppLogo size="sm" />
+                <div>
+                  <strong>KPassword</strong>
+                  <span>{t("app.localVault")}</span>
+                </div>
+              </div>
+              {authLoginToolsElement}
             </div>
-            <AppLogo size="lg" />
-            <h1>KPassword</h1>
-            <p>{t("status.loadingVault")}</p>
-            {vaultSelectorElement}
+
+            <div className="authHeroBlock">
+              <AppLogo size="lg" />
+              <p className="eyebrow">{t("auth.localOfflineBadge")}</p>
+              <h1>KPassword</h1>
+              <p>{t("auth.heroDescription")}</p>
+              <div className="authTrustRow">
+                <span>{t("auth.trustLocal")}</span>
+                <span>{t("auth.trustEncrypted")}</span>
+                <span>{t("auth.trustPrivate")}</span>
+              </div>
+            </div>
+
+            <section className="authPanel authLoadingPanel">
+              <span className="authPanelLabel">{t("status.loadingVault")}</span>
+              <div className="authLoadingBar" aria-hidden="true" />
+            </section>
           </section>
         </main>
         {confirmDialogElement}
@@ -2647,71 +2790,74 @@ export default function App() {
   if (mode === "setup") {
     return (
       <>
-        <main className="authShell">
-          <section className="authCard">
-            <div className="authLanguageRow">
-              <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
-            </div>
-            <AppLogo size="lg" />
-            <p className="eyebrow">{t("auth.firstAccess")}</p>
-            <h1>{t("auth.createMasterTitle")}</h1>
-            <p>{t("auth.createMasterDescription")}</p>
-
-            <div className="firstUseGuide">
-              <strong>{t("onboarding.title")}</strong>
-              <span>{t("onboarding.step1")}</span>
-              <span>{t("onboarding.step2")}</span>
-              <span>{t("onboarding.step3")}</span>
-            </div>
-
-            <form onSubmit={handleCreateVault} className="authForm">
-              <label>
-                {t("auth.masterPassword")}
-                <input
-                  type="password"
-                  value={setupPassword}
-                  onChange={(event) => setSetupPassword(event.target.value)}
-                  placeholder={t("auth.masterPlaceholder")}
-                  autoFocus
-                />
-              </label>
-
-              <label>
-                {t("auth.confirmMasterPassword")}
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder={t("auth.repeatPassword")}
-                />
-              </label>
-
-              {setupPassword && (
-                <div className="securityNotes">
-                  {masterIssues.length === 0 ? (
-                    <span>{t("auth.validMasterPassword")}</span>
-                  ) : (
-                    masterIssues.map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
-                  )}
+        <main className="authShell authDesktopShell">
+          <section className="authCard authExperience authSetup">
+            <div className="authUtilityBar">
+              <div className="authProductMark">
+                <AppLogo size="sm" />
+                <div>
+                  <strong>KPassword</strong>
+                  <span>{t("app.localVault")}</span>
                 </div>
-              )}
+              </div>
+              {authLoginToolsElement}
+            </div>
 
-              {message && <div className="message error">{message}</div>}
+            <div className="authHeroBlock">
+              <AppLogo size="lg" />
+              <p className="eyebrow">{t("auth.firstAccess")}</p>
+              <h1>{t("auth.createMasterTitle")}</h1>
+              <p>{t("auth.createMasterDescription")}</p>
 
-              <button disabled={busy} className="primaryButton">
-                {busy ? t("auth.creatingVault") : t("auth.createEncryptedVault")}
-              </button>
-            </form>
+              <div className="firstUseGuide refinedFirstUseGuide">
+                <strong>{t("onboarding.title")}</strong>
+                <span>{t("onboarding.step1")}</span>
+                <span>{t("onboarding.step2")}</span>
+                <span>{t("onboarding.step3")}</span>
+              </div>
+            </div>
 
-            <button
-              type="button"
-              className="authTextButton"
-              onClick={() => setRestorePopupOpen(true)}
-            >
-              {t("auth.restoreBackup")}
-            </button>
+            <section className="authPanel">
+              <span className="authPanelLabel">{t("auth.setupPanelLabel")}</span>
+              <form onSubmit={handleCreateVault} className="authForm">
+                <label>
+                  {t("auth.masterPassword")}
+                  <input
+                    type="password"
+                    value={setupPassword}
+                    onChange={(event) => setSetupPassword(event.target.value)}
+                    placeholder={t("auth.masterPlaceholder")}
+                    autoFocus
+                  />
+                </label>
 
-            {vaultSelectorElement}
+                <label>
+                  {t("auth.confirmMasterPassword")}
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder={t("auth.repeatPassword")}
+                  />
+                </label>
+
+                {setupPassword && (
+                  <div className="securityNotes">
+                    {masterIssues.length === 0 ? (
+                      <span>{t("auth.validMasterPassword")}</span>
+                    ) : (
+                      masterIssues.map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
+                    )}
+                  </div>
+                )}
+
+                {message && <div className="message error">{message}</div>}
+
+                <button disabled={busy} className="primaryButton">
+                  {busy ? t("auth.creatingVault") : t("auth.createEncryptedVault")}
+                </button>
+              </form>
+            </section>
           </section>
         </main>
         {confirmDialogElement}
@@ -2723,56 +2869,63 @@ export default function App() {
   if (mode === "locked") {
     return (
       <>
-        <main className="authShell">
-          <section className="authCard">
-            <div className="authLanguageRow">
-              <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+        <main className="authShell authDesktopShell">
+          <section className="authCard authExperience authLocked">
+            <div className="authUtilityBar">
+              <div className="authProductMark">
+                <AppLogo size="sm" />
+                <div>
+                  <strong>KPassword</strong>
+                  <span>{t("app.localVault")}</span>
+                </div>
+              </div>
+              {authLoginToolsElement}
             </div>
-            <AppLogo size="lg" />
-            <p className="eyebrow">{t("auth.vaultLocked")}</p>
-            <h1>{t("auth.unlockTitle")}</h1>
-            <p>{t("auth.unlockDescription")}</p>
 
-            <form onSubmit={handleUnlock} className="authForm">
-              <label>
-                {t("auth.masterPassword")}
-                <input
-                  type="password"
-                  value={unlockPassword}
-                  onChange={(event) => setUnlockPassword(event.target.value)}
-                  placeholder={t("auth.unlockPlaceholder")}
-                  autoFocus
-                />
-              </label>
+            <div className="authHeroBlock">
+              <AppLogo size="lg" />
+              <p className="eyebrow">{t("auth.vaultLocked")}</p>
+              <h1>{t("auth.unlockTitle")}</h1>
+              <p>{t("auth.unlockDescription")}</p>
+              <div className="authTrustRow">
+                <span>{t("auth.currentVault", { name: getVaultDisplayName(activeVaultName, vaultFiles) })}</span>
+                <span>{t("auth.trustLocal")}</span>
+                <span>{t("auth.trustEncrypted")}</span>
+              </div>
+            </div>
 
-              {message && <div className="message error">{message}</div>}
+            <section className="authPanel">
+              <span className="authPanelLabel">{t("auth.unlockPanelLabel")}</span>
+              <form onSubmit={handleUnlock} className="authForm">
+                <label>
+                  {t("auth.masterPassword")}
+                  <input
+                    type="password"
+                    value={unlockPassword}
+                    onChange={(event) => setUnlockPassword(event.target.value)}
+                    placeholder={t("auth.unlockPlaceholder")}
+                    autoFocus
+                  />
+                </label>
 
-              <button disabled={busy} className="primaryButton">
-                {busy ? t("auth.unlocking") : t("auth.unlock")}
-              </button>
+                {message && <div className="message error">{message}</div>}
 
-              {windowsHelloStatus.enabled && windowsHelloStatus.available && (
-                <button
-                  type="button"
-                  className="windowsHelloButton"
-                  disabled={busy || windowsHelloBusy}
-                  onClick={() => void handleUnlockWithWindowsHello()}
-                >
-                  <span aria-hidden="true">🪟</span>
-                  {windowsHelloBusy ? t("auth.unlocking") : t("windowsHello.unlock")}
+                <button disabled={busy} className="primaryButton">
+                  {busy ? t("auth.unlocking") : t("auth.unlock")}
                 </button>
-              )}
-            </form>
 
-            <button
-              type="button"
-              className="authTextButton"
-              onClick={() => setRestorePopupOpen(true)}
-            >
-              {t("auth.restoreBackup")}
-            </button>
-
-            {vaultSelectorElement}
+                {windowsHelloStatus.enabled && windowsHelloStatus.available && (
+                  <button
+                    type="button"
+                    className="windowsHelloButton"
+                    disabled={busy || windowsHelloBusy}
+                    onClick={() => void handleUnlockWithWindowsHello()}
+                  >
+                    {windowsHelloBusy ? t("auth.unlocking") : getPinUnlockLabel(appLanguage)}
+                  </button>
+                )}
+              </form>
+            </section>
           </section>
         </main>
         {confirmDialogElement}
@@ -3044,69 +3197,86 @@ export default function App() {
         )}
 
         {screen === "dashboard" && (
-          <div className="dashboardGrid compactDashboard cleanDashboard">
-            <article className="metricCard dashboardTotalCard static">
-              <span>{t("dashboard.total")}</span>
-              <strong>{stats.total}</strong>
-              <small>{getVaultDisplayName(activeVaultName, vaultFiles)}</small>
-            </article>
-
-            <article className="wideCard dashboardHealthCard">
-              <h2>{t("dashboard.securityHealth")}</h2>
-              <div className="securityGrid">
-                <span>{t("dashboard.weakCount", { count: stats.weak })}</span>
-                <span>{t("dashboard.repeatedCount", { count: stats.repeated })}</span>
-                <span>{t("dashboard.expiredCount", { count: stats.expired })}</span>
-                <span>{t("dashboard.expiringSoonCount", { count: stats.expiringSoon })}</span>
-                <span>{t("dashboard.missingUrlCount", { count: stats.missingUrl })}</span>
-                <span>{t("dashboard.missingUserCount", { count: stats.missingUser })}</span>
-                <span>{t("dashboard.oldPasswordCount", { count: stats.oldPasswords })}</span>
-                <span>{t("dashboard.deletedCount", { count: stats.deleted })}</span>
+          <div className="analyticsPage">
+            <section className={`analyticsHero ${analyticIssueCount > 0 ? "attention" : "safe"}`}>
+              <div>
+                <p className="eyebrow">{t("nav.dashboard")}</p>
+                <h2>{analyticIssueCount > 0 ? t("dashboard.attentionList") : t("dashboard.noAttentionItems")}</h2>
+                <p>
+                  {analyticIssueCount > 0
+                    ? `${analyticIssueCount} ${t("dashboard.reviewNeeded")}`
+                    : getVaultDisplayName(activeVaultName, vaultFiles)}
+                </p>
               </div>
-            </article>
 
-            <article className="wideCard dashboardAttentionCard">
-              <h2>{t("dashboard.attentionList")}</h2>
-              <div className="miniList">
-                {[...expiredCredentials, ...expiringSoonCredentials, ...weakCredentials, ...repeatedCredentials, ...incompleteCredentials]
-                  .filter((credential, index, list) => list.findIndex((item) => item.id === credential.id) === index)
-                  .slice(0, 8)
-                  .map((credential) => (
-                    <button
-                      key={credential.id}
-                      onClick={() => {
-                        setDetailCredentialId(credential.id);
-                        setScreen("credentials");
-                      }}
-                    >
-                      <strong>{credential.title}</strong>
-                      <span>{getExpiryLabel(credential)} · {translatePasswordLabel(getPasswordLabel(getPasswordScore(credential.password)), appLanguage)}</span>
-                    </button>
-                  ))}
+              <div className="analyticsTotalBadge" aria-label={t("dashboard.total")}>
+                <span>{t("dashboard.total")}</span>
+                <strong>{stats.total}</strong>
+                <small>{getVaultDisplayName(activeVaultName, vaultFiles)}</small>
+              </div>
+            </section>
 
-                {expiredCredentials.length === 0 &&
-                  expiringSoonCredentials.length === 0 &&
-                  weakCredentials.length === 0 &&
-                  repeatedCredentials.length === 0 &&
-                  incompleteCredentials.length === 0 && (
+            <section className="analyticsGrid">
+              <article className="wideCard analyticsCard analyticsSignalsCard">
+                <h2>{t("dashboard.securityHealth")}</h2>
+                <div className="analyticsSignals">
+                  {analyticSignals.length > 0 ? (
+                    analyticSignals.map((signal) => (
+                      <span key={signal.label} className={`analyticsSignal tone-${signal.tone}`}>
+                        {signal.label}
+                      </span>
+                    ))
+                  ) : (
                     <p className="emptyText">{t("dashboard.noAttentionItems")}</p>
                   )}
-              </div>
-            </article>
+                </div>
+              </article>
 
-            <article className="wideCard dashboardProtectionCard">
-              <h2>{t("dashboard.protectionTitle")}</h2>
-              <div className="securityGrid">
-                <span>{t("security.aes")}</span>
-                <span>{t("security.pbkdf2")}</span>
-                <span>{t("security.salt")}</span>
-                <span>{t("security.iv")}</span>
-                <span>{t("security.encryptedBackups")}</span>
-                <span>{t("security.autolock")}</span>
-                <span>{t("security.clipboard")}</span>
-                <span>{t("security.offline")}</span>
-              </div>
-            </article>
+              <article className="wideCard analyticsCard analyticsAttentionCard">
+                <h2>{t("dashboard.attentionList")}</h2>
+                <div className="miniList analyticsMiniList">
+                  {analyticAttentionItems.length > 0 ? (
+                    analyticAttentionItems.map((credential) => (
+                      <button
+                        key={credential.id}
+                        onClick={() => {
+                          setDetailCredentialId(credential.id);
+                          setScreen("credentials");
+                        }}
+                      >
+                        <strong>{credential.title}</strong>
+                        <span>{getExpiryLabel(credential)} · {translatePasswordLabel(getPasswordLabel(getPasswordScore(credential.password)), appLanguage)}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="emptyText">{t("dashboard.noAttentionItems")}</p>
+                  )}
+                </div>
+              </article>
+
+              <article className="wideCard analyticsCard analyticsSummaryCard">
+                <h2>{t("dashboard.total")}</h2>
+                <div className="analyticsSummaryList">
+                  {analyticSummaryItems.map((item) => (
+                    <span key={item.label}>
+                      <small>{item.label}</small>
+                      <strong>{item.count}</strong>
+                    </span>
+                  ))}
+                </div>
+              </article>
+
+              <article className="wideCard analyticsCard analyticsProtectionCard">
+                <h2>{t("dashboard.protectionTitle")}</h2>
+                <div className="analyticsProtectionList">
+                  <span>{t("security.aes")}</span>
+                  <span>{t("security.encryptedBackups")}</span>
+                  <span>{t("security.autolock")}</span>
+                  <span>{t("security.clipboard")}</span>
+                  <span>{t("security.offline")}</span>
+                </div>
+              </article>
+            </section>
           </div>
         )}
 

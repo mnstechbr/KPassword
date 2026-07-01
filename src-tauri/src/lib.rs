@@ -184,6 +184,25 @@ fn show_main_window(app: &AppHandle) {
 }
 
 
+fn show_main_window_sized(app: &AppHandle, width: f64, height: f64) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.unmaximize();
+        let _ = window.show();
+        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
+        let _ = window.center();
+        let _ = window.set_focus();
+    }
+}
+
+fn show_main_window_full(app: &AppHandle) {
+    show_main_window_sized(app, 1120.0, 720.0);
+}
+
+fn show_main_window_compact(app: &AppHandle) {
+    show_main_window_sized(app, 430.0, 760.0);
+}
+
 fn open_folder(path: PathBuf) -> Result<(), String> {
     fs::create_dir_all(&path)
         .map_err(|error| format!("Erro ao preparar pasta para abrir: {error}"))?;
@@ -906,9 +925,10 @@ pub fn run() {
                 let _ = app.autolaunch().enable();
             }
 
-            let open_item = MenuItem::with_id(app, "open", "Abrir KPassword", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "Sair do KPassword", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open_item, &quit_item])?;
+            let open_full_item = MenuItem::with_id(app, "open_full", "Abrir APP Completo", true, None::<&str>)?;
+            let open_compact_item = MenuItem::with_id(app, "open_compact", "Abrir APP Compacto", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&open_full_item, &open_compact_item, &quit_item])?;
 
             TrayIconBuilder::new()
                 .tooltip("KPassword")
@@ -916,14 +936,17 @@ pub fn run() {
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open" => {
-                        show_main_window(app);
+                    "open_full" => {
+                        show_main_window_full(app);
+                    }
+                    "open_compact" => {
+                        show_main_window_compact(app);
                     }
                     "quit" => {
                         app.exit(0);
                     }
                     _ => {
-                        println!("Item de menu não tratado: {:?}", event.id);
+                        println!("Item de menu nao tratado: {:?}", event.id);
                     }
                 })
                 .on_tray_icon_event(|tray, event| match event {

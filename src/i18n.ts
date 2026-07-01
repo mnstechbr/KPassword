@@ -2373,8 +2373,84 @@ const v070RefinedTranslations: Record<AppLanguage, Record<string, string>> = {
   }
 };
 
+
+const v071Translations: Record<AppLanguage, Record<string, string>> = {
+  pt: {
+    "auth.heroDescription": "Um cofre local para senhas, notas, cartões, licenças, anexos e códigos 2FA. Seus dados ficam criptografados neste computador.",
+    "auth.localOfflineBadge": "Local · offline · criptografado",
+    "auth.trustLocal": "Dados locais",
+    "auth.trustEncrypted": "Cofre criptografado",
+    "auth.trustPrivate": "Sem nuvem obrigatória",
+    "auth.currentVault": "Cofre: {name}",
+    "auth.quickSettings": "Ajustes rápidos",
+    "auth.quickVault": "Cofre e backup",
+    "auth.setupPanelLabel": "Criação do cofre",
+    "auth.unlockPanelLabel": "Acesso seguro",
+    "auth.unlockTitle": "Acesse seu cofre",
+    "auth.unlockDescription": "Use a senha mestra para abrir o cofre local. Ela não é enviada, não é salva e não pode ser recuperada.",
+    "auth.createMasterTitle": "Proteja seu primeiro cofre",
+    "auth.createMasterDescription": "Crie uma senha mestra forte. Ela será a senha principal do cofre e não poderá ser recuperada.",
+    "auth.createEncryptedVault": "Criar cofre",
+    "auth.unlock": "Abrir cofre"
+  },
+  en: {
+    "auth.heroDescription": "A local vault for passwords, notes, cards, licenses, attachments, and 2FA codes. Your data stays encrypted on this computer.",
+    "auth.localOfflineBadge": "Local · offline · encrypted",
+    "auth.trustLocal": "Local data",
+    "auth.trustEncrypted": "Encrypted vault",
+    "auth.trustPrivate": "No required cloud",
+    "auth.currentVault": "Vault: {name}",
+    "auth.quickSettings": "Quick settings",
+    "auth.quickVault": "Vault and backup",
+    "auth.setupPanelLabel": "Vault creation",
+    "auth.unlockPanelLabel": "Secure access",
+    "auth.unlockTitle": "Access your vault",
+    "auth.unlockDescription": "Use the master password to open the local vault. It is not sent, not stored, and cannot be recovered.",
+    "auth.createMasterTitle": "Protect your first vault",
+    "auth.createMasterDescription": "Create a strong master password. It will be the vault's main password and cannot be recovered.",
+    "auth.createEncryptedVault": "Create vault",
+    "auth.unlock": "Open vault"
+  },
+  es: {
+    "auth.heroDescription": "Un cofre local para contraseñas, notas, tarjetas, licencias, adjuntos y códigos 2FA. Tus datos quedan cifrados en este equipo.",
+    "auth.localOfflineBadge": "Local · sin conexión · cifrado",
+    "auth.trustLocal": "Datos locales",
+    "auth.trustEncrypted": "Cofre cifrado",
+    "auth.trustPrivate": "Sin nube obligatoria",
+    "auth.currentVault": "Cofre: {name}",
+    "auth.quickSettings": "Ajustes rápidos",
+    "auth.quickVault": "Cofre y copia",
+    "auth.setupPanelLabel": "Creación del cofre",
+    "auth.unlockPanelLabel": "Acceso seguro",
+    "auth.unlockTitle": "Accede a tu cofre",
+    "auth.unlockDescription": "Usa la contraseña maestra para abrir el cofre local. No se envía, no se guarda y no se puede recuperar.",
+    "auth.createMasterTitle": "Protege tu primer cofre",
+    "auth.createMasterDescription": "Crea una contraseña maestra fuerte. Será la contraseña principal del cofre y no podrá recuperarse.",
+    "auth.createEncryptedVault": "Crear cofre",
+    "auth.unlock": "Abrir cofre"
+  },
+  tr: {
+    "auth.heroDescription": "Parolalar, notlar, kartlar, lisanslar, ekler ve 2FA kodları için yerel bir kasa. Verileriniz bu bilgisayarda şifreli kalır.",
+    "auth.localOfflineBadge": "Yerel · çevrim dışı · şifreli",
+    "auth.trustLocal": "Yerel veri",
+    "auth.trustEncrypted": "Şifreli kasa",
+    "auth.trustPrivate": "Zorunlu bulut yok",
+    "auth.currentVault": "Kasa: {name}",
+    "auth.quickSettings": "Hızlı ayarlar",
+    "auth.quickVault": "Kasa ve yedek",
+    "auth.setupPanelLabel": "Kasa oluşturma",
+    "auth.unlockPanelLabel": "Güvenli erişim",
+    "auth.unlockTitle": "Kasanıza erişin",
+    "auth.unlockDescription": "Yerel kasayı açmak için ana parolayı kullanın. Gönderilmez, saklanmaz ve kurtarılamaz.",
+    "auth.createMasterTitle": "İlk kasanızı koruyun",
+    "auth.createMasterDescription": "Güçlü bir ana parola oluşturun. Kasanın ana parolası olacak ve kurtarılamayacaktır.",
+    "auth.createEncryptedVault": "Kasa oluştur",
+    "auth.unlock": "Kasayı aç"
+  }
+};
+
 export function translate(language: AppLanguage, key: TranslationKey, values: TranslationValues = {}) {
-  const template = v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
+  const template = v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
 
   return String(template).replace(/\{(\w+)\}/g, (_, name: string) =>
     values[name] === undefined ? `{${name}}` : String(values[name]),
