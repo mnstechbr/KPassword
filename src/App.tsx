@@ -1,4 +1,4 @@
-﻿import {
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -147,7 +147,7 @@ function createId() {
 }
 
 function formatDate(value?: string | number, language: AppLanguage = "pt") {
-  if (!value) return "â€”";
+  if (!value) return "—";
 
   return new Intl.DateTimeFormat(getDateLocale(language), {
     dateStyle: "short",
@@ -172,8 +172,8 @@ function normalizeUrl(url: string) {
 }
 
 function maskPassword(password: string) {
-  if (!password) return "â€”";
-  return "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢";
+  if (!password) return "—";
+  return "••••••••••••";
 }
 
 function getOrderedCredentials(credentials: CredentialRecord[]) {
@@ -329,8 +329,8 @@ function AppLogo({
 
 const localizedLanguageNames: Record<AppLanguage, Record<AppLanguage, string>> = {
   pt: {
-    pt: "PortuguÃªs",
-    en: "InglÃªs",
+    pt: "Português",
+    en: "Inglês",
     es: "Espanhol",
     tr: "Turco",
   },
@@ -341,16 +341,16 @@ const localizedLanguageNames: Record<AppLanguage, Record<AppLanguage, string>> =
     tr: "Turkish",
   },
   es: {
-    pt: "PortuguÃ©s",
-    en: "InglÃ©s",
-    es: "EspaÃ±ol",
+    pt: "Portugués",
+    en: "Inglés",
+    es: "Español",
     tr: "Turco",
   },
   tr: {
     pt: "Portekizce",
-    en: "Ä°ngilizce",
-    es: "Ä°spanyolca",
-    tr: "TÃ¼rkÃ§e",
+    en: "İngilizce",
+    es: "İspanyolca",
+    tr: "Türkçe",
   },
 };
 
@@ -463,11 +463,11 @@ function isCredentialItem(credential: CredentialRecord) {
 
 function getItemTypeIcon(itemType: VaultItemType) {
   const icons: Record<VaultItemType, string> = {
-    credential: "ðŸ”‘",
-    secure_note: "ðŸ“",
-    card: "ðŸ’³",
-    identity: "ðŸªª",
-    license: "ðŸ“œ",
+    credential: "🔑",
+    secure_note: "📝",
+    card: "💳",
+    identity: "🪪",
+    license: "📜",
   };
 
   return icons[itemType];
@@ -511,11 +511,11 @@ function getItemPrimarySecret(item: CredentialRecord) {
 }
 
 function maskGenericSecret(value?: string) {
-  if (!value) return "â€”";
+  if (!value) return "—";
   const normalized = value.replace(/\s+/g, "");
 
-  if (normalized.length <= 4) return "â€¢â€¢â€¢â€¢";
-  return `â€¢â€¢â€¢â€¢ ${normalized.slice(-4)}`;
+  if (normalized.length <= 4) return "••••";
+  return `•••• ${normalized.slice(-4)}`;
 }
 
 function getAttachments(credential?: Partial<CredentialRecord> | null): VaultAttachment[] {
@@ -706,9 +706,9 @@ function normalizeImportedItemType(value: string): VaultItemType {
   const normalized = value.trim().toLowerCase();
 
   if (["secure_note", "secure note", "note", "nota", "nota segura"].includes(normalized)) return "secure_note";
-  if (["card", "cartao", "cartÃ£o", "tarjeta"].includes(normalized)) return "card";
+  if (["card", "cartao", "cartão", "tarjeta"].includes(normalized)) return "card";
   if (["identity", "identidade", "identidad", "kimlik"].includes(normalized)) return "identity";
-  if (["license", "licenca", "licenÃ§a", "licencia", "lisans"].includes(normalized)) return "license";
+  if (["license", "licenca", "licença", "licencia", "lisans"].includes(normalized)) return "license";
 
   return "credential";
 }
@@ -720,7 +720,7 @@ function normalizeImportedCategory(value: string): CredentialCategory {
   if (["banco", "bank", "banco/bank"].includes(normalized)) return "Banco";
   if (["e-mail", "email", "mail"].includes(normalized)) return "E-mail";
   if (["sistema", "system", "sistema/system"].includes(normalized)) return "Sistema";
-  if (["outro", "other", "otro", "diÄŸer"].includes(normalized)) return "Outro";
+  if (["outro", "other", "otro", "diğer"].includes(normalized)) return "Outro";
 
   return "Trabalho";
 }
@@ -728,7 +728,7 @@ function normalizeImportedCategory(value: string): CredentialCategory {
 function rowToImportedCredential(row: Record<string, string>, now: string): CredentialRecord {
   const itemType = normalizeImportedItemType(getCsvValue(row, ["type", "tipo", "itemtype", "item_type"]));
   const title =
-    getCsvValue(row, ["title", "name", "nome", "titulo", "tÃ­tulo", "site", "url"]) ||
+    getCsvValue(row, ["title", "name", "nome", "titulo", "título", "site", "url"]) ||
     "Item importado";
 
   return {
@@ -737,10 +737,10 @@ function rowToImportedCredential(row: Record<string, string>, now: string): Cred
     title: title.trim(),
     category: normalizeImportedCategory(getCsvValue(row, ["category", "categoria"])),
     favorite: ["true", "1", "sim", "yes"].includes(getCsvValue(row, ["favorite", "favorito"]).toLowerCase()),
-    username: itemType === "credential" ? getCsvValue(row, ["username", "user", "login", "email", "e-mail", "usuario", "usuÃ¡rio"]) : "",
+    username: itemType === "credential" ? getCsvValue(row, ["username", "user", "login", "email", "e-mail", "usuario", "usuário"]) : "",
     password: itemType === "credential" ? getCsvValue(row, ["password", "senha", "pass"]) : "",
     url: itemType === "credential" ? normalizeUrl(getCsvValue(row, ["url", "site", "website"])) : "",
-    notes: getCsvValue(row, ["notes", "nota", "notas", "observacoes", "observaÃ§Ãµes", "content", "conteudo", "conteÃºdo"]),
+    notes: getCsvValue(row, ["notes", "nota", "notas", "observacoes", "observações", "content", "conteudo", "conteúdo"]),
     passwordChangedAt: getCsvValue(row, ["passwordchangedat", "password_changed_at", "alterada_em"]) || now,
     passwordExpiresInDays: Number(getCsvValue(row, ["passwordexpiresindays", "password_expires_in_days", "validade_dias"])) || 0,
     passwordExpiryNoticeDays: Number(getCsvValue(row, ["passwordexpirynoticedays", "password_expiry_notice_days", "aviso_dias"])) || 15,
@@ -749,7 +749,7 @@ function rowToImportedCredential(row: Record<string, string>, now: string): Cred
     totpIssuer: itemType === "credential" ? getCsvValue(row, ["totpissuer", "totp_issuer", "issuer", "emissor"]) : "",
     totpSecret: itemType === "credential" ? getCsvValue(row, ["totpsecret", "totp_secret", "otp", "2fa", "mfa", "segredo_totp"]) : "",
     cardholderName: itemType === "card" ? getCsvValue(row, ["cardholdername", "card_holder", "nome_cartao"]) : "",
-    cardNumber: itemType === "card" ? getCsvValue(row, ["cardnumber", "card_number", "numero_cartao", "nÃºmero_cartÃ£o"]) : "",
+    cardNumber: itemType === "card" ? getCsvValue(row, ["cardnumber", "card_number", "numero_cartao", "número_cartão"]) : "",
     cardExpiry: itemType === "card" ? getCsvValue(row, ["cardexpiry", "card_expiry", "validade_cartao"]) : "",
     cardCvv: itemType === "card" ? getCsvValue(row, ["cardcvv", "card_cvv", "cvv"]) : "",
     cardIssuer: itemType === "card" ? getCsvValue(row, ["cardissuer", "card_issuer", "banco_cartao", "emissor"]) : "",
@@ -757,10 +757,10 @@ function rowToImportedCredential(row: Record<string, string>, now: string): Cred
     identityDocument: itemType === "identity" ? getCsvValue(row, ["identitydocument", "identity_document", "documento"]) : "",
     identityEmail: itemType === "identity" ? getCsvValue(row, ["identityemail", "identity_email"]) : "",
     identityPhone: itemType === "identity" ? getCsvValue(row, ["identityphone", "identity_phone", "telefone"]) : "",
-    identityAddress: itemType === "identity" ? getCsvValue(row, ["identityaddress", "identity_address", "endereco", "endereÃ§o"]) : "",
+    identityAddress: itemType === "identity" ? getCsvValue(row, ["identityaddress", "identity_address", "endereco", "endereço"]) : "",
     licenseProduct: itemType === "license" ? getCsvValue(row, ["licenseproduct", "license_product", "produto"]) : "",
     licenseKey: itemType === "license" ? getCsvValue(row, ["licensekey", "license_key", "chave", "serial"]) : "",
-    licenseOwner: itemType === "license" ? getCsvValue(row, ["licenseowner", "license_owner", "proprietario", "proprietÃ¡rio"]) : "",
+    licenseOwner: itemType === "license" ? getCsvValue(row, ["licenseowner", "license_owner", "proprietario", "proprietário"]) : "",
     licenseExpiresAt: itemType === "license" ? getCsvValue(row, ["licenseexpiresat", "license_expires_at", "expira_em"]) : "",
     createdAt: now,
     updatedAt: now,
@@ -1150,7 +1150,7 @@ export default function App() {
       setStorageInfo(info);
       setBackups(backupFiles);
     } catch (error) {
-      console.error("Erro ao carregar informaÃ§Ãµes de armazenamento:", error);
+      console.error("Erro ao carregar informações de armazenamento:", error);
     }
   }, [activeVaultName]);
 
@@ -1262,7 +1262,7 @@ export default function App() {
 
     const interval = window.setInterval(() => {
       void persistVault(vault).catch((error) => {
-        console.error("Erro ao criar backup automÃ¡tico:", error);
+        console.error("Erro ao criar backup automático:", error);
       });
     }, vault.settings.backupIntervalHours * 60 * 60 * 1000);
 
@@ -1302,7 +1302,7 @@ export default function App() {
     try {
       const newVault = normalizeVault(createEmptyVault());
       const file = await encryptVault(newVault, setupPassword);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName);
+      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false);
 
       setEncryptedVault(file);
       setVault(newVault);
@@ -2323,7 +2323,7 @@ export default function App() {
         try {
           await navigator.clipboard.writeText("");
         } catch {
-          // Ignora falha de limpeza em ambiente sem permissÃ£o de clipboard.
+          // Ignora falha de limpeza em ambiente sem permissão de clipboard.
         }
       }
 
@@ -2833,7 +2833,7 @@ export default function App() {
             className={appTheme === "dark" ? "authThemeButton active" : "authThemeButton"}
             onClick={() => setAppTheme("dark")}
           >
-            <span className="authThemeIcon" aria-hidden="true">â˜¾</span>
+            <span className="authThemeIcon" aria-hidden="true">☾</span>
             <span>{t("preferences.dark")}</span>
           </button>
           <button
@@ -2843,7 +2843,7 @@ export default function App() {
             className={appTheme === "light" ? "authThemeButton active" : "authThemeButton"}
             onClick={() => setAppTheme("light")}
           >
-            <span className="authThemeIcon" aria-hidden="true">â˜€</span>
+            <span className="authThemeIcon" aria-hidden="true">☀</span>
             <span>{t("preferences.light")}</span>
           </button>
           <button
@@ -2853,7 +2853,7 @@ export default function App() {
             className={appTheme === "mixed" ? "authThemeButton active" : "authThemeButton"}
             onClick={() => setAppTheme("mixed")}
           >
-            <span className="authThemeIcon" aria-hidden="true">â—</span>
+            <span className="authThemeIcon" aria-hidden="true">◐</span>
             <span>{t("preferences.mixed")}</span>
           </button>
         </div>
@@ -2903,7 +2903,7 @@ export default function App() {
     <div className="confirmOverlay" onMouseDown={() => closeConfirmDialog(false)}>
       <section className="confirmCard" onMouseDown={(event) => event.stopPropagation()}>
         <div className={confirmDialog.tone === "danger" ? "confirmIcon danger" : "confirmIcon"}>
-          {confirmDialog.tone === "danger" ? "!" : "âœ“"}
+          {confirmDialog.tone === "danger" ? "!" : "✓"}
         </div>
         <div>
           <h2>{confirmDialog.title}</h2>
@@ -2945,7 +2945,7 @@ export default function App() {
               setRestorePassword("");
             }}
           >
-            Ã—
+            ×
           </button>
         </div>
 
@@ -3204,7 +3204,7 @@ export default function App() {
             title={t("nav.credentials")}
             aria-label={t("nav.credentials")}
           >
-            <span className="navIcon" aria-hidden="true">ðŸ”‘</span>
+            <span className="navIcon" aria-hidden="true">🔑</span>
             <span className="navLabel">{t("nav.credentials")}</span>
           </button>
           <button
@@ -3213,7 +3213,7 @@ export default function App() {
             title={t("nav.dashboard")}
             aria-label={t("nav.dashboard")}
           >
-            <span className="navIcon" aria-hidden="true">ðŸ“Š</span>
+            <span className="navIcon" aria-hidden="true">📊</span>
             <span className="navLabel">{t("nav.dashboard")}</span>
           </button>
           <button
@@ -3222,7 +3222,7 @@ export default function App() {
             title={t("nav.trash")}
             aria-label={t("nav.trash")}
           >
-            <span className="navIcon" aria-hidden="true">ðŸ—‘ï¸</span>
+            <span className="navIcon" aria-hidden="true">🗑️</span>
             <span className="navLabel">{t("nav.trash")}</span>
           </button>
           <button
@@ -3231,7 +3231,7 @@ export default function App() {
             title={t("nav.securityBackup")}
             aria-label={t("nav.securityBackup")}
           >
-            <span className="navIcon" aria-hidden="true">ðŸ›¡ï¸</span>
+            <span className="navIcon" aria-hidden="true">🛡️</span>
             <span className="navLabel">{t("nav.securityBackup")}</span>
           </button>
           <button
@@ -3240,14 +3240,14 @@ export default function App() {
             title={t("nav.preferences")}
             aria-label={t("nav.preferences")}
           >
-            <span className="navIcon" aria-hidden="true">âš™ï¸</span>
+            <span className="navIcon" aria-hidden="true">⚙️</span>
             <span className="navLabel">{t("nav.preferences")}</span>
           </button>
         </nav>
 
         <div className="sidebarFooter">
           <button className="lockButton" onClick={lockVault} title={t("nav.lockVault")} aria-label={t("nav.lockVault")}>
-            <span className="navIcon" aria-hidden="true">ðŸ”’</span>
+            <span className="navIcon" aria-hidden="true">🔒</span>
             <span className="navLabel">{t("nav.lockVault")}</span>
           </button>
         </div>
@@ -3347,7 +3347,7 @@ export default function App() {
                           void moveCredentialByOffset(credential.id, -1);
                         }}
                       >
-                        â†‘
+                        ↑
                       </button>
                       <button
                         type="button"
@@ -3358,7 +3358,7 @@ export default function App() {
                           void moveCredentialByOffset(credential.id, 1);
                         }}
                       >
-                        â†“
+                        ↓
                       </button>
                     </span>
                     <span
@@ -3369,7 +3369,7 @@ export default function App() {
                       }}
                       title={credential.favorite ? t("credential.removeFavorite") : t("credential.favorite")}
                     >
-                      â˜…
+                      ★
                     </span>
 
                     <span className="rowMain">
@@ -3388,7 +3388,7 @@ export default function App() {
                     <span className="rowHealth">
                       {isCredentialItem(credential) ? (
                         <>
-                          <span>{translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} Â· {passwordScore}%</span>
+                          <span>{translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} · {passwordScore}%</span>
                           <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
                             {getExpiryLabel(credential)}
                           </span>
@@ -3474,7 +3474,7 @@ export default function App() {
               <div className="vaultScoreBadge" aria-label={t("diagnostic.score")}>
                 <span>{t("diagnostic.score")}</span>
                 <strong>{vaultHealthScore}</strong>
-                <small>/100 Â· {getVaultDisplayName(activeVaultName, vaultFiles)}</small>
+                <small>/100 · {getVaultDisplayName(activeVaultName, vaultFiles)}</small>
               </div>
             </section>
 
@@ -3524,7 +3524,7 @@ export default function App() {
                         }}
                       >
                         <strong>{item.credential.title}</strong>
-                        <span>{item.issues.map((issue) => getDiagnosticLabel(issue)).slice(0, 3).join(" Â· ")}</span>
+                        <span>{item.issues.map((issue) => getDiagnosticLabel(issue)).slice(0, 3).join(" · ")}</span>
                       </button>
                     ))
                   ) : (
@@ -3582,7 +3582,7 @@ export default function App() {
                     <div>
                       <strong>{credential.title}</strong>
                       <span>
-                        {credential.username || t("credential.noUser")} Â· {t("trash.deletedAt")} {formatDate(credential.deletedAt, appLanguage)}
+                        {credential.username || t("credential.noUser")} · {t("trash.deletedAt")} {formatDate(credential.deletedAt, appLanguage)}
                       </span>
                     </div>
                     <div className="trashActions">
@@ -3664,7 +3664,7 @@ export default function App() {
                   <div key={backup.filename}>
                     <strong>{backup.filename}</strong>
                     <span>
-                      {formatDate(backup.modified_epoch_ms)} Â· {(backup.size_bytes / 1024).toFixed(1)} KB
+                      {formatDate(backup.modified_epoch_ms)} · {(backup.size_bytes / 1024).toFixed(1)} KB
                     </span>
                   </div>
                 ))}
@@ -3699,7 +3699,7 @@ export default function App() {
             <article className="wideCard securityActionCard">
               <h2>{t("settings.masterPasswordTitle")}</h2>
               <p>
-                NÃ£o existe recuperaÃ§Ã£o da senha mestra atual. Se ela for perdida, o cofre e os backups criptografados nÃ£o podem ser descriptografados. Troque a senha periodicamente e guarde-a em local seguro.
+                Não existe recuperação da senha mestra atual. Se ela for perdida, o cofre e os backups criptografados não podem ser descriptografados. Troque a senha periodicamente e guarde-a em local seguro.
               </p>
 
               <form className="changePasswordForm" onSubmit={handleChangeMasterPassword}>
@@ -4016,7 +4016,7 @@ export default function App() {
                   className={appTheme === "dark" ? "optionButton active" : "optionButton"}
                   onClick={() => setAppTheme("dark")}
                 >
-                  <span>ðŸŒ™</span>
+                  <span>🌙</span>
                   <strong>{t("preferences.dark")}</strong>
                   <small>{t("preferences.darkDescription")}</small>
                 </button>
@@ -4025,7 +4025,7 @@ export default function App() {
                   className={appTheme === "light" ? "optionButton active" : "optionButton"}
                   onClick={() => setAppTheme("light")}
                 >
-                  <span>â˜€ï¸</span>
+                  <span>☀️</span>
                   <strong>{t("preferences.light")}</strong>
                   <small>{t("preferences.lightDescription")}</small>
                 </button>
@@ -4034,7 +4034,7 @@ export default function App() {
                   className={appTheme === "mixed" ? "optionButton active" : "optionButton"}
                   onClick={() => setAppTheme("mixed")}
                 >
-                  <span>ðŸŒ“</span>
+                  <span>🌓</span>
                   <strong>{t("preferences.mixed")}</strong>
                   <small>{t("preferences.mixedDescription")}</small>
                 </button>
@@ -4148,11 +4148,11 @@ export default function App() {
             <aside className="detailPopup" onMouseDown={(event) => event.stopPropagation()}>
               <div className="detailHeader">
                 <div>
-                  <span>{getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)} Â· {getCategoryLabel(detailCredential.category, appLanguage)}</span>
+                  <span>{getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)} · {getCategoryLabel(detailCredential.category, appLanguage)}</span>
                   <h2>{detailCredential.title}</h2>
                 </div>
                 <button className="iconButton" onClick={() => setDetailCredentialId(null)}>
-                  Ã—
+                  ×
                 </button>
               </div>
 
@@ -4160,7 +4160,7 @@ export default function App() {
                 <div className="detailGrid">
                   <div>
                     <span>{t("detail.user")}</span>
-                    <strong>{detailCredential.username || "â€”"}</strong>
+                    <strong>{detailCredential.username || "—"}</strong>
                   </div>
 
                   <div>
@@ -4174,13 +4174,13 @@ export default function App() {
 
                   <div>
                     <span>{t("detail.site")}</span>
-                    <strong>{detailCredential.url || "â€”"}</strong>
+                    <strong>{detailCredential.url || "—"}</strong>
                   </div>
 
                   <div>
                     <span>{t("detail.strength")}</span>
                     <strong>
-                      {translatePasswordLabel(getPasswordLabel(getPasswordScore(detailCredential.password)), appLanguage)} Â·{" "}
+                      {translatePasswordLabel(getPasswordLabel(getPasswordScore(detailCredential.password)), appLanguage)} ·{" "}
                       {getPasswordScore(detailCredential.password)}%
                     </strong>
                   </div>
@@ -4278,23 +4278,23 @@ export default function App() {
                 <div className="detailGrid">
                   <div>
                     <span>{t("card.holder")}</span>
-                    <strong>{detailCredential.cardholderName || "â€”"}</strong>
+                    <strong>{detailCredential.cardholderName || "—"}</strong>
                   </div>
                   <div>
                     <span>{t("card.number")}</span>
-                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardNumber || "â€”" : maskGenericSecret(detailCredential.cardNumber)}</strong>
+                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardNumber || "—" : maskGenericSecret(detailCredential.cardNumber)}</strong>
                   </div>
                   <div>
                     <span>{t("card.expiry")}</span>
-                    <strong>{detailCredential.cardExpiry || "â€”"}</strong>
+                    <strong>{detailCredential.cardExpiry || "—"}</strong>
                   </div>
                   <div>
                     <span>{t("card.cvv")}</span>
-                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardCvv || "â€”" : maskGenericSecret(detailCredential.cardCvv)}</strong>
+                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardCvv || "—" : maskGenericSecret(detailCredential.cardCvv)}</strong>
                   </div>
                   <div>
                     <span>{t("card.issuer")}</span>
-                    <strong>{detailCredential.cardIssuer || "â€”"}</strong>
+                    <strong>{detailCredential.cardIssuer || "—"}</strong>
                   </div>
                   <div>
                     <span>{t("detail.updatedAt")}</span>
@@ -4307,23 +4307,23 @@ export default function App() {
                 <div className="detailGrid">
                   <div>
                     <span>{t("identity.fullName")}</span>
-                    <strong>{detailCredential.identityFullName || "â€”"}</strong>
+                    <strong>{detailCredential.identityFullName || "—"}</strong>
                   </div>
                   <div>
                     <span>{t("identity.document")}</span>
-                    <strong>{detailCredential.identityDocument || "â€”"}</strong>
+                    <strong>{detailCredential.identityDocument || "—"}</strong>
                   </div>
                   <div>
                     <span>{t("identity.email")}</span>
-                    <strong>{detailCredential.identityEmail || "â€”"}</strong>
+                    <strong>{detailCredential.identityEmail || "—"}</strong>
                   </div>
                   <div>
                     <span>{t("identity.phone")}</span>
-                    <strong>{detailCredential.identityPhone || "â€”"}</strong>
+                    <strong>{detailCredential.identityPhone || "—"}</strong>
                   </div>
                   <div className="full">
                     <span>{t("identity.address")}</span>
-                    <strong>{detailCredential.identityAddress || "â€”"}</strong>
+                    <strong>{detailCredential.identityAddress || "—"}</strong>
                   </div>
                 </div>
               )}
@@ -4332,19 +4332,19 @@ export default function App() {
                 <div className="detailGrid">
                   <div>
                     <span>{t("license.product")}</span>
-                    <strong>{detailCredential.licenseProduct || "â€”"}</strong>
+                    <strong>{detailCredential.licenseProduct || "—"}</strong>
                   </div>
                   <div>
                     <span>{t("license.key")}</span>
-                    <strong>{visiblePasswords[`license-${detailCredential.id}`] ? detailCredential.licenseKey || "â€”" : maskGenericSecret(detailCredential.licenseKey)}</strong>
+                    <strong>{visiblePasswords[`license-${detailCredential.id}`] ? detailCredential.licenseKey || "—" : maskGenericSecret(detailCredential.licenseKey)}</strong>
                   </div>
                   <div>
                     <span>{t("license.owner")}</span>
-                    <strong>{detailCredential.licenseOwner || "â€”"}</strong>
+                    <strong>{detailCredential.licenseOwner || "—"}</strong>
                   </div>
                   <div>
                     <span>{t("license.expiresAt")}</span>
-                    <strong>{detailCredential.licenseExpiresAt || "â€”"}</strong>
+                    <strong>{detailCredential.licenseExpiresAt || "—"}</strong>
                   </div>
                 </div>
               )}
@@ -4378,7 +4378,7 @@ export default function App() {
                       <div>
                         <strong>{attachment.name}</strong>
                         <span>
-                          {formatBytes(attachment.sizeBytes)} Â· {attachment.mimeType || "application/octet-stream"} Â· {formatDate(attachment.createdAt, appLanguage)}
+                          {formatBytes(attachment.sizeBytes)} · {attachment.mimeType || "application/octet-stream"} · {formatDate(attachment.createdAt, appLanguage)}
                         </span>
                       </div>
                       <div className="attachmentActions">
@@ -4422,7 +4422,7 @@ export default function App() {
                             {visibleHistoryPasswords[entry.id] ? entry.password : maskPassword(entry.password)}
                           </strong>
                           <span>
-                            {t("history.savedAt")} {formatDate(entry.savedAt, appLanguage)} Â· {t("history.changedAt")} {formatDate(entry.changedAt, appLanguage)}
+                            {t("history.savedAt")} {formatDate(entry.savedAt, appLanguage)} · {t("history.changedAt")} {formatDate(entry.changedAt, appLanguage)}
                           </span>
                         </div>
                         <div className="historyActions">
@@ -4510,7 +4510,7 @@ export default function App() {
                 <h2>{editingId ? t("form.editItem") : t("form.addItem")}</h2>
               </div>
               <button type="button" className="iconButton" onClick={() => setFormOpen(false)}>
-                Ã—
+                ×
               </button>
             </div>
 
