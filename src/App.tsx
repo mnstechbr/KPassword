@@ -11,11 +11,13 @@ import {
   createEmptyVault,
   decryptVault,
   encryptVault,
+  needsCryptoMigration,
   parseEncryptedVault,
   validateMasterPassword,
 } from "./crypto";
 import { generatePassword, getPasswordLabel, getPasswordScore, type PasswordGeneratorMode } from "./password";
 import {
+  createPreArgon2Backup,
   getStorageInfo,
   disableWindowsHello,
   enableWindowsHello,
@@ -96,7 +98,7 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "0.8.5";
+const APP_VERSION = "0.9.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -1255,6 +1257,21 @@ export default function App() {
     [activeVaultName, encryptedVault, masterPassword],
   );
 
+  async function migrateLegacyVaultIfNeeded(
+    file: EncryptedVaultFile,
+    plainVault: PlainVault,
+    password: string,
+  ) {
+    if (!needsCryptoMigration(file)) return;
+
+    await createPreArgon2Backup(JSON.stringify(file, null, 2), activeVaultName);
+    const migratedFile = await encryptVault(plainVault, password, null);
+    const info = await saveVaultFile(JSON.stringify(migratedFile, null, 2), activeVaultName, false);
+
+    setEncryptedVault(migratedFile);
+    setStorageInfo(info);
+    setBackups(info.backups);
+  }
   useEffect(() => {
     if (!vault || mode !== "unlocked") {
       return;
@@ -1338,6 +1355,7 @@ export default function App() {
 
     try {
       const plainVault = normalizeVault(await decryptVault(encryptedVault, unlockPassword));
+      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault, unlockPassword);
 
       setVault(plainVault);
       setMasterPassword(unlockPassword);
@@ -1403,6 +1421,7 @@ export default function App() {
       await prepareWindowsHelloPrompt();
       const password = await unlockWithWindowsHello(activeVaultName, t("windowsHello.promptUnlock"));
       const plainVault = normalizeVault(await decryptVault(encryptedVault, password));
+      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault, password);
 
       setVault(plainVault);
       setMasterPassword(password);

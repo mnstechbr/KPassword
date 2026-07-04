@@ -1,62 +1,49 @@
-import type { EncryptedVaultFile, PlainVault } from "./types";
+import { invoke } from "@tauri-apps/api/core";
+import type { EncryptedVaultFile, EncryptedVaultFileV2, PlainVault } from "./types";
 
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-
-const VAULT_AAD = encoder.encode("KPassword:Vault:v1");
-const DEFAULT_ITERATIONS = 450_000;
-
-function bytesToBase64(bytes: Uint8Array) {
-  let binary = "";
-
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-
-  return btoa(binary);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
-function base64ToBytes(base64: string) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
+function isLegacyVaultFile(value: unknown): value is EncryptedVaultFile {
+  if (!isRecord(value) || value.version !== 1 || value.app !== "KPassword") return false;
+  if (value.cryptoVersion !== undefined && value.cryptoVersion !== 1) return false;
+  if (!isRecord(value.crypto)) return false;
 
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return bytes;
-}
-
-function randomBytes(length: number) {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return bytes;
-}
-
-async function deriveVaultKey(masterPassword: string, salt: Uint8Array, iterations: number) {
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(masterPassword),
-    "PBKDF2",
-    false,
-    ["deriveKey"],
+  return (
+    value.crypto.algorithm === "AES-GCM" &&
+    value.crypto.kdf === "PBKDF2-SHA-256" &&
+    typeof value.crypto.iterations === "number" &&
+    typeof value.crypto.salt === "string" &&
+    typeof value.crypto.iv === "string" &&
+    typeof value.payload === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string"
   );
+}
 
-  return crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    {
-      name: "AES-GCM",
-      length: 256,
-    },
-    false,
-    ["encrypt", "decrypt"],
+function isArgon2idVaultFile(value: unknown): value is EncryptedVaultFileV2 {
+  if (!isRecord(value) || value.version !== 1 || value.app !== "KPassword") return false;
+  if (value.cryptoVersion !== 2 || !isRecord(value.kdf) || !isRecord(value.cipher)) return false;
+  if (!isRecord(value.kdf.params)) return false;
+
+  return (
+    value.kdf.algorithm === "argon2id" &&
+    typeof value.kdf.salt === "string" &&
+    value.cipher.algorithm === "AES-256-GCM" &&
+    typeof value.cipher.nonce === "string" &&
+    typeof value.kdf.params.memoryKiB === "number" &&
+    typeof value.kdf.params.timeCost === "number" &&
+    typeof value.kdf.params.parallelism === "number" &&
+    typeof value.kdf.params.outputLength === "number" &&
+    typeof value.payload === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string"
   );
+}
+
+export function needsCryptoMigration(file: EncryptedVaultFile) {
+  return (file.cryptoVersion ?? 1) < 2;
 }
 
 export async function encryptVault(
@@ -64,81 +51,39 @@ export async function encryptVault(
   masterPassword: string,
   previousFile?: EncryptedVaultFile | null,
 ): Promise<EncryptedVaultFile> {
-  const salt = previousFile ? base64ToBytes(previousFile.crypto.salt) : randomBytes(32);
-  const iv = randomBytes(12);
-  const iterations = previousFile?.crypto.iterations ?? DEFAULT_ITERATIONS;
-  const key = await deriveVaultKey(masterPassword, salt, iterations);
   const updatedVault: PlainVault = {
     ...vault,
     updatedAt: new Date().toISOString(),
   };
 
-  const encrypted = await crypto.subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv,
-      additionalData: VAULT_AAD,
-      tagLength: 128,
-    },
-    key,
-    encoder.encode(JSON.stringify(updatedVault)),
-  );
-
-  return {
-    version: 1,
-    app: "KPassword",
-    crypto: {
-      algorithm: "AES-GCM",
-      kdf: "PBKDF2-SHA-256",
-      iterations,
-      salt: bytesToBase64(salt),
-      iv: bytesToBase64(iv),
-    },
+  return invoke<EncryptedVaultFileV2>("encrypt_vault_argon2id", {
+    plainVaultJson: JSON.stringify(updatedVault),
+    masterPassword,
     createdAt: previousFile?.createdAt ?? updatedVault.createdAt,
-    updatedAt: updatedVault.updatedAt,
-    payload: bytesToBase64(new Uint8Array(encrypted)),
-  };
+  });
 }
 
 export async function decryptVault(
   file: EncryptedVaultFile,
   masterPassword: string,
 ): Promise<PlainVault> {
-  const salt = base64ToBytes(file.crypto.salt);
-  const iv = base64ToBytes(file.crypto.iv);
-  const payload = base64ToBytes(file.payload);
-  const key = await deriveVaultKey(masterPassword, salt, file.crypto.iterations);
-
-  const decrypted = await crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv,
-      additionalData: VAULT_AAD,
-      tagLength: 128,
-    },
-    key,
-    payload,
-  );
-
-  return JSON.parse(decoder.decode(decrypted)) as PlainVault;
+  try {
+    const decrypted = await invoke<string>("decrypt_vault_payload", { file, masterPassword });
+    return JSON.parse(decrypted) as PlainVault;
+  } catch {
+    throw new Error("Senha mestra incorreta ou arquivo de cofre invalido.");
+  }
 }
 
 export function parseEncryptedVault(raw: string): EncryptedVaultFile {
-  const parsed = JSON.parse(raw) as EncryptedVaultFile;
+  const parsed = JSON.parse(raw) as unknown;
 
-  if (
-    parsed.version !== 1 ||
-    parsed.app !== "KPassword" ||
-    parsed.crypto?.algorithm !== "AES-GCM" ||
-    parsed.crypto?.kdf !== "PBKDF2-SHA-256" ||
-    !parsed.payload
-  ) {
-    throw new Error("Arquivo de cofre inválido ou incompatível.");
+  if (isLegacyVaultFile(parsed) || isArgon2idVaultFile(parsed)) {
+    return parsed;
   }
 
-  return parsed;
+  throw new Error("Arquivo de cofre invalido ou incompativel.");
 }
-
 export function createEmptyVault(): PlainVault {
   const now = new Date().toISOString();
 

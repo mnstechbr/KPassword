@@ -99,9 +99,10 @@ export type PlainVault = {
   settings: VaultSettings;
 };
 
-export type EncryptedVaultFile = {
+export type LegacyEncryptedVaultFile = {
   version: 1;
   app: "KPassword";
+  cryptoVersion?: 1;
   crypto: {
     algorithm: "AES-GCM";
     kdf: "PBKDF2-SHA-256";
@@ -113,6 +114,33 @@ export type EncryptedVaultFile = {
   updatedAt: string;
   payload: string;
 };
+
+export type Argon2idKdfParams = {
+  memoryKiB: number;
+  timeCost: number;
+  parallelism: number;
+  outputLength: number;
+};
+
+export type EncryptedVaultFileV2 = {
+  version: 1;
+  app: "KPassword";
+  cryptoVersion: 2;
+  kdf: {
+    algorithm: "argon2id";
+    params: Argon2idKdfParams;
+    salt: string;
+  };
+  cipher: {
+    algorithm: "AES-256-GCM";
+    nonce: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  payload: string;
+};
+
+export type EncryptedVaultFile = LegacyEncryptedVaultFile | EncryptedVaultFileV2;
 
 export type WindowsHelloStatus = {
   available: boolean;

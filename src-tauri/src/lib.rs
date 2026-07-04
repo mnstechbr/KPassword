@@ -6,6 +6,9 @@ use std::{
 };
 
 use serde::Serialize;
+use zeroize::Zeroize;
+
+mod crypto_vault;
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
@@ -47,7 +50,6 @@ struct WindowsHelloStatus {
     reason: String,
     vault_name: String,
 }
-
 
 fn now_epoch_seconds() -> u64 {
     SystemTime::now()
@@ -100,7 +102,10 @@ fn vault_filename(vault_name: &str) -> String {
     }
 }
 
-fn storage_paths(app: &AppHandle, vault_name: Option<String>) -> Result<(PathBuf, PathBuf, String), String> {
+fn storage_paths(
+    app: &AppHandle,
+    vault_name: Option<String>,
+) -> Result<(PathBuf, PathBuf, String), String> {
     let safe_vault_name = sanitize_vault_name(vault_name)?;
     let data_dir = app
         .path()
@@ -119,7 +124,11 @@ fn storage_paths(app: &AppHandle, vault_name: Option<String>) -> Result<(PathBuf
     fs::create_dir_all(&backup_dir)
         .map_err(|error| format!("Erro ao criar pasta de backups: {error}"))?;
 
-    Ok((data_dir.join(vault_filename(&safe_vault_name)), backup_dir, safe_vault_name))
+    Ok((
+        data_dir.join(vault_filename(&safe_vault_name)),
+        backup_dir,
+        safe_vault_name,
+    ))
 }
 
 fn get_backups_from_dir(backup_dir: &PathBuf) -> Result<Vec<BackupFile>, String> {
@@ -169,12 +178,31 @@ fn should_create_backup(backup_dir: &PathBuf) -> bool {
     now_epoch_seconds().saturating_sub(last_backup_seconds) >= BACKUP_INTERVAL_SECONDS
 }
 
-fn create_backup(backup_dir: &PathBuf, safe_vault_name: &str, payload: &str) -> Result<(), String> {
-    let backup_name = format!("{}-{}.kpvault", safe_vault_name, now_epoch_millis());
+fn create_labeled_backup(
+    backup_dir: &PathBuf,
+    safe_vault_name: &str,
+    label: Option<&str>,
+    payload: &str,
+) -> Result<PathBuf, String> {
+    let backup_name = match label {
+        Some(label) => format!(
+            "{}-{}-{}.kpvault",
+            safe_vault_name,
+            label,
+            now_epoch_millis()
+        ),
+        None => format!("{}-{}.kpvault", safe_vault_name, now_epoch_millis()),
+    };
     let backup_path = backup_dir.join(backup_name);
 
-    fs::write(backup_path, payload.as_bytes())
-        .map_err(|error| format!("Erro ao criar backup criptografado: {error}"))
+    fs::write(&backup_path, payload.as_bytes())
+        .map_err(|error| format!("Erro ao criar backup criptografado: {error}"))?;
+
+    Ok(backup_path)
+}
+
+fn create_backup(backup_dir: &PathBuf, safe_vault_name: &str, payload: &str) -> Result<(), String> {
+    create_labeled_backup(backup_dir, safe_vault_name, None, payload).map(|_| ())
 }
 
 fn build_storage_info(app: &AppHandle, vault_name: Option<String>) -> Result<StorageInfo, String> {
@@ -196,7 +224,6 @@ fn show_main_window(app: &AppHandle) {
         let _ = window.set_focus();
     }
 }
-
 
 fn show_main_window_sized(app: &AppHandle, width: f64, height: f64) {
     if let Some(window) = app.get_webview_window("main") {
@@ -277,9 +304,9 @@ fn load_vault_file(app: AppHandle, vault_name: Option<String>) -> Result<Option<
         return Ok(None);
     }
 
-    fs::read_to_string(vault_path).map(Some).map_err(|error| {
-        format!("Erro ao carregar o cofre local criptografado: {error}")
-    })
+    fs::read_to_string(vault_path)
+        .map(Some)
+        .map_err(|error| format!("Erro ao carregar o cofre local criptografado: {error}"))
 }
 
 #[tauri::command]
@@ -333,7 +360,11 @@ fn list_vault_files(app: AppHandle) -> Result<Vec<VaultFileInfo>, String> {
 
         let filename = entry.file_name().to_string_lossy().to_string();
         let name = filename.trim_end_matches(".kpvault").to_string();
-        let safe_name = if name == "vault" { "vault".to_string() } else { name };
+        let safe_name = if name == "vault" {
+            "vault".to_string()
+        } else {
+            name
+        };
 
         if let Ok(metadata) = entry.metadata() {
             vaults.push(VaultFileInfo {
@@ -364,13 +395,20 @@ fn list_vault_files(app: AppHandle) -> Result<Vec<VaultFileInfo>, String> {
 }
 
 #[tauri::command]
-fn list_backup_files(app: AppHandle, vault_name: Option<String>) -> Result<Vec<BackupFile>, String> {
+fn list_backup_files(
+    app: AppHandle,
+    vault_name: Option<String>,
+) -> Result<Vec<BackupFile>, String> {
     let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
     get_backups_from_dir(&backup_dir)
 }
 
 #[tauri::command]
-fn read_backup_file(app: AppHandle, filename: String, vault_name: Option<String>) -> Result<String, String> {
+fn read_backup_file(
+    app: AppHandle,
+    filename: String,
+    vault_name: Option<String>,
+) -> Result<String, String> {
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
         return Err("Nome de backup inválido.".to_string());
     }
@@ -382,17 +420,56 @@ fn read_backup_file(app: AppHandle, filename: String, vault_name: Option<String>
         .map_err(|error| format!("Erro ao ler backup criptografado: {error}"))
 }
 
+#[tauri::command]
+fn create_pre_argon2_backup(
+    app: AppHandle,
+    payload: String,
+    vault_name: Option<String>,
+) -> Result<StorageInfo, String> {
+    let (_, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
+    create_labeled_backup(&backup_dir, &safe_vault_name, Some("pre-argon2"), &payload)?;
+    build_storage_info(&app, Some(safe_vault_name))
+}
 
+#[tauri::command]
+fn encrypt_vault_argon2id(
+    plain_vault_json: String,
+    mut master_password: String,
+    created_at: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let result = crypto_vault::encrypt_vault_v2_default(
+        &plain_vault_json,
+        &master_password,
+        created_at.as_deref(),
+    )
+    .and_then(|encrypted| {
+        serde_json::to_value(encrypted)
+            .map_err(|_| "Erro ao preparar cofre criptografado.".to_string())
+    });
+
+    master_password.zeroize();
+    result
+}
+
+#[tauri::command]
+fn decrypt_vault_payload(
+    file: serde_json::Value,
+    mut master_password: String,
+) -> Result<String, String> {
+    let result = crypto_vault::decrypt_vault_file(&file, &master_password);
+    master_password.zeroize();
+    result
+}
 #[cfg(windows)]
 mod windows_hello_native {
     use super::{sanitize_vault_name, WindowsHelloStatus};
+    use std::ffi::c_void;
     use std::{fs, path::PathBuf, ptr};
     use tauri::{AppHandle, Manager};
     use windows::core::HSTRING;
     use windows::Security::Credentials::UI::{
         UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
     };
-    use std::ffi::c_void;
 
     #[repr(C)]
     #[allow(non_snake_case)]
@@ -431,7 +508,6 @@ mod windows_hello_native {
         fn LocalFree(h_mem: *mut c_void) -> *mut c_void;
     }
 
-
     type Hwnd = isize;
 
     const SW_RESTORE: i32 = 9;
@@ -450,7 +526,10 @@ mod windows_hello_native {
 
     #[link(name = "User32")]
     extern "system" {
-        fn EnumWindows(callback: Option<unsafe extern "system" fn(Hwnd, isize) -> i32>, l_param: isize) -> i32;
+        fn EnumWindows(
+            callback: Option<unsafe extern "system" fn(Hwnd, isize) -> i32>,
+            l_param: isize,
+        ) -> i32;
         fn GetWindowThreadProcessId(hwnd: Hwnd, process_id: *mut u32) -> u32;
         fn IsWindowVisible(hwnd: Hwnd) -> i32;
         fn GetWindowTextLengthW(hwnd: Hwnd) -> i32;
@@ -460,7 +539,15 @@ mod windows_hello_native {
         fn BringWindowToTop(hwnd: Hwnd) -> i32;
         fn SetActiveWindow(hwnd: Hwnd) -> Hwnd;
         fn SetFocus(hwnd: Hwnd) -> Hwnd;
-        fn SetWindowPos(hwnd: Hwnd, hwnd_insert_after: Hwnd, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
+        fn SetWindowPos(
+            hwnd: Hwnd,
+            hwnd_insert_after: Hwnd,
+            x: i32,
+            y: i32,
+            cx: i32,
+            cy: i32,
+            flags: u32,
+        ) -> i32;
         fn GetForegroundWindow() -> Hwnd;
         fn AttachThreadInput(id_attach: u32, id_attach_to: u32, attach: i32) -> i32;
         fn AllowSetForegroundWindow(process_id: u32) -> i32;
@@ -512,7 +599,10 @@ mod windows_hello_native {
         };
 
         unsafe {
-            let _ = EnumWindows(Some(enum_kpassword_windows), &mut state as *mut WindowSearchState as isize);
+            let _ = EnumWindows(
+                Some(enum_kpassword_windows),
+                &mut state as *mut WindowSearchState as isize,
+            );
         }
 
         if state.hwnd == 0 {
@@ -536,7 +626,8 @@ mod windows_hello_native {
             let mut attached = false;
 
             if foreground_hwnd != 0 {
-                let foreground_thread = GetWindowThreadProcessId(foreground_hwnd, std::ptr::null_mut());
+                let foreground_thread =
+                    GetWindowThreadProcessId(foreground_hwnd, std::ptr::null_mut());
                 if foreground_thread != 0 && foreground_thread != current_thread {
                     attached = AttachThreadInput(current_thread, foreground_thread, 1) != 0;
                 }
@@ -557,7 +648,8 @@ mod windows_hello_native {
             let _ = SetForegroundWindow(hwnd);
 
             if attached && foreground_hwnd != 0 {
-                let foreground_thread = GetWindowThreadProcessId(foreground_hwnd, std::ptr::null_mut());
+                let foreground_thread =
+                    GetWindowThreadProcessId(foreground_hwnd, std::ptr::null_mut());
                 let _ = AttachThreadInput(current_thread, foreground_thread, 0);
             }
 
@@ -576,7 +668,10 @@ mod windows_hello_native {
         Ok(dir)
     }
 
-    fn token_path(app: &AppHandle, vault_name: Option<String>) -> Result<(PathBuf, String), String> {
+    fn token_path(
+        app: &AppHandle,
+        vault_name: Option<String>,
+    ) -> Result<(PathBuf, String), String> {
         let safe_vault_name = sanitize_vault_name(vault_name)?;
         let file_name = format!("{safe_vault_name}.kphello");
         Ok((hello_dir(app)?.join(file_name), safe_vault_name))
@@ -590,7 +685,9 @@ mod windows_hello_native {
         match availability {
             UserConsentVerifierAvailability::Available => "available".to_string(),
             UserConsentVerifierAvailability::DeviceNotPresent => "device_not_present".to_string(),
-            UserConsentVerifierAvailability::NotConfiguredForUser => "not_configured_for_user".to_string(),
+            UserConsentVerifierAvailability::NotConfiguredForUser => {
+                "not_configured_for_user".to_string()
+            }
             UserConsentVerifierAvailability::DisabledByPolicy => "disabled_by_policy".to_string(),
             UserConsentVerifierAvailability::DeviceBusy => "device_busy".to_string(),
             _ => "unavailable".to_string(),
@@ -601,7 +698,9 @@ mod windows_hello_native {
         match result {
             UserConsentVerificationResult::Verified => "verified".to_string(),
             UserConsentVerificationResult::DeviceNotPresent => "device_not_present".to_string(),
-            UserConsentVerificationResult::NotConfiguredForUser => "not_configured_for_user".to_string(),
+            UserConsentVerificationResult::NotConfiguredForUser => {
+                "not_configured_for_user".to_string()
+            }
             UserConsentVerificationResult::DisabledByPolicy => "disabled_by_policy".to_string(),
             UserConsentVerificationResult::DeviceBusy => "device_busy".to_string(),
             UserConsentVerificationResult::RetriesExhausted => "retries_exhausted".to_string(),
@@ -623,7 +722,10 @@ mod windows_hello_native {
         let availability = check_availability()?;
 
         if availability != UserConsentVerifierAvailability::Available {
-            return Err(format!("Windows Hello indisponível: {}", availability_reason(availability)));
+            return Err(format!(
+                "Windows Hello indisponível: {}",
+                availability_reason(availability)
+            ));
         }
 
         let result = UserConsentVerifier::RequestVerificationAsync(&HSTRING::from(reason))
@@ -632,7 +734,10 @@ mod windows_hello_native {
             .map_err(|error| format!("Erro ao validar Windows Hello: {error}"))?;
 
         if result != UserConsentVerificationResult::Verified {
-            return Err(format!("Windows Hello não validado: {}", verification_reason(result)));
+            return Err(format!(
+                "Windows Hello não validado: {}",
+                verification_reason(result)
+            ));
         }
 
         Ok(())
@@ -673,9 +778,8 @@ mod windows_hello_native {
             return Err("Erro ao proteger segredo com DPAPI.".to_string());
         }
 
-        let protected = unsafe {
-            std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec()
-        };
+        let protected =
+            unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec() };
 
         unsafe {
             let _ = LocalFree(output.pbData as _);
@@ -719,19 +823,20 @@ mod windows_hello_native {
             return Err("Erro ao desbloquear segredo protegido pelo dispositivo.".to_string());
         }
 
-        let unprotected = unsafe {
-            std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec()
-        };
+        let unprotected =
+            unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec() };
 
         unsafe {
             let _ = LocalFree(output.pbData as _);
         }
 
-        String::from_utf8(unprotected)
-            .map_err(|_| "Segredo local inválido.".to_string())
+        String::from_utf8(unprotected).map_err(|_| "Segredo local inválido.".to_string())
     }
 
-    pub fn status(app: AppHandle, vault_name: Option<String>) -> Result<WindowsHelloStatus, String> {
+    pub fn status(
+        app: AppHandle,
+        vault_name: Option<String>,
+    ) -> Result<WindowsHelloStatus, String> {
         let (path, safe_vault_name) = token_path(&app, vault_name)?;
         let availability = check_availability();
 
@@ -766,13 +871,17 @@ mod windows_hello_native {
         verify_user(&reason)?;
 
         let protected = protect_secret(&master_password, &safe_vault_name)?;
-        fs::write(path, protected)
-            .map_err(|error| format!("Erro ao salvar credencial local do Windows Hello: {error}"))?;
+        fs::write(path, protected).map_err(|error| {
+            format!("Erro ao salvar credencial local do Windows Hello: {error}")
+        })?;
 
         status(app, vault_name)
     }
 
-    pub fn disable(app: AppHandle, vault_name: Option<String>) -> Result<WindowsHelloStatus, String> {
+    pub fn disable(
+        app: AppHandle,
+        vault_name: Option<String>,
+    ) -> Result<WindowsHelloStatus, String> {
         let (path, _) = token_path(&app, vault_name.clone())?;
 
         if path.exists() {
@@ -814,10 +923,16 @@ where
 }
 
 #[tauri::command]
-async fn windows_hello_status(app: AppHandle, vault_name: Option<String>) -> Result<WindowsHelloStatus, String> {
+async fn windows_hello_status(
+    app: AppHandle,
+    vault_name: Option<String>,
+) -> Result<WindowsHelloStatus, String> {
     #[cfg(windows)]
     {
-        run_windows_hello_task("status", move || windows_hello_native::status(app, vault_name)).await
+        run_windows_hello_task("status", move || {
+            windows_hello_native::status(app, vault_name)
+        })
+        .await
     }
 
     #[cfg(not(windows))]
@@ -863,10 +978,16 @@ async fn enable_windows_hello(
 }
 
 #[tauri::command]
-async fn disable_windows_hello(app: AppHandle, vault_name: Option<String>) -> Result<WindowsHelloStatus, String> {
+async fn disable_windows_hello(
+    app: AppHandle,
+    vault_name: Option<String>,
+) -> Result<WindowsHelloStatus, String> {
     #[cfg(windows)]
     {
-        run_windows_hello_task("disable", move || windows_hello_native::disable(app, vault_name)).await
+        run_windows_hello_task("disable", move || {
+            windows_hello_native::disable(app, vault_name)
+        })
+        .await
     }
 
     #[cfg(not(windows))]
@@ -905,7 +1026,34 @@ async fn unlock_with_windows_hello(
     }
 }
 
+#[cfg(test)]
+mod storage_tests {
+    use super::*;
 
+    #[test]
+    fn pre_argon2_backup_name_is_identifiable_and_preserves_payload() {
+        let backup_dir =
+            std::env::temp_dir().join(format!("kpassword-pre-argon2-test-{}", now_epoch_millis(),));
+        fs::create_dir_all(&backup_dir).unwrap();
+
+        let backup_path = create_labeled_backup(
+            &backup_dir,
+            "vault",
+            Some("pre-argon2"),
+            "legacy encrypted payload",
+        )
+        .unwrap();
+
+        let filename = backup_path.file_name().unwrap().to_string_lossy();
+        assert!(filename.contains("pre-argon2"));
+        assert_eq!(
+            fs::read_to_string(&backup_path).unwrap(),
+            "legacy encrypted payload"
+        );
+
+        let _ = fs::remove_dir_all(&backup_dir);
+    }
+}
 #[tauri::command]
 fn hide_to_tray(app: AppHandle, reason: String) {
     println!("KPassword enviado para bandeja. Motivo: {}", reason);
@@ -930,14 +1078,25 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
-            let open_full_item = MenuItem::with_id(app, "open_full", "Abrir APP Completo", true, None::<&str>)?;
-            let open_compact_item = MenuItem::with_id(app, "open_compact", "Abrir APP Compacto", true, None::<&str>)?;
+            let open_full_item =
+                MenuItem::with_id(app, "open_full", "Abrir APP Completo", true, None::<&str>)?;
+            let open_compact_item = MenuItem::with_id(
+                app,
+                "open_compact",
+                "Abrir APP Compacto",
+                true,
+                None::<&str>,
+            )?;
             let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open_full_item, &open_compact_item, &quit_item])?;
 
             TrayIconBuilder::new()
                 .tooltip("KPassword")
-                .icon(Image::new(include_bytes!("../icons/tray-icon.rgba"), 32, 32))
+                .icon(Image::new(
+                    include_bytes!("../icons/tray-icon.rgba"),
+                    32,
+                    32,
+                ))
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -978,6 +1137,9 @@ pub fn run() {
             list_vault_files,
             list_backup_files,
             read_backup_file,
+            create_pre_argon2_backup,
+            encrypt_vault_argon2id,
+            decrypt_vault_payload,
             open_vault_folder,
             open_backup_folder,
             windows_hello_status,
@@ -988,4 +1150,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("erro ao executar o KPassword");
 }
-

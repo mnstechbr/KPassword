@@ -43,6 +43,9 @@ export async function listBackupFiles(vaultName = "vault") {
 export async function readBackupFile(filename: string, vaultName = "vault") {
   return invoke<string>("read_backup_file", { filename, vaultName });
 }
+export async function createPreArgon2Backup(payload: string, vaultName = "vault") {
+  return invoke<StorageInfo>("create_pre_argon2_backup", { payload, vaultName });
+}
 
 export async function openVaultFolder(vaultName = "vault") {
   return invoke<void>("open_vault_folder", { vaultName });
