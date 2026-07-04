@@ -10,12 +10,14 @@ const hasArg = (name) => args.includes(`--${name}`);
 
 const owner = getArg("owner", "mnstechbr");
 const repo = getArg("repo", "KPassword");
-const version = getArg("version", "0.3.0");
+const version = getArg("version");
 const keyPath = getArg("key");
 const makeRelease = hasArg("make-release");
 
 if (!owner || !repo) throw new Error("Owner/repo ausentes.");
 if (!keyPath) throw new Error("Caminho da chave ausente.");
+
+if (!version) throw new Error("Informe --version.");
 
 const project = process.cwd();
 
@@ -151,7 +153,11 @@ function ensureCapabilities() {
   const capability = readJson(capabilityPath);
   capability.permissions ??= [];
 
-  for (const permission of ["updater:default", "process:default"]) {
+  capability.permissions = capability.permissions.filter(
+    (permission) => permission !== "opener:default" && permission !== "process:default",
+  );
+
+  for (const permission of ["updater:default", "process:allow-restart"]) {
     if (!capability.permissions.includes(permission)) {
       capability.permissions.push(permission);
     }

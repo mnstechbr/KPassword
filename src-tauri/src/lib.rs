@@ -13,8 +13,6 @@ use tauri::{
     AppHandle, Manager,
 };
 
-use tauri_plugin_autostart::ManagerExt;
-
 const BACKUP_INTERVAL_SECONDS: u64 = 4 * 60 * 60;
 
 #[derive(Serialize)]
@@ -56,6 +54,13 @@ fn now_epoch_seconds() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+fn now_epoch_millis() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
 }
 
 fn modified_epoch_ms(modified: SystemTime) -> u128 {
@@ -164,6 +169,14 @@ fn should_create_backup(backup_dir: &PathBuf) -> bool {
     now_epoch_seconds().saturating_sub(last_backup_seconds) >= BACKUP_INTERVAL_SECONDS
 }
 
+fn create_backup(backup_dir: &PathBuf, safe_vault_name: &str, payload: &str) -> Result<(), String> {
+    let backup_name = format!("{}-{}.kpvault", safe_vault_name, now_epoch_millis());
+    let backup_path = backup_dir.join(backup_name);
+
+    fs::write(backup_path, payload.as_bytes())
+        .map_err(|error| format!("Erro ao criar backup criptografado: {error}"))
+}
+
 fn build_storage_info(app: &AppHandle, vault_name: Option<String>) -> Result<StorageInfo, String> {
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(app, vault_name)?;
     let backups = get_backups_from_dir(&backup_dir)?;
@@ -270,7 +283,12 @@ fn load_vault_file(app: AppHandle, vault_name: Option<String>) -> Result<Option<
 }
 
 #[tauri::command]
-fn save_vault_file(app: AppHandle, payload: String, vault_name: Option<String>) -> Result<StorageInfo, String> {
+fn save_vault_file(
+    app: AppHandle,
+    payload: String,
+    vault_name: Option<String>,
+    force_backup: Option<bool>,
+) -> Result<StorageInfo, String> {
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
     let temp_path = vault_path.with_extension("kpvault.tmp");
 
@@ -280,12 +298,8 @@ fn save_vault_file(app: AppHandle, payload: String, vault_name: Option<String>) 
     fs::rename(&temp_path, &vault_path)
         .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))?;
 
-    if should_create_backup(&backup_dir) {
-        let backup_name = format!("{}-{}.kpvault", safe_vault_name, now_epoch_seconds());
-        let backup_path = backup_dir.join(backup_name);
-
-        fs::write(backup_path, payload.as_bytes())
-            .map_err(|error| format!("Erro ao criar backup criptografado: {error}"))?;
+    if force_backup.unwrap_or(false) || should_create_backup(&backup_dir) {
+        create_backup(&backup_dir, &safe_vault_name, &payload)?;
     }
 
     build_storage_info(&app, Some(safe_vault_name))
@@ -914,18 +928,8 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_main_window(app);
         }))
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ))
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
-            #[cfg(desktop)]
-            {
-                let _ = app.autolaunch().enable();
-            }
-
             let open_full_item = MenuItem::with_id(app, "open_full", "Abrir APP Completo", true, None::<&str>)?;
             let open_compact_item = MenuItem::with_id(app, "open_compact", "Abrir APP Compacto", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;

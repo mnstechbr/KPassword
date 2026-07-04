@@ -1,5 +1,5 @@
 param(
-  [string]$Version = "0.7.2",
+  [Parameter(Mandatory = $true)] [string]$Version,
   [string]$Message = "Manutencao documentacao e estabilidade"
 )
 

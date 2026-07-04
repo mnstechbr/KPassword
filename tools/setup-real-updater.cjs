@@ -9,12 +9,14 @@ const getArg = (name, fallback = "") => {
 
 const owner = getArg("owner");
 const repo = getArg("repo");
-const version = getArg("version", "0.3.0");
+const version = getArg("version");
 const keyPath = getArg("key");
 
 if (!owner || !repo) {
   throw new Error("Informe --owner e --repo.");
 }
+
+if (!version) throw new Error("Informe --version.");
 
 const project = process.cwd();
 
@@ -156,7 +158,11 @@ function patchCapabilities() {
   const capability = readJson(target);
   capability.permissions ??= [];
 
-  for (const permission of ["updater:default", "process:default"]) {
+  capability.permissions = capability.permissions.filter(
+    (permission) => permission !== "opener:default" && permission !== "process:default",
+  );
+
+  for (const permission of ["updater:default", "process:allow-restart"]) {
     if (!capability.permissions.includes(permission)) {
       capability.permissions.push(permission);
     }
@@ -347,5 +353,5 @@ console.log(`- package.json -> ${version}`);
 console.log(`- src-tauri/Cargo.toml -> ${version}`);
 console.log(`- src-tauri/tauri.conf.json -> updater GitHub ${owner}/${repo}`);
 console.log("- src-tauri/src/lib.rs -> plugins updater/process");
-console.log("- capabilities -> updater:default/process:default");
+console.log("- capabilities -> updater:default/process:allow-restart");
 console.log("- src/App.tsx -> botão Verificar atualizações com check/downloadAndInstall/relaunch");

@@ -2,7 +2,7 @@ param(
   [string]$Project = "C:\Projetos\KPassword",
   [string]$GitHubOwner = "mnstechbr",
   [string]$GitHubRepo = "KPassword",
-  [string]$Version = "0.3.0",
+  [Parameter(Mandatory = $true)] [string]$Version,
   [string]$KeyPassword = ""
 )
 

@@ -24,8 +24,8 @@ export async function loadVaultFile(vaultName = "vault") {
   return invoke<string | null>("load_vault_file", { vaultName });
 }
 
-export async function saveVaultFile(payload: string, vaultName = "vault") {
-  return invoke<StorageInfo>("save_vault_file", { payload, vaultName });
+export async function saveVaultFile(payload: string, vaultName = "vault", forceBackup = false) {
+  return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup });
 }
 
 export async function getStorageInfo(vaultName = "vault") {

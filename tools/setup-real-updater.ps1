@@ -2,7 +2,7 @@ param(
   [string]$Project = "C:\Projetos\KPassword",
   [Parameter(Mandatory = $true)] [string]$GitHubOwner,
   [Parameter(Mandatory = $true)] [string]$GitHubRepo,
-  [string]$Version = "0.3.0"
+  [Parameter(Mandatory = $true)] [string]$Version
 )
 
 $ErrorActionPreference = "Stop"

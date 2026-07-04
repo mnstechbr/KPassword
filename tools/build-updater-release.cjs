@@ -9,10 +9,12 @@ const getArg = (name, fallback = "") => {
 
 const owner = getArg("owner");
 const repo = getArg("repo");
-const version = getArg("version", "0.3.0");
+const version = getArg("version");
 const notes = getArg("notes", "Atualização do KPassword.");
 
 if (!owner || !repo) throw new Error("Informe --owner e --repo.");
+
+if (!version) throw new Error("Informe --version.");
 
 const project = process.cwd();
 const nsisDir = path.join(project, "src-tauri", "target", "release", "bundle", "nsis");
