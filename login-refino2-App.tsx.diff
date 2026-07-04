@@ -1,0 +1,73 @@
+--- /mnt/data/kpassword_login_refino_v083/src/App.tsx	2026-07-04 05:18:50.031739714 +0000
++++ /mnt/data/kpassword_login_refino2/src/App.tsx	2026-07-04 05:26:23.661227415 +0000
+@@ -369,9 +369,59 @@
+   label: string;
+   compact?: boolean;
+ }) {
++  const [open, setOpen] = useState(false);
++
++  if (compact) {
++    const selectedLanguage = LANGUAGES.find((item) => item.code === language) ?? LANGUAGES[0];
++
++    return (
++      <div
++        className="languageSelect compact customLanguageSelect"
++        onBlur={(event) => {
++          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
++            setOpen(false);
++          }
++        }}
++      >
++        <span className="srOnly">{label}</span>
++        <button
++          type="button"
++          className={open ? "languageSelectButton open" : "languageSelectButton"}
++          aria-label={label}
++          aria-haspopup="listbox"
++          aria-expanded={open}
++          onClick={() => setOpen((current) => !current)}
++        >
++          {selectedLanguage.shortLabel}
++        </button>
++
++        {open && (
++          <div className="languageOptions" role="listbox" aria-label={label}>
++            {LANGUAGES.map((item) => (
++              <button
++                key={item.code}
++                type="button"
++                role="option"
++                aria-selected={item.code === language}
++                className={item.code === language ? "languageOption active" : "languageOption"}
++                onMouseDown={(event) => event.preventDefault()}
++                onClick={() => {
++                  onChange(item.code);
++                  setOpen(false);
++                }}
++              >
++                {item.shortLabel}
++              </button>
++            ))}
++          </div>
++        )}
++      </div>
++    );
++  }
++
+   return (
+-    <label className={compact ? "languageSelect compact" : "languageSelect"}>
+-      <span>{compact ? "🌐" : label}</span>
++    <label className="languageSelect">
++      <span>{label}</span>
+       <select
+         value={language}
+         aria-label={label}
+@@ -379,7 +429,7 @@
+       >
+         {LANGUAGES.map((item) => (
+           <option key={item.code} value={item.code}>
+-            {compact ? item.shortLabel : getLanguageOptionLabel(item.code, language)}
++            {getLanguageOptionLabel(item.code, language)}
+           </option>
+         ))}
+       </select>

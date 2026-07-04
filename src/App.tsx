@@ -96,7 +96,7 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "0.8.1";
+const APP_VERSION = "0.8.2";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -302,9 +302,17 @@ function getTotpRemainingSeconds(timestamp = Date.now()) {
   return TOTP_PERIOD_SECONDS - elapsed;
 }
 
-function AppLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+function AppLogo({
+  size = "md",
+  className = "",
+}: {
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
+  const logoClasses = ["appLogo", size, className].filter(Boolean).join(" ");
+
   return (
-    <span className={`appLogo ${size}`} aria-hidden="true">
+    <span className={logoClasses} aria-hidden="true">
       <img
         src="/app-icon.png"
         alt=""
@@ -361,9 +369,59 @@ function LanguageSelector({
   label: string;
   compact?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+
+  if (compact) {
+    const selectedLanguage = LANGUAGES.find((item) => item.code === language) ?? LANGUAGES[0];
+
+    return (
+      <div
+        className="languageSelect compact customLanguageSelect"
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setOpen(false);
+          }
+        }}
+      >
+        <span className="srOnly">{label}</span>
+        <button
+          type="button"
+          className={open ? "languageSelectButton open" : "languageSelectButton"}
+          aria-label={label}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+        >
+          {selectedLanguage.shortLabel}
+        </button>
+
+        {open && (
+          <div className="languageOptions" role="listbox" aria-label={label}>
+            {LANGUAGES.map((item) => (
+              <button
+                key={item.code}
+                type="button"
+                role="option"
+                aria-selected={item.code === language}
+                className={item.code === language ? "languageOption active" : "languageOption"}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(item.code);
+                  setOpen(false);
+                }}
+              >
+                {item.shortLabel}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <label className={compact ? "languageSelect compact" : "languageSelect"}>
-      <span>{compact ? "🌐" : label}</span>
+    <label className="languageSelect">
+      <span>{label}</span>
       <select
         value={language}
         aria-label={label}
@@ -371,7 +429,7 @@ function LanguageSelector({
       >
         {LANGUAGES.map((item) => (
           <option key={item.code} value={item.code}>
-            {compact ? item.shortLabel : getLanguageOptionLabel(item.code, language)}
+            {getLanguageOptionLabel(item.code, language)}
           </option>
         ))}
       </select>
@@ -912,6 +970,7 @@ function normalizeVault(vault: PlainVault): PlainVault {
 export default function App() {
   const [screen, setScreen] = useState<Screen>("credentials");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarHorizontal, setSidebarHorizontal] = useState(false);
   const [appTheme, setAppTheme] = useState<AppTheme>(() =>
     getStoredValue<AppTheme>("kpassword:theme", "dark"),
   );
@@ -932,6 +991,7 @@ export default function App() {
   const [setupPassword, setSetupPassword] = useState("");
   const [mode, setMode] = useState<"loading" | "setup" | "locked" | "unlocked">("loading");
   const [busy, setBusy] = useState(false);
+  const [unlockGateOpen, setUnlockGateOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [activeDiagnosticFilter, setActiveDiagnosticFilter] = useState<DiagnosticFilter>("all");
@@ -1006,6 +1066,19 @@ export default function App() {
   useEffect(() => {
     const interval = window.setInterval(() => setTotpTick(Date.now()), 1000);
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 980px)");
+
+    const syncSidebarMode = () => {
+      setSidebarHorizontal(mediaQuery.matches);
+    };
+
+    syncSidebarMode();
+    mediaQuery.addEventListener("change", syncSidebarMode);
+
+    return () => mediaQuery.removeEventListener("change", syncSidebarMode);
   }, []);
 
   useEffect(() => {
@@ -1102,6 +1175,7 @@ export default function App() {
     void (async () => {
       try {
         setMessage("");
+        setUnlockGateOpen(false);
         setMode("loading");
         await refreshVaultFiles();
         await refreshWindowsHelloStatus(activeVaultName);
@@ -1138,6 +1212,7 @@ export default function App() {
     setVisiblePasswords({});
     setVisibleHistoryPasswords({});
     setDetailCredentialId(null);
+    setUnlockGateOpen(false);
     setMessage("");
     setMode((current) => (current === "setup" ? "setup" : "locked"));
   }, []);
@@ -1149,6 +1224,12 @@ export default function App() {
 
     return () => window.removeEventListener("kpassword:lock", handler);
   }, [lockVault]);
+
+  useEffect(() => {
+    if (mode !== "locked") {
+      setUnlockGateOpen(false);
+    }
+  }, [mode]);
 
   const persistVault = useCallback(
     async (nextVault: PlainVault, passwordOverride?: string) => {
@@ -1246,6 +1327,7 @@ export default function App() {
   async function handleUnlock(event: FormEvent) {
     event.preventDefault();
     setMessage("");
+    setUnlockGateOpen(false);
 
     if (!encryptedVault) {
       setMode("setup");
@@ -1259,6 +1341,10 @@ export default function App() {
 
       setVault(plainVault);
       setMasterPassword(unlockPassword);
+      setUnlockGateOpen(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 340));
+      setUnlockGateOpen(false);
+      await new Promise((resolve) => window.setTimeout(resolve, 70));
       setUnlockPassword("");
       setScreen("credentials");
       setMode("unlocked");
@@ -1269,6 +1355,7 @@ export default function App() {
       void maybeShowPasswordExpiryReminder(plainVault);
     } catch (error) {
       console.error(error);
+      setUnlockGateOpen(false);
       setMessage(t("errors.unlock"));
     } finally {
       setBusy(false);
@@ -1302,6 +1389,7 @@ export default function App() {
 
   async function handleUnlockWithWindowsHello() {
     setMessage("");
+    setUnlockGateOpen(false);
 
     if (!encryptedVault) {
       setMode("setup");
@@ -1318,6 +1406,10 @@ export default function App() {
 
       setVault(plainVault);
       setMasterPassword(password);
+      setUnlockGateOpen(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 340));
+      setUnlockGateOpen(false);
+      await new Promise((resolve) => window.setTimeout(resolve, 70));
       setUnlockPassword("");
       setScreen("credentials");
       setMode("unlocked");
@@ -1328,6 +1420,7 @@ export default function App() {
       void maybeShowPasswordExpiryReminder(plainVault);
     } catch (error) {
       console.error(error);
+      setUnlockGateOpen(false);
       setMessage(t("windowsHello.unlockError"));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
@@ -1437,8 +1530,9 @@ export default function App() {
     setActiveVaultName(nextVaultName);
   }
 
-  async function handleCreateNewVault() {
-    const slug = createVaultSlug(newVaultName);
+  async function handleCreateNewVault(nameOverride?: string) {
+    const sourceName = typeof nameOverride === "string" ? nameOverride : newVaultName;
+    const slug = createVaultSlug(sourceName);
 
     if (!slug) {
       setMessage(t("vault.invalidName"));
@@ -2730,70 +2824,78 @@ export default function App() {
 
   const authLoginToolsElement = (
     <div className="authLoginTools" aria-label={t("auth.quickSettings")}>
-      <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+      <div className="authThemeSlot">
+        <div className="authThemeButtons" role="group" aria-label={t("preferences.theme")}>
+          <button
+            type="button"
+            title={t("preferences.dark")}
+            aria-label={t("preferences.dark")}
+            className={appTheme === "dark" ? "authThemeButton active" : "authThemeButton"}
+            onClick={() => setAppTheme("dark")}
+          >
+            <span className="authThemeIcon" aria-hidden="true">☾</span>
+            <span>{t("preferences.dark")}</span>
+          </button>
+          <button
+            type="button"
+            title={t("preferences.light")}
+            aria-label={t("preferences.light")}
+            className={appTheme === "light" ? "authThemeButton active" : "authThemeButton"}
+            onClick={() => setAppTheme("light")}
+          >
+            <span className="authThemeIcon" aria-hidden="true">☀</span>
+            <span>{t("preferences.light")}</span>
+          </button>
+          <button
+            type="button"
+            title={t("preferences.mixed")}
+            aria-label={t("preferences.mixed")}
+            className={appTheme === "mixed" ? "authThemeButton active" : "authThemeButton"}
+            onClick={() => setAppTheme("mixed")}
+          >
+            <span className="authThemeIcon" aria-hidden="true">◐</span>
+            <span>{t("preferences.mixed")}</span>
+          </button>
+        </div>
+      </div>
 
-      <div className="authThemeButtons" role="group" aria-label={t("preferences.theme")}>
+      <div className="authVaultActions" aria-label={t("auth.quickVault")}>
         <button
           type="button"
-          title={t("preferences.dark")}
-          aria-label={t("preferences.dark")}
-          className={appTheme === "dark" ? "authThemeButton active" : "authThemeButton"}
-          onClick={() => setAppTheme("dark")}
+          className="authToolButton"
+          onClick={() => {
+            const typedName = window.prompt(t("vault.newNamePlaceholder"), newVaultName);
+
+            if (typedName === null) return;
+
+            void handleCreateNewVault(typedName);
+          }}
         >
-          <span className="authThemeIcon" aria-hidden="true">☾</span>
-          <span>{t("preferences.dark")}</span>
+          {t("vault.create")}
         </button>
-        <button
-          type="button"
-          title={t("preferences.light")}
-          aria-label={t("preferences.light")}
-          className={appTheme === "light" ? "authThemeButton active" : "authThemeButton"}
-          onClick={() => setAppTheme("light")}
+
+        <select
+          className="authVaultSelect"
+          value={activeVaultName}
+          title={t("vault.current")}
+          aria-label={t("vault.current")}
+          onChange={(event) => void handleSwitchVault(event.target.value)}
         >
-          <span className="authThemeIcon" aria-hidden="true">☀</span>
-          <span>{t("preferences.light")}</span>
-        </button>
-        <button
-          type="button"
-          title={t("preferences.mixed")}
-          aria-label={t("preferences.mixed")}
-          className={appTheme === "mixed" ? "authThemeButton active" : "authThemeButton"}
-          onClick={() => setAppTheme("mixed")}
-        >
-          <span className="authThemeIcon" aria-hidden="true">◐</span>
-          <span>{t("preferences.mixed")}</span>
+          {vaultOptions.map((item) => (
+            <option key={item.name} value={item.name}>
+              {item.display_name}
+            </option>
+          ))}
+        </select>
+
+        <button type="button" className="authToolButton" onClick={() => setRestorePopupOpen(true)}>
+          {t("auth.restoreBackup")}
         </button>
       </div>
 
-      <select
-        className="authVaultSelect"
-        value={activeVaultName}
-        title={t("vault.current")}
-        aria-label={t("vault.current")}
-        onChange={(event) => void handleSwitchVault(event.target.value)}
-      >
-        {vaultOptions.map((item) => (
-          <option key={item.name} value={item.name}>
-            {item.display_name}
-          </option>
-        ))}
-      </select>
-
-      <input
-        className="authNewVaultInput"
-        value={newVaultName}
-        onChange={(event) => setNewVaultName(event.target.value)}
-        placeholder={t("vault.newNamePlaceholder")}
-        title={t("vault.newNamePlaceholder")}
-      />
-
-      <button type="button" className="authToolButton" onClick={() => void handleCreateNewVault()}>
-        {t("vault.create")}
-      </button>
-
-      <button type="button" className="authToolButton" onClick={() => setRestorePopupOpen(true)}>
-        {t("auth.restoreBackup")}
-      </button>
+      <div className="authLanguageSlot">
+        <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+      </div>
     </div>
   );
 
@@ -2907,6 +3009,10 @@ export default function App() {
               <span className="authPanelLabel">{t("status.loadingVault")}</span>
               <div className="authLoadingBar" aria-hidden="true" />
             </section>
+
+            <footer className="authDeveloperCredit">
+              Desenvolvido por <strong>MNSTechbr</strong>
+            </footer>
           </section>
         </main>
         {confirmDialogElement}
@@ -2986,6 +3092,10 @@ export default function App() {
                 </button>
               </form>
             </section>
+
+            <footer className="authDeveloperCredit">
+              Desenvolvido por <strong>MNSTechbr</strong>
+            </footer>
           </section>
         </main>
         {confirmDialogElement}
@@ -2998,7 +3108,7 @@ export default function App() {
     return (
       <>
         <main className="authShell authDesktopShell">
-          <section className="authCard authExperience authLocked">
+          <section className={`authCard authExperience authLocked${unlockPassword || busy || windowsHelloBusy ? " authUnlockTyping" : ""}${unlockGateOpen ? " authUnlockSuccess" : ""}`}>
             <div className="authUtilityBar">
               <div className="authProductMark">
                 <AppLogo size="sm" />
@@ -3010,21 +3120,16 @@ export default function App() {
               {authLoginToolsElement}
             </div>
 
-            <div className="authHeroBlock">
-              <AppLogo size="lg" />
-              <p className="eyebrow">{t("auth.vaultLocked")}</p>
-              <h1>{t("auth.unlockTitle")}</h1>
-              <p>{t("auth.unlockDescription")}</p>
-              <div className="authTrustRow">
-                <span>{t("auth.currentVault", { name: getVaultDisplayName(activeVaultName, vaultFiles) })}</span>
-                <span>{t("auth.trustLocal")}</span>
-                <span>{t("auth.trustEncrypted")}</span>
-              </div>
+            <div className="authHeroBlock authLogoStage">
+              <AppLogo
+                size="lg"
+                className={unlockPassword || busy || windowsHelloBusy || unlockGateOpen ? "vaultLogo opening" : "vaultLogo"}
+              />
             </div>
 
-            <section className="authPanel">
-              <span className="authPanelLabel">{t("auth.unlockPanelLabel")}</span>
-              <form onSubmit={handleUnlock} className="authForm">
+            <section className="authPanel authUnlockPanel">
+              <span className="authPanelLabel">{t("auth.vaultBlockedPanelLabel")}</span>
+              <form onSubmit={handleUnlock} className="authForm authUnlockForm">
                 <label>
                   {t("auth.masterPassword")}
                   <input
@@ -3054,6 +3159,10 @@ export default function App() {
                 )}
               </form>
             </section>
+
+            <footer className="authDeveloperCredit">
+              Desenvolvido por <strong>MNSTechbr</strong>
+            </footer>
           </section>
         </main>
         {confirmDialogElement}
@@ -3063,14 +3172,22 @@ export default function App() {
   }
 
   return (
-    <main className={sidebarExpanded ? "appShell sidebarOpen" : "appShell sidebarClosed"}>
+    <main
+      className={`appShell ${sidebarExpanded ? "sidebarOpen" : "sidebarClosed"}${sidebarHorizontal ? " sidebarHorizontal" : ""}`}
+    >
       <aside className="sidebar">
         <div className="sidebarBrand">
           <button
             className="sidebarToggle"
-            onClick={() => setSidebarExpanded((current) => !current)}
-            title={sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
-            aria-label={sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
+            onClick={() => {
+              if (!sidebarHorizontal) {
+                setSidebarExpanded((current) => !current);
+              }
+            }}
+            title={sidebarHorizontal ? "KPassword" : sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
+            aria-label={sidebarHorizontal ? "KPassword" : sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
+            aria-disabled={sidebarHorizontal}
+            tabIndex={sidebarHorizontal ? -1 : 0}
           >
             <AppLogo size="md" />
           </button>

@@ -7,6 +7,7 @@ use std::{
 
 use serde::Serialize;
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
@@ -932,7 +933,7 @@ pub fn run() {
 
             TrayIconBuilder::new()
                 .tooltip("KPassword")
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(Image::new(include_bytes!("../icons/tray-icon.rgba"), 32, 32))
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {

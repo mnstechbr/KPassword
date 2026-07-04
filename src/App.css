@@ -8695,3 +8695,1657 @@ body.theme-mixed,
 }
 
 /* === KPassword v0.8.2 HOTFIX REAL contraste Claro/Misto END === */
+
+
+/* === KPassword login reset limpo v0.8.3 START === */
+.srOnly {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.authShell.authDesktopShell {
+  min-height: 100dvh !important;
+  width: 100% !important;
+  display: block !important;
+  padding: 0 !important;
+  overflow: auto !important;
+  background:
+    radial-gradient(circle at 7% 9%, rgba(56, 189, 248, 0.14), transparent 28%),
+    radial-gradient(circle at 88% 12%, rgba(124, 58, 237, 0.14), transparent 25%),
+    radial-gradient(circle at 73% 90%, rgba(0, 225, 255, 0.10), transparent 30%),
+    linear-gradient(135deg, #07111d 0%, #090d1d 52%, #042329 100%) !important;
+}
+
+.authCard.authExperience {
+  width: 100% !important;
+  min-height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  isolation: isolate !important;
+}
+
+.authCard.authExperience::before,
+.authCard.authExperience::after {
+  display: none !important;
+}
+
+.authCard.authExperience .authProductMark {
+  display: none !important;
+}
+
+.authCard.authExperience .authUtilityBar {
+  position: relative !important;
+  z-index: 40 !important;
+  width: min(1120px, calc(100vw - 96px)) !important;
+  min-height: 64px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  display: block !important;
+}
+
+.authLoginTools {
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto 1fr !important;
+  align-items: center !important;
+  gap: clamp(34px, 5vw, 70px) !important;
+}
+
+.authThemeSlot {
+  justify-self: end !important;
+}
+
+.authVaultActions {
+  justify-self: center !important;
+  display: grid !important;
+  grid-template-columns: 182px 196px 192px !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 5px !important;
+  border-radius: 22px !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+  background: rgba(15, 23, 42, 0.24) !important;
+}
+
+.authLanguageSlot {
+  justify-self: start !important;
+  position: relative !important;
+  z-index: 55 !important;
+}
+
+.authThemeButtons {
+  display: grid !important;
+  grid-template-columns: repeat(3, 52px) !important;
+  align-items: center !important;
+  gap: 2px !important;
+  height: 56px !important;
+  padding: 4px !important;
+  border-radius: 21px !important;
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  background: rgba(8, 13, 24, 0.34) !important;
+  backdrop-filter: blur(14px) saturate(126%) !important;
+}
+
+.authThemeButton {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 16px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: rgba(226, 232, 240, 0.76) !important;
+  cursor: pointer !important;
+}
+
+.authThemeButton > span:not(.authThemeIcon) {
+  display: none !important;
+}
+
+.authThemeButton.active {
+  border-color: rgba(56, 189, 248, 0.22) !important;
+  background: rgba(37, 99, 235, 0.34) !important;
+  color: #e0f7ff !important;
+  box-shadow: 0 10px 24px rgba(14, 116, 144, 0.16) !important;
+}
+
+.authThemeIcon {
+  font-size: 1.08rem !important;
+  line-height: 1 !important;
+}
+
+.authToolButton,
+.authVaultSelect,
+.languageSelectButton {
+  height: 48px !important;
+  min-height: 48px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  background: rgba(15, 23, 42, 0.36) !important;
+  color: rgba(248, 250, 252, 0.94) !important;
+  font-weight: 820 !important;
+  letter-spacing: -0.025em !important;
+  box-shadow: none !important;
+}
+
+.authToolButton,
+.authVaultSelect {
+  width: 100% !important;
+  padding: 0 16px !important;
+  text-align: center !important;
+  text-align-last: center !important;
+}
+
+.authVaultSelect {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  font-size: 1.05rem !important;
+  font-weight: 650 !important;
+  background-image: none !important;
+}
+
+.customLanguageSelect {
+  position: relative !important;
+  width: 116px !important;
+  min-width: 116px !important;
+  display: block !important;
+}
+
+.languageSelectButton {
+  width: 116px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 1rem !important;
+  cursor: pointer !important;
+  background: rgba(30, 41, 73, 0.76) !important;
+  border-color: rgba(125, 211, 252, 0.24) !important;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.04) !important;
+}
+
+.languageSelectButton.open,
+.languageSelectButton:focus-visible {
+  outline: none !important;
+  border-color: rgba(125, 211, 252, 0.54) !important;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.13) !important;
+}
+
+.languageOptions {
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  display: grid !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-radius: 0 0 12px 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.38) !important;
+  background: rgba(11, 16, 30, 0.98) !important;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.languageOption {
+  width: 100% !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #f8fafc !important;
+  font-size: 0.96rem !important;
+  font-weight: 650 !important;
+  cursor: pointer !important;
+}
+
+.languageOption:hover,
+.languageOption:focus-visible,
+.languageOption.active {
+  background: rgba(148, 163, 184, 0.36) !important;
+  outline: none !important;
+}
+
+.authCard.authExperience.authLocked {
+  display: grid !important;
+  grid-template-columns: minmax(250px, 340px) minmax(480px, 540px) !important;
+  grid-template-rows: auto minmax(0, 1fr) auto !important;
+  grid-template-areas:
+    "bar bar"
+    "logo panel"
+    "footer footer" !important;
+  column-gap: clamp(64px, 8vw, 118px) !important;
+  row-gap: clamp(28px, 4vh, 52px) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: clamp(48px, 7vh, 76px) clamp(34px, 6vw, 82px) 34px !important;
+}
+
+.authLocked .authUtilityBar {
+  grid-area: bar !important;
+  align-self: start !important;
+}
+
+.authLocked .authLogoStage {
+  grid-area: logo !important;
+  position: relative !important;
+  width: min(340px, 100%) !important;
+  min-height: 300px !important;
+  display: grid !important;
+  place-items: center !important;
+  justify-self: center !important;
+  align-self: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  isolation: isolate !important;
+}
+
+.authLocked .authLogoStage > .eyebrow,
+.authLocked .authLogoStage > h1,
+.authLocked .authLogoStage > p,
+.authLocked .authLogoStage > .authTrustRow {
+  display: none !important;
+}
+
+.authLocked .authLogoStage::before,
+.authLocked .authLogoStage::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 18px !important;
+  height: min(230px, 68vw) !important;
+  border-radius: 999px !important;
+  transform: translate(-50%, -50%) translateX(0) scaleY(0.88) !important;
+  opacity: 0.34 !important;
+  background:
+    linear-gradient(180deg, transparent, rgba(125, 211, 252, 0.72) 18%, rgba(124, 58, 237, 0.58) 52%, rgba(45, 212, 191, 0.52) 82%, transparent) !important;
+  box-shadow:
+    0 0 22px rgba(56, 189, 248, 0.28),
+    0 0 62px rgba(124, 58, 237, 0.18) !important;
+  transition: transform 420ms cubic-bezier(.2,.82,.2,1), opacity 260ms ease, width 260ms ease !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+.authLocked .authLogoStage::before {
+  margin-left: -10px !important;
+}
+
+.authLocked .authLogoStage::after {
+  margin-left: 10px !important;
+}
+
+.authLocked.authUnlockTyping .authLogoStage::before,
+.authLocked.authUnlockSuccess .authLogoStage::before {
+  transform: translate(-50%, -50%) translateX(-112px) scaleY(1) !important;
+  opacity: 0.78 !important;
+  width: 20px !important;
+}
+
+.authLocked.authUnlockTyping .authLogoStage::after,
+.authLocked.authUnlockSuccess .authLogoStage::after {
+  transform: translate(-50%, -50%) translateX(112px) scaleY(1) !important;
+  opacity: 0.78 !important;
+  width: 20px !important;
+}
+
+.authLocked .authLogoStage > .vaultLogo.lg {
+  position: relative !important;
+  z-index: 1 !important;
+  display: inline-flex !important;
+  width: clamp(150px, 15vw, 216px) !important;
+  height: clamp(150px, 15vw, 216px) !important;
+  margin: 0 !important;
+  filter: drop-shadow(0 28px 58px rgba(0, 0, 0, 0.52)) !important;
+  transition: transform 360ms ease, filter 360ms ease !important;
+}
+
+.authLocked .authLogoStage > .vaultLogo.lg::before,
+.authLocked .authLogoStage > .vaultLogo.lg::after {
+  display: none !important;
+}
+
+.authLocked .authLogoStage > .vaultLogo.lg.opening {
+  transform: scale(1.025) !important;
+  filter:
+    drop-shadow(0 30px 60px rgba(0, 0, 0, 0.54))
+    drop-shadow(0 0 20px rgba(56, 189, 248, 0.18)) !important;
+}
+
+.authLocked .authUnlockPanel {
+  grid-area: panel !important;
+  justify-self: center !important;
+  align-self: center !important;
+  width: min(540px, 100%) !important;
+  max-width: 540px !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 22px !important;
+  padding: clamp(32px, 4vw, 40px) clamp(38px, 4vw, 52px) !important;
+  border-radius: 28px !important;
+  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.74), rgba(8, 13, 24, 0.66)),
+    radial-gradient(circle at 50% 100%, rgba(14, 165, 233, 0.11), transparent 60%) !important;
+  box-shadow: none !important;
+}
+
+.authLocked .authUnlockPanel .authPanelLabel {
+  width: min(100%, 450px) !important;
+  margin: 0 auto !important;
+  display: block !important;
+  text-align: center !important;
+  color: rgba(125, 211, 252, 0.96) !important;
+  font-size: 0.78rem !important;
+  line-height: 1.35 !important;
+  letter-spacing: 0.035em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+.authLocked .authUnlockForm {
+  width: min(100%, 400px) !important;
+  display: grid !important;
+  gap: 18px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.authLocked .authUnlockForm label {
+  width: 100% !important;
+  display: grid !important;
+  gap: 10px !important;
+  text-align: center !important;
+  color: rgba(226, 232, 240, 0.92) !important;
+  font-weight: 790 !important;
+}
+
+.authLocked .authUnlockForm input {
+  width: 100% !important;
+  height: 70px !important;
+  min-height: 70px !important;
+  padding: 0 22px !important;
+  border-radius: 24px !important;
+  text-align: center !important;
+  background: rgba(2, 6, 23, 0.30) !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  box-shadow: inset 0 0 0 5px rgba(56, 189, 248, 0.09) !important;
+}
+
+.authLocked .authUnlockForm input::placeholder {
+  text-align: center !important;
+}
+
+.authLocked .authUnlockForm .message.error {
+  width: 100% !important;
+  margin: 0 !important;
+  text-align: center !important;
+  justify-content: center !important;
+}
+
+.authLocked .authUnlockForm .primaryButton,
+.authLocked .authUnlockForm .windowsHelloButton {
+  width: 100% !important;
+  height: 66px !important;
+  min-height: 66px !important;
+  border-radius: 22px !important;
+  justify-content: center !important;
+  text-align: center !important;
+  font-size: 1rem !important;
+  font-weight: 840 !important;
+}
+
+.authDeveloperCredit {
+  grid-area: footer !important;
+  justify-self: center !important;
+  align-self: end !important;
+  margin: 0 !important;
+  text-align: center !important;
+  color: rgba(203, 213, 225, 0.60) !important;
+  font-size: 0.82rem !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase !important;
+}
+
+.authDeveloperCredit strong {
+  color: rgba(226, 232, 240, 0.88) !important;
+  font-weight: 860 !important;
+  letter-spacing: 0.045em !important;
+}
+
+:root[data-theme="light"] .authShell.authDesktopShell {
+  background:
+    radial-gradient(circle at 8% 10%, rgba(14, 165, 233, 0.16), transparent 28%),
+    radial-gradient(circle at 88% 12%, rgba(99, 102, 241, 0.13), transparent 26%),
+    linear-gradient(135deg, #f8fbff 0%, #eef6ff 52%, #e9fbff 100%) !important;
+}
+
+:root[data-theme="light"] .authToolButton,
+:root[data-theme="light"] .authVaultSelect,
+:root[data-theme="light"] .languageSelectButton,
+:root[data-theme="light"] .authThemeButtons,
+:root[data-theme="light"] .authLocked .authUnlockPanel {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+  color: #122033 !important;
+  border-color: rgba(15, 23, 42, 0.14) !important;
+}
+
+:root[data-theme="light"] .authLocked .authUnlockForm input {
+  background: rgba(255, 255, 255, 0.70) !important;
+  color: #122033 !important;
+}
+
+:root[data-theme="light"] .authLocked .authUnlockPanel .authPanelLabel {
+  color: #0369a1 !important;
+}
+
+:root[data-theme="light"] .authDeveloperCredit,
+:root[data-theme="light"] .authDeveloperCredit strong {
+  color: #475569 !important;
+}
+
+@media (max-width: 1180px) {
+  .authCard.authExperience .authUtilityBar {
+    width: min(100%, calc(100vw - 64px)) !important;
+  }
+
+  .authLoginTools {
+    gap: 28px !important;
+  }
+
+  .authVaultActions {
+    grid-template-columns: 160px 174px 174px !important;
+  }
+
+  .authCard.authExperience.authLocked {
+    column-gap: 52px !important;
+    grid-template-columns: minmax(220px, 300px) minmax(450px, 520px) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .authCard.authExperience.authLocked {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto auto !important;
+    grid-template-areas:
+      "bar"
+      "logo"
+      "panel"
+      "footer" !important;
+    justify-content: stretch !important;
+    align-items: center !important;
+    row-gap: 26px !important;
+    padding: 28px clamp(22px, 5vw, 40px) 30px !important;
+  }
+
+  .authCard.authExperience .authUtilityBar {
+    width: 100% !important;
+  }
+
+  .authLoginTools {
+    grid-template-columns: 1fr auto !important;
+    grid-template-areas:
+      "theme language"
+      "vault vault" !important;
+    gap: 18px !important;
+  }
+
+  .authThemeSlot {
+    grid-area: theme !important;
+    justify-self: start !important;
+  }
+
+  .authLanguageSlot {
+    grid-area: language !important;
+    justify-self: end !important;
+  }
+
+  .authVaultActions {
+    grid-area: vault !important;
+    width: 100% !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .authVaultActions .authToolButton:last-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  .authLocked .authLogoStage {
+    min-height: 150px !important;
+  }
+
+  .authLocked .authLogoStage > .vaultLogo.lg {
+    width: 112px !important;
+    height: 112px !important;
+  }
+
+  .authLocked.authUnlockTyping .authLogoStage::before,
+  .authLocked.authUnlockSuccess .authLogoStage::before {
+    transform: translate(-50%, -50%) translateX(-66px) scaleY(0.86) !important;
+  }
+
+  .authLocked.authUnlockTyping .authLogoStage::after,
+  .authLocked.authUnlockSuccess .authLogoStage::after {
+    transform: translate(-50%, -50%) translateX(66px) scaleY(0.86) !important;
+  }
+
+  .authLocked .authUnlockPanel {
+    width: 100% !important;
+    max-width: 480px !important;
+    padding: 26px 22px !important;
+  }
+
+  .authLocked .authUnlockPanel .authPanelLabel {
+    white-space: normal !important;
+    max-width: 340px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .authCard.authExperience.authLocked {
+    padding: 22px 24px 30px !important;
+    row-gap: 20px !important;
+  }
+
+  .authThemeButtons {
+    grid-template-columns: repeat(3, 46px) !important;
+    height: 54px !important;
+  }
+
+  .authThemeButton {
+    width: 42px !important;
+    min-width: 42px !important;
+  }
+
+  .customLanguageSelect,
+  .languageSelectButton {
+    width: 86px !important;
+    min-width: 86px !important;
+  }
+
+  .authVaultActions {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .authToolButton,
+  .authVaultSelect {
+    min-width: 0 !important;
+    padding: 0 10px !important;
+    font-size: 0.86rem !important;
+  }
+
+  .authLocked .authUnlockForm {
+    width: 100% !important;
+  }
+
+  .authLocked .authUnlockForm input,
+  .authLocked .authUnlockForm .primaryButton,
+  .authLocked .authUnlockForm .windowsHelloButton {
+    height: 64px !important;
+    min-height: 64px !important;
+  }
+
+  .authDeveloperCredit {
+    font-size: 0.72rem !important;
+  }
+}
+/* === KPassword login reset limpo v0.8.3 END === */
+
+/* === KPassword login reset limpo v0.8.3 - ajuste fino de escala e portao START === */
+@media (min-width: 901px) {
+  .authCard.authExperience .authUtilityBar {
+    width: min(1040px, calc(100vw - 112px)) !important;
+    min-height: 56px !important;
+  }
+
+  .authLoginTools {
+    gap: clamp(30px, 4.2vw, 56px) !important;
+  }
+
+  .authVaultActions {
+    grid-template-columns: 166px 184px 184px !important;
+    gap: 10px !important;
+    padding: 4px !important;
+    border-radius: 20px !important;
+  }
+
+  .authThemeButtons {
+    grid-template-columns: repeat(3, 46px) !important;
+    height: 50px !important;
+    padding: 4px !important;
+    border-radius: 19px !important;
+  }
+
+  .authThemeButton {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    border-radius: 14px !important;
+  }
+
+  .authThemeIcon {
+    font-size: 1rem !important;
+  }
+
+  .authToolButton,
+  .authVaultSelect,
+  .languageSelectButton {
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    border-radius: 15px !important;
+    font-size: 0.94rem !important;
+  }
+
+  .authVaultSelect {
+    font-size: 1rem !important;
+  }
+
+  .customLanguageSelect,
+  .languageSelectButton {
+    width: 96px !important;
+    min-width: 96px !important;
+    max-width: 96px !important;
+  }
+
+  .languageSelectButton {
+    box-sizing: border-box !important;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.04) !important;
+  }
+
+  .languageOptions {
+    top: calc(100% + 5px) !important;
+  }
+
+  .languageOption {
+    height: 32px !important;
+    min-height: 32px !important;
+    text-align: center !important;
+    justify-content: center !important;
+  }
+
+  .authCard.authExperience.authLocked {
+    grid-template-columns: minmax(210px, 292px) minmax(430px, 500px) !important;
+    column-gap: clamp(52px, 7vw, 92px) !important;
+    row-gap: clamp(22px, 3vh, 40px) !important;
+    padding: clamp(42px, 6vh, 64px) clamp(30px, 5vw, 72px) 30px !important;
+  }
+
+  .authLocked .authLogoStage {
+    width: min(292px, 100%) !important;
+    min-height: 250px !important;
+  }
+
+  .authLocked .authLogoStage::before,
+  .authLocked .authLogoStage::after {
+    width: 14px !important;
+    height: min(206px, 56vw) !important;
+    opacity: 0.28 !important;
+    transform: translate(-50%, -50%) translateX(0) scaleY(0.82) !important;
+    transition: transform 460ms cubic-bezier(.2,.82,.2,1), opacity 260ms ease, width 260ms ease !important;
+  }
+
+  .authLocked .authLogoStage::before {
+    margin-left: -8px !important;
+  }
+
+  .authLocked .authLogoStage::after {
+    margin-left: 8px !important;
+  }
+
+  .authLocked.authUnlockTyping .authLogoStage::before,
+  .authLocked.authUnlockSuccess .authLogoStage::before {
+    transform: translate(-50%, -50%) translateX(-82px) scaleY(0.96) !important;
+    opacity: 0.58 !important;
+    width: 16px !important;
+  }
+
+  .authLocked.authUnlockTyping .authLogoStage::after,
+  .authLocked.authUnlockSuccess .authLogoStage::after {
+    transform: translate(-50%, -50%) translateX(82px) scaleY(0.96) !important;
+    opacity: 0.58 !important;
+    width: 16px !important;
+  }
+
+  .authLocked .authLogoStage > .vaultLogo.lg {
+    width: clamp(136px, 13vw, 188px) !important;
+    height: clamp(136px, 13vw, 188px) !important;
+  }
+
+  .authLocked .authUnlockPanel {
+    width: min(500px, 100%) !important;
+    max-width: 500px !important;
+    gap: 18px !important;
+    padding: 30px 40px !important;
+    border-radius: 26px !important;
+  }
+
+  .authLocked .authUnlockPanel .authPanelLabel {
+    width: min(100%, 430px) !important;
+    max-width: 430px !important;
+    font-size: 0.72rem !important;
+    line-height: 1.3 !important;
+    letter-spacing: 0.025em !important;
+  }
+
+  .authLocked .authUnlockForm {
+    width: min(100%, 360px) !important;
+    gap: 16px !important;
+  }
+
+  .authLocked .authUnlockForm label {
+    gap: 8px !important;
+  }
+
+  .authLocked .authUnlockForm input {
+    height: 58px !important;
+    min-height: 58px !important;
+    padding: 0 18px !important;
+    border-radius: 21px !important;
+  }
+
+  .authLocked .authUnlockForm .primaryButton,
+  .authLocked .authUnlockForm .windowsHelloButton {
+    height: 56px !important;
+    min-height: 56px !important;
+    border-radius: 20px !important;
+    font-size: 0.96rem !important;
+  }
+
+  .authDeveloperCredit {
+    font-size: 0.78rem !important;
+  }
+}
+/* === KPassword login reset limpo v0.8.3 - ajuste fino de escala e portao END === */
+
+/* === KPassword login reset limpo v0.8.3 - ajuste fino compacto balanceado START === */
+@media (min-width: 901px) {
+  .authCard.authExperience .authUtilityBar {
+    width: min(990px, calc(100vw - 128px)) !important;
+    min-height: 50px !important;
+  }
+
+  .authLoginTools {
+    grid-template-columns: 126px minmax(0, 484px) 126px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: clamp(28px, 3.4vw, 44px) !important;
+  }
+
+  .authThemeSlot {
+    justify-self: start !important;
+  }
+
+  .authLanguageSlot {
+    justify-self: end !important;
+  }
+
+  .authVaultActions {
+    width: 100% !important;
+    max-width: 484px !important;
+    grid-template-columns: 1fr 1.08fr 1.08fr !important;
+    gap: 8px !important;
+    padding: 3px !important;
+    border-radius: 18px !important;
+    box-sizing: border-box !important;
+  }
+
+  .authThemeButtons {
+    grid-template-columns: repeat(3, 38px) !important;
+    width: 126px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 3px !important;
+    gap: 2px !important;
+    border-radius: 17px !important;
+    box-sizing: border-box !important;
+  }
+
+  .authThemeButton {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    border-radius: 13px !important;
+  }
+
+  .authThemeIcon {
+    font-size: 0.92rem !important;
+  }
+
+  .authToolButton,
+  .authVaultSelect,
+  .languageSelectButton {
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    border-radius: 14px !important;
+    font-size: 0.88rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .authToolButton,
+  .authVaultSelect {
+    padding: 0 12px !important;
+  }
+
+  .authVaultSelect {
+    font-size: 0.94rem !important;
+  }
+
+  .customLanguageSelect,
+  .languageSelectButton {
+    width: 82px !important;
+    min-width: 82px !important;
+    max-width: 82px !important;
+  }
+
+  .languageOptions {
+    top: calc(100% + 5px) !important;
+    border-radius: 0 0 10px 10px !important;
+  }
+
+  .languageOption {
+    height: 30px !important;
+    min-height: 30px !important;
+    font-size: 0.88rem !important;
+    text-align: center !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  .authCard.authExperience.authLocked {
+    grid-template-columns: minmax(178px, 232px) minmax(360px, 420px) !important;
+    column-gap: clamp(44px, 6vw, 76px) !important;
+    row-gap: clamp(18px, 2.8vh, 34px) !important;
+    padding: clamp(38px, 5.4vh, 56px) clamp(42px, 6vw, 86px) 28px !important;
+    box-sizing: border-box !important;
+  }
+
+  .authLocked .authLogoStage {
+    width: min(232px, 100%) !important;
+    min-height: 210px !important;
+    box-sizing: border-box !important;
+  }
+
+  .authLocked .authLogoStage::before,
+  .authLocked .authLogoStage::after {
+    width: 11px !important;
+    height: min(172px, 42vw) !important;
+    opacity: 0.08 !important;
+    transform: translate(-50%, -50%) translateX(0) scaleY(0.72) !important;
+    transition: transform 380ms cubic-bezier(.2,.82,.2,1), opacity 220ms ease, width 220ms ease !important;
+  }
+
+  .authLocked .authLogoStage::before {
+    margin-left: -6px !important;
+  }
+
+  .authLocked .authLogoStage::after {
+    margin-left: 6px !important;
+  }
+
+  .authLocked:not(.authUnlockTyping):not(.authUnlockSuccess) .authLogoStage::before,
+  .authLocked:not(.authUnlockTyping):not(.authUnlockSuccess) .authLogoStage::after {
+    opacity: 0.08 !important;
+    transform: translate(-50%, -50%) translateX(0) scaleY(0.72) !important;
+  }
+
+  .authLocked.authUnlockTyping .authLogoStage::before,
+  .authLocked.authUnlockSuccess .authLogoStage::before {
+    transform: translate(-50%, -50%) translateX(-66px) scaleY(0.94) !important;
+    opacity: 0.54 !important;
+    width: 13px !important;
+  }
+
+  .authLocked.authUnlockTyping .authLogoStage::after,
+  .authLocked.authUnlockSuccess .authLogoStage::after {
+    transform: translate(-50%, -50%) translateX(66px) scaleY(0.94) !important;
+    opacity: 0.54 !important;
+    width: 13px !important;
+  }
+
+  .authLocked .authLogoStage > .vaultLogo.lg {
+    width: clamp(120px, 10.6vw, 156px) !important;
+    height: clamp(120px, 10.6vw, 156px) !important;
+    filter: drop-shadow(0 22px 46px rgba(0, 0, 0, 0.50)) !important;
+  }
+
+  .authLocked .authLogoStage > .vaultLogo.lg.opening {
+    transform: scale(1.018) !important;
+    filter:
+      drop-shadow(0 23px 48px rgba(0, 0, 0, 0.52))
+      drop-shadow(0 0 16px rgba(56, 189, 248, 0.15)) !important;
+  }
+
+  .authLocked .authUnlockPanel {
+    width: min(420px, 100%) !important;
+    max-width: 420px !important;
+    gap: 14px !important;
+    padding: 24px 30px !important;
+    border-radius: 23px !important;
+    box-sizing: border-box !important;
+  }
+
+  .authLocked .authUnlockPanel .authPanelLabel {
+    width: min(100%, 360px) !important;
+    max-width: 360px !important;
+    font-size: 0.66rem !important;
+    line-height: 1.25 !important;
+    letter-spacing: 0.02em !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+  }
+
+  .authLocked .authUnlockForm {
+    width: min(100%, 320px) !important;
+    gap: 14px !important;
+    box-sizing: border-box !important;
+  }
+
+  .authLocked .authUnlockForm label {
+    gap: 7px !important;
+    font-size: 0.88rem !important;
+  }
+
+  .authLocked .authUnlockForm input {
+    height: 48px !important;
+    min-height: 48px !important;
+    padding: 0 16px !important;
+    border-radius: 18px !important;
+    box-sizing: border-box !important;
+  }
+
+  .authLocked .authUnlockForm .message.error {
+    padding: 10px 12px !important;
+    font-size: 0.86rem !important;
+    border-radius: 15px !important;
+    box-sizing: border-box !important;
+  }
+
+  .authLocked .authUnlockForm .primaryButton,
+  .authLocked .authUnlockForm .windowsHelloButton {
+    height: 48px !important;
+    min-height: 48px !important;
+    border-radius: 18px !important;
+    font-size: 0.90rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .authDeveloperCredit {
+    font-size: 0.72rem !important;
+    letter-spacing: 0.095em !important;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .authCard.authExperience .authUtilityBar {
+    width: min(930px, calc(100vw - 76px)) !important;
+  }
+
+  .authLoginTools {
+    grid-template-columns: 118px minmax(0, 452px) 118px !important;
+    gap: 26px !important;
+  }
+
+  .authThemeButtons {
+    width: 118px !important;
+    grid-template-columns: repeat(3, 36px) !important;
+  }
+
+  .customLanguageSelect,
+  .languageSelectButton {
+    width: 78px !important;
+    min-width: 78px !important;
+    max-width: 78px !important;
+  }
+
+  .authCard.authExperience.authLocked {
+    grid-template-columns: minmax(166px, 210px) minmax(342px, 400px) !important;
+    column-gap: 40px !important;
+    padding-left: 38px !important;
+    padding-right: 38px !important;
+  }
+
+  .authLocked .authUnlockPanel {
+    width: min(400px, 100%) !important;
+    max-width: 400px !important;
+    padding-left: 26px !important;
+    padding-right: 26px !important;
+  }
+}
+/* === KPassword login reset limpo v0.8.3 - ajuste fino compacto balanceado END === */
+
+/* === KPassword login v0.8.3 - tune4 topo limpo e centralizado START === */
+@media (min-width: 901px) {
+  /*
+    Este bloco parte da base boa do tune2 e corrige apenas a régua superior.
+    Não usa fixed/absolute nos botões centrais para evitar sobreposição.
+    A linha superior fica em 3 zonas: tema | ações do cofre | idioma.
+    As zonas laterais têm o mesmo tamanho, então o grupo central fica no eixo real da janela.
+  */
+  .authCard.authExperience .authUtilityBar,
+  .authLocked .authUtilityBar {
+    grid-area: bar !important;
+    grid-column: 1 / -1 !important;
+    align-self: start !important;
+    justify-self: stretch !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 50px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative !important;
+    z-index: 80 !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+
+  .authLoginTools {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 50px !important;
+    display: grid !important;
+    grid-template-columns: minmax(126px, 1fr) minmax(0, 484px) minmax(126px, 1fr) !important;
+    grid-template-areas: "theme vault language" !important;
+    align-items: center !important;
+    justify-items: stretch !important;
+    justify-content: stretch !important;
+    gap: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+
+  .authThemeSlot,
+  .authVaultActions,
+  .authLanguageSlot {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .authThemeSlot {
+    grid-area: theme !important;
+    justify-self: start !important;
+    align-self: center !important;
+    width: auto !important;
+    min-width: 0 !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    z-index: 2 !important;
+  }
+
+  .authVaultActions {
+    grid-area: vault !important;
+    justify-self: center !important;
+    align-self: center !important;
+    width: 484px !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1.08fr 1.08fr !important;
+    gap: 8px !important;
+    z-index: 3 !important;
+  }
+
+  .authLanguageSlot {
+    grid-area: language !important;
+    justify-self: end !important;
+    align-self: center !important;
+    width: auto !important;
+    min-width: 0 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    z-index: 4 !important;
+  }
+
+  .authThemeButtons,
+  .customLanguageSelect,
+  .languageSelectButton {
+    margin: 0 !important;
+    transform: none !important;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .authLoginTools {
+    grid-template-columns: minmax(118px, 1fr) minmax(0, 452px) minmax(118px, 1fr) !important;
+  }
+
+  .authVaultActions {
+    width: 452px !important;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1020px) {
+  .authLoginTools {
+    grid-template-columns: minmax(118px, 1fr) minmax(0, 420px) minmax(118px, 1fr) !important;
+  }
+
+  .authVaultActions {
+    width: 420px !important;
+  }
+}
+/* === KPassword login v0.8.3 - tune4 topo limpo e centralizado END === */
+
+/* === KPassword login v0.8.3 - tune5 espacamento superior equilibrado START === */
+@media (min-width: 901px) {
+  /*
+    Ajuste cirurgico: nao altera tamanho nem centralizacao do grupo do meio.
+    So transforma o vao entre tema <-> botoes centrais e botoes centrais <-> idioma
+    em uma distancia simetrica, para os controles laterais nao parecerem parte
+    das 3 opcoes principais.
+  */
+  .authLoginTools {
+    grid-template-columns: minmax(126px, 1fr) minmax(0, 484px) minmax(126px, 1fr) !important;
+    gap: clamp(34px, 3.2vw, 52px) !important;
+  }
+
+  .authThemeSlot {
+    justify-self: end !important;
+  }
+
+  .authLanguageSlot {
+    justify-self: start !important;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .authLoginTools {
+    grid-template-columns: minmax(118px, 1fr) minmax(0, 452px) minmax(118px, 1fr) !important;
+    gap: 28px !important;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1020px) {
+  .authLoginTools {
+    grid-template-columns: minmax(112px, 1fr) minmax(0, 420px) minmax(112px, 1fr) !important;
+    gap: 22px !important;
+  }
+}
+/* === KPassword login v0.8.3 - tune5 espacamento superior equilibrado END === */
+
+/* === KPassword v0.8.3 menu responsivo icon-only START === */
+@media (max-width: 980px) {
+  /*
+    Quando a janela fica estreita, o menu deixa de ocupar a lateral.
+    Nesse modo horizontal ele deve se comportar como o menu fechado: só ícones,
+    sem rótulos truncados como "Configura..." ou "Bloq...".
+  */
+  .appShell,
+  .appShell.sidebarOpen,
+  .appShell.sidebarClosed {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .sidebar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 10px 12px !important;
+  }
+
+  .sidebarBrand {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 !important;
+  }
+
+  .sidebarOpen .sidebarBrand,
+  .sidebarClosed .sidebarBrand {
+    justify-content: center !important;
+  }
+
+  .sidebarOpen .sidebarBrand .sidebarToggle,
+  .sidebarClosed .sidebarBrand .sidebarToggle,
+  .sidebarToggle {
+    width: 52px !important;
+    min-width: 52px !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    border-radius: 16px !important;
+  }
+
+  .sidebarToggle .appLogo.md {
+    width: 42px !important;
+    height: 42px !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  .sidebarOpen .brandText,
+  .sidebarClosed .brandText,
+  .brandText,
+  .sidebarOpen .navLabel,
+  .sidebarClosed .navLabel,
+  .navLabel,
+  .lockButton .navLabel {
+    display: none !important;
+    width: 0 !important;
+    max-width: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+  }
+
+  .navList {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .navList button,
+  .sidebarOpen .navList button,
+  .sidebarClosed .navList button,
+  .lockButton,
+  .sidebarOpen .lockButton,
+  .sidebarClosed .lockButton {
+    display: grid !important;
+    place-items: center !important;
+    flex: 0 0 52px !important;
+    width: 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    border-radius: 16px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  .navIcon {
+    width: 28px !important;
+    height: 28px !important;
+    margin: 0 !important;
+    font-size: 1.03rem !important;
+  }
+
+  .sidebarFooter,
+  .sidebarOpen .sidebarFooter,
+  .sidebarClosed .sidebarFooter {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin: 0 0 0 auto !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .sidebar {
+    gap: 7px !important;
+    padding: 8px 10px !important;
+  }
+
+  .sidebarOpen .sidebarBrand .sidebarToggle,
+  .sidebarClosed .sidebarBrand .sidebarToggle,
+  .sidebarToggle,
+  .navList button,
+  .sidebarOpen .navList button,
+  .sidebarClosed .navList button,
+  .lockButton,
+  .sidebarOpen .lockButton,
+  .sidebarClosed .lockButton {
+    flex-basis: 46px !important;
+    width: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+    border-radius: 14px !important;
+  }
+
+  .sidebarToggle .appLogo.md {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .navIcon {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.98rem !important;
+  }
+}
+/* === KPassword v0.8.3 menu responsivo icon-only END === */
+
+
+/* === KPassword v0.8.3 menu responsivo estavel START === */
+@media (max-width: 980px) {
+  /*
+    Regra final do menu interno:
+    - acima de 980px, o menu lateral pode abrir/fechar normalmente;
+    - abaixo de 980px, o menu vira uma unica barra inferior fixa na grade;
+    - nesse modo estreito, o estado aberto/fechado fica visualmente ignorado;
+    - labels ficam ocultos para evitar texto truncado e mudanças de posicao.
+  */
+  body {
+    overflow: hidden !important;
+  }
+
+  .appShell,
+  .appShell.sidebarOpen,
+  .appShell.sidebarClosed,
+  .appShell.sidebarHorizontal {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .content {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: auto !important;
+  }
+
+  .sidebar,
+  .appShell.sidebarOpen .sidebar,
+  .appShell.sidebarClosed .sidebar,
+  .appShell.sidebarHorizontal .sidebar {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    position: relative !important;
+    inset: auto !important;
+    z-index: 40 !important;
+    display: grid !important;
+    grid-template-columns: 50px minmax(0, 1fr) 50px !important;
+    align-items: center !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    min-height: 66px !important;
+    max-height: 76px !important;
+    gap: 10px !important;
+    padding: 8px max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)) !important;
+    overflow: hidden !important;
+    border-right: 0 !important;
+    border-top: 1px solid var(--kp-border-soft) !important;
+    background: rgba(10, 12, 18, 0.96) !important;
+    backdrop-filter: blur(16px) !important;
+  }
+
+  .sidebarBrand,
+  .sidebarOpen .sidebarBrand,
+  .sidebarClosed .sidebarBrand,
+  .sidebarHorizontal .sidebarBrand {
+    grid-column: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 50px !important;
+    min-width: 50px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  .sidebarToggle,
+  .sidebarOpen .sidebarBrand .sidebarToggle,
+  .sidebarClosed .sidebarBrand .sidebarToggle,
+  .sidebarHorizontal .sidebarBrand .sidebarToggle {
+    display: grid !important;
+    place-items: center !important;
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+    height: 50px !important;
+    min-height: 50px !important;
+    max-height: 50px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    border-radius: 16px !important;
+    cursor: default !important;
+    pointer-events: none !important;
+  }
+
+  .sidebarToggle .appLogo.md {
+    width: 40px !important;
+    height: 40px !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  .brandText,
+  .sidebarOpen .brandText,
+  .sidebarClosed .brandText,
+  .sidebarHorizontal .brandText,
+  .navLabel,
+  .sidebarOpen .navLabel,
+  .sidebarClosed .navLabel,
+  .sidebarHorizontal .navLabel,
+  .lockButton .navLabel {
+    display: none !important;
+    width: 0 !important;
+    max-width: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+  }
+
+  .navList,
+  .sidebarOpen .navList,
+  .sidebarClosed .navList,
+  .sidebarHorizontal .navList {
+    grid-column: 2 !important;
+    display: flex !important;
+    flex: 1 1 auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: clamp(5px, 1.15vw, 9px) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .navList button,
+  .sidebarOpen .navList button,
+  .sidebarClosed .navList button,
+  .sidebarHorizontal .navList button,
+  .lockButton,
+  .sidebarOpen .lockButton,
+  .sidebarClosed .lockButton,
+  .sidebarHorizontal .lockButton {
+    display: grid !important;
+    place-items: center !important;
+    flex: 0 0 50px !important;
+    width: 50px !important;
+    min-width: 50px !important;
+    max-width: 50px !important;
+    height: 50px !important;
+    min-height: 50px !important;
+    max-height: 50px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border-radius: 16px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  .navIcon,
+  .sidebarOpen .navIcon,
+  .sidebarClosed .navIcon,
+  .sidebarHorizontal .navIcon {
+    display: grid !important;
+    place-items: center !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    margin: 0 !important;
+    font-size: 1.02rem !important;
+    line-height: 1 !important;
+  }
+
+  .sidebarFooter,
+  .sidebarOpen .sidebarFooter,
+  .sidebarClosed .sidebarFooter,
+  .sidebarHorizontal .sidebarFooter {
+    grid-column: 3 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 50px !important;
+    min-width: 50px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+
+@media (max-width: 460px) {
+  .sidebar,
+  .appShell.sidebarOpen .sidebar,
+  .appShell.sidebarClosed .sidebar,
+  .appShell.sidebarHorizontal .sidebar {
+    grid-template-columns: 42px minmax(0, 1fr) 42px !important;
+    min-height: 58px !important;
+    max-height: 66px !important;
+    gap: 6px !important;
+    padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right)) !important;
+  }
+
+  .sidebarBrand,
+  .sidebarOpen .sidebarBrand,
+  .sidebarClosed .sidebarBrand,
+  .sidebarHorizontal .sidebarBrand,
+  .sidebarFooter,
+  .sidebarOpen .sidebarFooter,
+  .sidebarClosed .sidebarFooter,
+  .sidebarHorizontal .sidebarFooter,
+  .sidebarToggle,
+  .sidebarOpen .sidebarBrand .sidebarToggle,
+  .sidebarClosed .sidebarBrand .sidebarToggle,
+  .sidebarHorizontal .sidebarBrand .sidebarToggle,
+  .navList button,
+  .sidebarOpen .navList button,
+  .sidebarClosed .navList button,
+  .sidebarHorizontal .navList button,
+  .lockButton,
+  .sidebarOpen .lockButton,
+  .sidebarClosed .lockButton,
+  .sidebarHorizontal .lockButton {
+    width: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    border-radius: 14px !important;
+  }
+
+  .sidebarToggle .appLogo.md {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .navList,
+  .sidebarOpen .navList,
+  .sidebarClosed .navList,
+  .sidebarHorizontal .navList {
+    gap: 4px !important;
+  }
+
+  .navIcon,
+  .sidebarOpen .navIcon,
+  .sidebarClosed .navIcon,
+  .sidebarHorizontal .navIcon {
+    width: 24px !important;
+    min-width: 24px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    font-size: 0.94rem !important;
+  }
+}
+/* === KPassword v0.8.3 menu responsivo estavel END === */
+
+/* === KPassword v0.8.3 hotfix login mixed input text START === */
+:root[data-theme="mixed"] .authShell.authDesktopShell .authLocked .authUnlockForm input,
+:root[data-theme="mixed"] .authCard.authExperience .authLocked .authUnlockForm input,
+:root[data-theme="mixed"] .authLocked .authUnlockForm input {
+  color: rgba(248, 250, 252, 0.96) !important;
+  caret-color: #7dd3fc !important;
+  -webkit-text-fill-color: rgba(248, 250, 252, 0.96) !important;
+}
+
+:root[data-theme="mixed"] .authShell.authDesktopShell .authLocked .authUnlockForm input::placeholder,
+:root[data-theme="mixed"] .authCard.authExperience .authLocked .authUnlockForm input::placeholder,
+:root[data-theme="mixed"] .authLocked .authUnlockForm input::placeholder {
+  color: rgba(203, 213, 225, 0.58) !important;
+  -webkit-text-fill-color: rgba(203, 213, 225, 0.58) !important;
+}
+/* === KPassword v0.8.3 hotfix login mixed input text END === */

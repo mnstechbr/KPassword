@@ -1,0 +1,330 @@
+--- /mnt/data/kpassword_login_refino2_bundle/src/App.css	2026-07-04 05:27:34.843330171 +0000
++++ /mnt/data/kpassword_login_refino3/src/App.css	2026-07-04 05:34:00.504014965 +0000
+@@ -9949,3 +9949,327 @@
+   white-space: nowrap !important;
+   border: 0 !important;
+ }
++
++/* === KPassword login refino 3 desktop/gate sem alterar versao START === */
++:root {
++  --kp-login-panel-width: clamp(560px, 43vw, 625px);
++  --kp-login-form-width: clamp(420px, 32vw, 460px);
++  --kp-login-gate-height: clamp(220px, 20vw, 278px);
++}
++
++@media (min-width: 981px) {
++  /* Topo: remove os posicionamentos absolutos antigos e deixa os tres blocos com o mesmo vao. */
++  .authLoginTools {
++    width: min(100%, 1120px) !important;
++    margin: 0 auto !important;
++    display: grid !important;
++    grid-template-columns: auto auto auto !important;
++    justify-content: center !important;
++    align-items: center !important;
++    column-gap: clamp(54px, 5vw, 86px) !important;
++    row-gap: 0 !important;
++    position: relative !important;
++    min-height: 58px !important;
++    gap: 0 clamp(54px, 5vw, 86px) !important;
++  }
++
++  .authThemeSlot,
++  .authLanguageSlot {
++    position: static !important;
++    inset: auto !important;
++    top: auto !important;
++    right: auto !important;
++    bottom: auto !important;
++    left: auto !important;
++    transform: none !important;
++    justify-self: center !important;
++  }
++
++  .authVaultActions {
++    justify-self: center !important;
++    margin: 0 !important;
++  }
++}
++
++/* Idioma: wrapper sem casca dupla; botao volta ao tamanho dos controles compactos. */
++.customLanguageSelect,
++.languageSelect.compact.customLanguageSelect,
++.authLanguageSlot .customLanguageSelect {
++  position: relative !important;
++  display: inline-grid !important;
++  place-items: center !important;
++  width: 88px !important;
++  min-width: 88px !important;
++  max-width: 88px !important;
++  height: 50px !important;
++  min-height: 50px !important;
++  padding: 0 !important;
++  margin: 0 !important;
++  border: 0 !important;
++  border-radius: 0 !important;
++  background: transparent !important;
++  box-shadow: none !important;
++  overflow: visible !important;
++  gap: 0 !important;
++}
++
++.languageSelectButton,
++.authLanguageSlot .languageSelectButton {
++  width: 88px !important;
++  min-width: 88px !important;
++  max-width: 88px !important;
++  height: 50px !important;
++  min-height: 50px !important;
++  padding: 0 !important;
++  display: flex !important;
++  align-items: center !important;
++  justify-content: center !important;
++  text-align: center !important;
++  line-height: 1 !important;
++  border-radius: 15px !important;
++}
++
++.languageOptions,
++.authLanguageSlot .languageOptions {
++  width: 88px !important;
++  min-width: 88px !important;
++  max-width: 88px !important;
++  left: 50% !important;
++  right: auto !important;
++  transform: translateX(-50%) !important;
++  justify-items: stretch !important;
++  text-align: center !important;
++}
++
++.languageOption,
++.authLanguageSlot .languageOption {
++  width: 100% !important;
++  height: 34px !important;
++  min-height: 34px !important;
++  padding: 0 !important;
++  margin: 0 !important;
++  display: flex !important;
++  align-items: center !important;
++  justify-content: center !important;
++  text-align: center !important;
++  text-indent: 0 !important;
++  line-height: 34px !important;
++}
++
++@media (min-width: 981px) {
++  /* Painel: frase, campo e botoes passam a compartilhar exatamente o mesmo eixo e largura-base. */
++  .authCard.authExperience.authLocked {
++    grid-template-columns: minmax(260px, 360px) var(--kp-login-panel-width) !important;
++    column-gap: clamp(48px, 5.8vw, 82px) !important;
++    justify-content: center !important;
++  }
++
++  .authLocked .authUnlockPanel {
++    width: var(--kp-login-panel-width) !important;
++    max-width: var(--kp-login-panel-width) !important;
++    justify-self: start !important;
++    padding: clamp(30px, 2.5vw, 36px) clamp(42px, 3.6vw, 52px) !important;
++    display: grid !important;
++    justify-items: center !important;
++    align-content: center !important;
++    gap: 18px !important;
++    text-align: center !important;
++  }
++
++  .authLocked .authUnlockPanel .authPanelLabel {
++    width: var(--kp-login-form-width) !important;
++    max-width: var(--kp-login-form-width) !important;
++    min-width: 0 !important;
++    justify-self: center !important;
++    margin: 0 auto 2px !important;
++    padding: 0 !important;
++    text-align: center !important;
++    white-space: nowrap !important;
++    overflow: visible !important;
++    text-wrap: nowrap !important;
++    word-break: keep-all !important;
++    letter-spacing: 0.018em !important;
++    font-size: clamp(0.67rem, 0.72vw, 0.74rem) !important;
++    line-height: 1.25 !important;
++  }
++
++  .authLocked .authUnlockForm {
++    width: var(--kp-login-form-width) !important;
++    max-width: var(--kp-login-form-width) !important;
++    margin: 0 auto !important;
++    justify-self: center !important;
++  }
++
++  .authLocked .authUnlockForm input,
++  .authLocked .authUnlockForm .message,
++  .authLocked .authUnlockForm .primaryButton,
++  .authLocked .authUnlockForm .windowsHelloButton {
++    width: 100% !important;
++    max-width: var(--kp-login-form-width) !important;
++    justify-self: center !important;
++  }
++}
++
++/* Portao vertical: remove o bloco retangular e deixa apenas duas linhas/glows abrindo atras da logo. */
++.authLocked .authLogoStage {
++  position: relative !important;
++  isolation: isolate !important;
++  overflow: visible !important;
++  width: var(--kp-login-form-width) !important;
++  min-height: var(--kp-login-gate-height) !important;
++  display: grid !important;
++  place-items: center !important;
++}
++
++.authLocked .authLogoStage > .vaultLogo.lg {
++  position: relative !important;
++  z-index: 4 !important;
++}
++
++.authLocked .authLogoStage::before,
++.authLocked .authLogoStage::after {
++  content: "" !important;
++  position: absolute !important;
++  z-index: 1 !important;
++  left: 50% !important;
++  right: auto !important;
++  top: 50% !important;
++  bottom: auto !important;
++  width: 8px !important;
++  height: min(86%, 258px) !important;
++  border-radius: 999px !important;
++  pointer-events: none !important;
++  opacity: 0.26 !important;
++  transform-origin: center !important;
++  transition: transform 360ms cubic-bezier(.2, .9, .2, 1), opacity 220ms ease, width 220ms ease, box-shadow 220ms ease !important;
++  background: linear-gradient(180deg,
++    rgba(56, 189, 248, 0),
++    rgba(56, 189, 248, 0.88) 20%,
++    rgba(255, 255, 255, 0.98) 50%,
++    rgba(168, 85, 247, 0.86) 78%,
++    rgba(56, 189, 248, 0)
++  ) !important;
++  box-shadow:
++    0 0 18px rgba(56, 189, 248, 0.22),
++    0 0 38px rgba(124, 58, 237, 0.12) !important;
++}
++
++.authLocked .authLogoStage::before {
++  transform: translate(calc(-50% - 5px), -50%) scaleY(0.68) !important;
++}
++
++.authLocked .authLogoStage::after {
++  transform: translate(calc(-50% + 5px), -50%) scaleY(0.68) !important;
++}
++
++.authLocked.authUnlockTyping .authLogoStage::before,
++.authLocked.authUnlockTyping .authLogoStage::after {
++  width: 10px !important;
++  opacity: 0.92 !important;
++  box-shadow:
++    0 0 22px rgba(56, 189, 248, 0.45),
++    0 0 52px rgba(124, 58, 237, 0.28) !important;
++}
++
++.authLocked.authUnlockTyping .authLogoStage::before {
++  transform: translate(calc(-50% - 118px), -50%) scaleY(0.94) !important;
++}
++
++.authLocked.authUnlockTyping .authLogoStage::after {
++  transform: translate(calc(-50% + 118px), -50%) scaleY(0.94) !important;
++}
++
++.authLocked.authUnlockSuccess .authLogoStage::before {
++  animation: kpasswordGateLeafLeftOpen 560ms cubic-bezier(.2, .9, .2, 1) both !important;
++}
++
++.authLocked.authUnlockSuccess .authLogoStage::after {
++  animation: kpasswordGateLeafRightOpen 560ms cubic-bezier(.2, .9, .2, 1) both !important;
++}
++
++@keyframes kpasswordGateLeafLeftOpen {
++  0% {
++    opacity: 0.30;
++    width: 8px;
++    transform: translate(calc(-50% - 6px), -50%) scaleY(0.70);
++  }
++  52% {
++    opacity: 1;
++    width: 12px;
++    transform: translate(calc(-50% - 170px), -50%) scaleY(1.03);
++  }
++  100% {
++    opacity: 0.88;
++    width: 10px;
++    transform: translate(calc(-50% - 148px), -50%) scaleY(0.96);
++  }
++}
++
++@keyframes kpasswordGateLeafRightOpen {
++  0% {
++    opacity: 0.30;
++    width: 8px;
++    transform: translate(calc(-50% + 6px), -50%) scaleY(0.70);
++  }
++  52% {
++    opacity: 1;
++    width: 12px;
++    transform: translate(calc(-50% + 170px), -50%) scaleY(1.03);
++  }
++  100% {
++    opacity: 0.88;
++    width: 10px;
++    transform: translate(calc(-50% + 148px), -50%) scaleY(0.96);
++  }
++}
++
++@media (max-width: 980px) {
++  :root {
++    --kp-login-panel-width: min(100%, 400px);
++    --kp-login-form-width: min(100%, 356px);
++    --kp-login-gate-height: clamp(126px, 28vw, 178px);
++  }
++
++  .authLocked .authLogoStage {
++    width: min(100%, 400px) !important;
++  }
++
++  .authLocked.authUnlockTyping .authLogoStage::before {
++    transform: translate(calc(-50% - 66px), -50%) scaleY(0.88) !important;
++  }
++
++  .authLocked.authUnlockTyping .authLogoStage::after {
++    transform: translate(calc(-50% + 66px), -50%) scaleY(0.88) !important;
++  }
++
++  .authLocked .authUnlockPanel .authPanelLabel {
++    width: min(100%, 356px) !important;
++    max-width: 356px !important;
++    white-space: normal !important;
++    text-wrap: balance !important;
++    letter-spacing: 0.06em !important;
++    line-height: 1.42 !important;
++  }
++}
++
++@media (max-width: 520px) {
++  .customLanguageSelect,
++  .languageSelect.compact.customLanguageSelect,
++  .authLanguageSlot .customLanguageSelect,
++  .languageSelectButton,
++  .authLanguageSlot .languageSelectButton,
++  .languageOptions,
++  .authLanguageSlot .languageOptions {
++    width: 84px !important;
++    min-width: 84px !important;
++    max-width: 84px !important;
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .authLocked.authUnlockSuccess .authLogoStage::before,
++  .authLocked.authUnlockSuccess .authLogoStage::after {
++    animation: none !important;
++  }
++}
++/* === KPassword login refino 3 desktop/gate sem alterar versao END === */
