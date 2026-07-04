@@ -1,25 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import {
-  isPermissionGranted,
-  requestPermission,
-  sendNotification,
-} from "@tauri-apps/plugin-notification";
 
-const MINIMIZED_CHECK_INTERVAL_MS = 800;
+type TrayReason = "inactive" | "minimize" | "close";
 
-type TrayReason = "minimized" | "closed" | "inactive";
+type TrayEventDetail = {
+  reason?: TrayReason;
+};
 
-let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
-let minimizedCheckTimer: ReturnType<typeof setInterval> | null = null;
-let alreadySentToTray = false;
-let windowUnavailableForInactivity = false;
-let notificationPermissionChecked = false;
-let notificationAllowed = false;
-let audioContext: AudioContext | null = null;
-let audioUnlocked = false;
+const TRAY_EVENT = "kpassword:protect-to-tray";
+const DUPLICATE_GUARD_MS = 1_500;
 
-function getBooleanSetting(key: string, fallback: boolean) {
+let initialized = false;
+let lastProtectionAt = 0;
+
+function readFlag(key: string, fallback = true) {
   try {
     const value = localStorage.getItem(key);
     if (value === null) return fallback;
@@ -29,356 +23,149 @@ function getBooleanSetting(key: string, fallback: boolean) {
   }
 }
 
-function getNumberSetting(key: string, fallback: number, min: number, max: number) {
+function readLanguage() {
   try {
-    const value = Number(localStorage.getItem(key));
-    if (!Number.isFinite(value)) return fallback;
-    return Math.min(max, Math.max(min, value));
+    return localStorage.getItem("kpassword:language") || "pt";
   } catch {
-    return fallback;
+    return "pt";
   }
 }
 
-function getAutoLockMinutes() {
-  return getNumberSetting("kpassword:auto-lock-minutes", 3, 1, 120);
+function getTrayMessage(reason: TrayReason) {
+  const language = readLanguage();
+  const messages = {
+    pt: {
+      title: "KPassword protegido",
+      inactive: "Seu cofre foi bloqueado por inatividade e enviado para a bandeja.",
+      minimize: "Seu cofre foi bloqueado e enviado para a bandeja.",
+      close: "O KPassword continua protegido na bandeja.",
+    },
+    en: {
+      title: "KPassword protected",
+      inactive: "Your vault was locked after inactivity and sent to the tray.",
+      minimize: "Your vault was locked and sent to the tray.",
+      close: "KPassword is still protected in the tray.",
+    },
+    es: {
+      title: "KPassword protegido",
+      inactive: "Tu cofre se bloqueó por inactividad y se envió a la bandeja.",
+      minimize: "Tu cofre se bloqueó y se envió a la bandeja.",
+      close: "KPassword sigue protegido en la bandeja.",
+    },
+    tr: {
+      title: "KPassword korundu",
+      inactive: "Kasanız etkinlik olmadığı için kilitlendi ve tepsiye gönderildi.",
+      minimize: "Kasanız kilitlendi ve tepsiye gönderildi.",
+      close: "KPassword tepside korunmaya devam ediyor.",
+    },
+  } as const;
+
+  const dictionary = messages[language as keyof typeof messages] ?? messages.pt;
+
+  return {
+    title: dictionary.title,
+    body: dictionary[reason],
+  };
 }
 
-function getAutoLockLimitMs() {
-  return getAutoLockMinutes() * 60 * 1000;
-}
-
-function clearInactivityTimer() {
-  if (inactivityTimer) {
-    clearTimeout(inactivityTimer);
-    inactivityTimer = null;
-  }
-}
-
-function pauseInactivityBecauseWindowIsUnavailable() {
-  windowUnavailableForInactivity = true;
-  clearInactivityTimer();
-}
-
-function resumeInactivityBecauseWindowIsAvailable() {
-  windowUnavailableForInactivity = false;
-  alreadySentToTray = false;
-  resetInactivityTimer();
-}
-
-async function refreshWindowAvailability() {
-  try {
-    const appWindow = getCurrentWindow();
-    const [visible, minimized] = await Promise.all([
-      appWindow.isVisible(),
-      appWindow.isMinimized(),
-    ]);
-
-    if (visible && !minimized) {
-      if (windowUnavailableForInactivity) {
-        resumeInactivityBecauseWindowIsAvailable();
-      }
-      return true;
-    }
-
-    pauseInactivityBecauseWindowIsUnavailable();
-    return false;
-  } catch (error) {
-    console.error("Erro ao verificar estado da janela do KPassword:", error);
-    return !windowUnavailableForInactivity;
-  }
-}
-
-function getNotificationBody(reason: TrayReason) {
-  switch (reason) {
-    case "minimized":
-      return "KPassword foi minimizado e continua protegido na bandeja.";
-    case "closed":
-      return "KPassword continua em execução na bandeja.";
-    case "inactive": {
-      const minutes = getAutoLockMinutes();
-      const minuteLabel = minutes === 1 ? "1 minuto" : `${minutes} minutos`;
-      return `KPassword ficou inativo por ${minuteLabel} e foi enviado para a bandeja.`;
-    }
-    default:
-      return "KPassword continua em execução na bandeja.";
-  }
-}
-
-function getAudioContext() {
-  const AudioContextClass =
-    window.AudioContext ||
-    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-
-  if (!AudioContextClass) {
-    return null;
-  }
-
-  if (!audioContext) {
-    audioContext = new AudioContextClass();
-  }
-
-  return audioContext;
-}
-
-async function unlockAudio() {
-  if (audioUnlocked) {
-    return;
-  }
-
-  const context = getAudioContext();
-
-  if (!context) {
-    return;
-  }
+async function playProtectionSound() {
+  if (!readFlag("kpassword:tray-sound", true)) return;
 
   try {
-    if (context.state === "suspended") {
-      await context.resume();
-    }
+    const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return;
 
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
+    const context = new AudioContextCtor();
+    const masterGain = context.createGain();
+    const compressor = context.createDynamicsCompressor();
 
-    gain.gain.setValueAtTime(0.0001, context.currentTime);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.01);
+    masterGain.gain.setValueAtTime(0.0001, context.currentTime);
+    masterGain.gain.exponentialRampToValueAtTime(0.92, context.currentTime + 0.018);
+    masterGain.gain.setValueAtTime(0.82, context.currentTime + 0.26);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.62);
 
-    audioUnlocked = true;
-  } catch (error) {
-    console.error("Erro ao liberar áudio do KPassword:", error);
-  }
-}
+    compressor.threshold.setValueAtTime(-18, context.currentTime);
+    compressor.knee.setValueAtTime(12, context.currentTime);
+    compressor.ratio.setValueAtTime(4, context.currentTime);
+    compressor.attack.setValueAtTime(0.003, context.currentTime);
+    compressor.release.setValueAtTime(0.18, context.currentTime);
 
-async function playMetroChime() {
-  const context = getAudioContext();
-
-  if (!context) {
-    return;
-  }
-
-  try {
-    if (context.state === "suspended") {
-      await context.resume();
-    }
-
-    const now = context.currentTime;
-    const notes = [
-      { start: 0, duration: 0.11, frequency: 784 },
-      { start: 0.15, duration: 0.11, frequency: 988 },
-      { start: 0.3, duration: 0.2, frequency: 1318.5 },
+    const tones = [
+      { frequency: 1320, type: "triangle" as OscillatorType, delay: 0 },
+      { frequency: 990, type: "square" as OscillatorType, delay: 0.08 },
     ];
 
-    const masterGain = context.createGain();
-    masterGain.gain.setValueAtTime(0.35, now);
-    masterGain.connect(context.destination);
-
-    notes.forEach((note) => {
+    tones.forEach((tone) => {
       const oscillator = context.createOscillator();
-      const gain = context.createGain();
+      const toneGain = context.createGain();
+      const startAt = context.currentTime + tone.delay;
+      const stopAt = startAt + 0.42;
 
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(note.frequency, now + note.start);
+      oscillator.type = tone.type;
+      oscillator.frequency.setValueAtTime(tone.frequency, startAt);
+      oscillator.frequency.exponentialRampToValueAtTime(tone.frequency * 0.74, stopAt);
 
-      gain.gain.setValueAtTime(0.0001, now + note.start);
-      gain.gain.exponentialRampToValueAtTime(0.35, now + note.start + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + note.start + note.duration);
+      toneGain.gain.setValueAtTime(0.0001, startAt);
+      toneGain.gain.exponentialRampToValueAtTime(tone.type === "square" ? 0.22 : 0.58, startAt + 0.02);
+      toneGain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
 
-      oscillator.connect(gain);
-      gain.connect(masterGain);
-
-      oscillator.start(now + note.start);
-      oscillator.stop(now + note.start + note.duration + 0.03);
+      oscillator.connect(toneGain);
+      toneGain.connect(masterGain);
+      oscillator.start(startAt);
+      oscillator.stop(stopAt);
     });
-  } catch (error) {
-    console.error("Erro ao tocar som do KPassword:", error);
+
+    masterGain.connect(compressor);
+    compressor.connect(context.destination);
+
+    window.setTimeout(() => {
+      void context.close().catch(() => undefined);
+    }, 760);
+  } catch {
+    // O som é opcional. Falhas de áudio não devem interromper a proteção.
   }
 }
 
-async function ensureNotificationPermission() {
-  if (notificationPermissionChecked) {
-    return notificationAllowed;
-  }
+async function protectToTray(reason: TrayReason) {
+  const now = Date.now();
+  if (now - lastProtectionAt < DUPLICATE_GUARD_MS) return;
+  lastProtectionAt = now;
 
-  notificationPermissionChecked = true;
+  const shouldNotify = readFlag("kpassword:tray-notifications", true);
+  const message = getTrayMessage(reason);
 
-  try {
-    notificationAllowed = await isPermissionGranted();
-
-    if (!notificationAllowed) {
-      const permission = await requestPermission();
-      notificationAllowed = permission === "granted";
-    }
-  } catch (error) {
-    console.error("Erro ao verificar permissão de notificação:", error);
-    notificationAllowed = false;
-  }
-
-  return notificationAllowed;
-}
-
-async function showTrayNotification(reason: TrayReason) {
-  const allowed = await ensureNotificationPermission();
-
-  if (!allowed) {
-    return;
-  }
+  await playProtectionSound();
 
   try {
-    sendNotification({
-      title: "KPassword",
-      body: getNotificationBody(reason),
+    await invoke("hide_to_tray", {
+      reason,
+      notify: shouldNotify,
+      notificationTitle: message.title,
+      notificationBody: message.body,
     });
-  } catch (error) {
-    console.error("Erro ao exibir notificação:", error);
+  } catch {
+    // Se a chamada nativa falhar, a janela continua aberta em vez de perder estado.
   }
-}
-
-async function hideToTray(reason: TrayReason) {
-  if (alreadySentToTray && windowUnavailableForInactivity) {
-    return;
-  }
-
-  alreadySentToTray = true;
-  pauseInactivityBecauseWindowIsUnavailable();
-
-  try {
-    window.dispatchEvent(new CustomEvent("kpassword:lock"));
-    if (getBooleanSetting("kpassword:tray-sound", true)) {
-      await playMetroChime();
-      await new Promise((resolve) => window.setTimeout(resolve, 120));
-    }
-
-    await invoke("hide_to_tray", { reason });
-
-    if (getBooleanSetting("kpassword:tray-notifications", true)) {
-      await showTrayNotification(reason);
-    }
-  } catch (error) {
-    windowUnavailableForInactivity = false;
-    console.error("Erro ao enviar KPassword para a bandeja:", error);
-  }
-}
-
-function resetInactivityTimer() {
-  if (windowUnavailableForInactivity) {
-    clearInactivityTimer();
-    return;
-  }
-
-  alreadySentToTray = false;
-  clearInactivityTimer();
-
-  if (!getBooleanSetting("kpassword:lock-on-inactive", true)) {
-    return;
-  }
-
-  inactivityTimer = setTimeout(() => {
-    void (async () => {
-      const available = await refreshWindowAvailability();
-      if (available) {
-        await hideToTray("inactive");
-      }
-    })();
-  }, getAutoLockLimitMs());
-}
-
-function startActivityListeners() {
-  const events = [
-    "mousemove",
-    "mousedown",
-    "keydown",
-    "scroll",
-    "touchstart",
-    "click",
-    "wheel",
-  ];
-
-  events.forEach((eventName) => {
-    window.addEventListener(
-      eventName,
-      () => {
-        void unlockAudio();
-        void (async () => {
-          const available = await refreshWindowAvailability();
-          if (available) {
-            resetInactivityTimer();
-          }
-        })();
-      },
-      { passive: true },
-    );
-  });
-}
-
-async function startCloseProtection() {
-  const appWindow = getCurrentWindow();
-
-  await appWindow.onCloseRequested(async (event: { preventDefault: () => void }) => {
-    if (!getBooleanSetting("kpassword:lock-on-close", true)) {
-      return;
-    }
-
-    event.preventDefault();
-    await hideToTray("closed");
-  });
-}
-
-function startMinimizeProtection() {
-  const appWindow = getCurrentWindow();
-  let lockedForCurrentMinimize = false;
-
-  if (minimizedCheckTimer) {
-    clearInterval(minimizedCheckTimer);
-  }
-
-  minimizedCheckTimer = setInterval(() => {
-    void (async () => {
-      try {
-        const [visible, minimized] = await Promise.all([
-          appWindow.isVisible(),
-          appWindow.isMinimized(),
-        ]);
-
-        if (!visible || minimized) {
-          pauseInactivityBecauseWindowIsUnavailable();
-
-          if (minimized && !lockedForCurrentMinimize && getBooleanSetting("kpassword:lock-on-minimize", true)) {
-            lockedForCurrentMinimize = true;
-            window.dispatchEvent(new CustomEvent("kpassword:lock"));
-          }
-
-          return;
-        }
-
-        lockedForCurrentMinimize = false;
-
-        if (windowUnavailableForInactivity) {
-          resumeInactivityBecauseWindowIsAvailable();
-        }
-      } catch (error) {
-        console.error("Erro ao verificar janela minimizada:", error);
-      }
-    })();
-  }, MINIMIZED_CHECK_INTERVAL_MS);
-}
-
-async function startFocusProtection() {
-  const appWindow = getCurrentWindow();
-
-  await appWindow.onFocusChanged(({ payload: focused }: { payload: boolean }) => {
-    if (focused) {
-      resumeInactivityBecauseWindowIsAvailable();
-    }
-  });
 }
 
 export async function setupTrayGuard() {
-  startActivityListeners();
-  void refreshWindowAvailability();
+  if (initialized) return;
+  initialized = true;
 
-  await startCloseProtection();
-  startMinimizeProtection();
-  await startFocusProtection();
+  const appWindow = getCurrentWindow();
+
+  const onProtectToTray = (event: Event) => {
+    const reason = ((event as CustomEvent<TrayEventDetail>).detail?.reason ?? "minimize") as TrayReason;
+    void protectToTray(reason);
+  };
+
+  window.addEventListener(TRAY_EVENT, onProtectToTray);
+
+  await appWindow.onCloseRequested(async (event) => {
+    if (!readFlag("kpassword:lock-on-close", true)) return;
+
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent("kpassword:lock"));
+    await protectToTray("close");
+  });
 }

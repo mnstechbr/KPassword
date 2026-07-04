@@ -7,6 +7,7 @@ use std::{
 
 use serde::Serialize;
 use zeroize::Zeroize;
+use tauri_plugin_notification::NotificationExt;
 
 mod crypto_vault;
 use tauri::{
@@ -1057,11 +1058,29 @@ mod storage_tests {
     }
 }
 #[tauri::command]
-fn hide_to_tray(app: AppHandle, reason: String) {
-    println!("KPassword enviado para bandeja. Motivo: {}", reason);
+fn hide_to_tray(
+    app: AppHandle,
+    reason: String,
+    notify: Option<bool>,
+    notification_title: Option<String>,
+    notification_body: Option<String>,
+) {
+    let _ = reason;
 
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
+    }
+
+    if notify.unwrap_or(true) {
+        let title = notification_title.unwrap_or_else(|| "KPassword protegido".to_string());
+        let body = notification_body.unwrap_or_else(|| "O KPassword continua protegido na bandeja.".to_string());
+
+        let _ = app
+            .notification()
+            .builder()
+            .title(title)
+            .body(body)
+            .show();
     }
 }
 

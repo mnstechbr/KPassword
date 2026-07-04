@@ -1,6 +1,6 @@
 [package]
 name = "kpassword"
-version = "0.9.1"
+version = "0.9.2"
 description = "KPassword"
 authors = ["Jean Silva"]
 edition = "2021"

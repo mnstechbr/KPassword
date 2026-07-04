@@ -100,7 +100,7 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "0.9.1";
+const APP_VERSION = "0.9.2";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -1043,6 +1043,10 @@ export default function App() {
     [appLanguage],
   );
 
+  const requestTrayProtection = useCallback((reason: "inactive" | "minimize" | "close") => {
+    window.dispatchEvent(new CustomEvent("kpassword:protect-to-tray", { detail: { reason } }));
+  }, []);
+
 
   const askConfirmation = useCallback(
     (options: Omit<ConfirmDialog, "resolve">) =>
@@ -1266,19 +1270,21 @@ export default function App() {
       const idleMs = Date.now() - lastActivityRef.current;
 
       if (!busy && !windowsHelloBusy && idleMs >= autoLockMinutes * 60_000) {
+        requestTrayProtection("inactive");
         lockVault();
         setMessage(t("security.autoLocked"));
       }
     }, 15_000);
 
     return () => window.clearInterval(interval);
-  }, [busy, lockVault, mode, t, vault?.settings.autoLockMinutes, vault?.settings.lockOnInactive, windowsHelloBusy]);
+  }, [busy, lockVault, mode, requestTrayProtection, t, vault?.settings.autoLockMinutes, vault?.settings.lockOnInactive, windowsHelloBusy]);
 
   useEffect(() => {
     if (mode !== "unlocked" || !vault?.settings.lockOnMinimize) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden" && !busy && !windowsHelloBusy) {
+        requestTrayProtection("minimize");
         lockVault();
       }
     };
@@ -1286,7 +1292,7 @@ export default function App() {
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [busy, lockVault, mode, vault?.settings.lockOnMinimize, windowsHelloBusy]);
+  }, [busy, lockVault, mode, requestTrayProtection, vault?.settings.lockOnMinimize, windowsHelloBusy]);
 
   const persistVault = useCallback(
     async (nextVault: PlainVault, passwordOverride?: string, forceBackup = false) => {
@@ -3747,7 +3753,7 @@ export default function App() {
               <p>{t("settings.autoBackupsDescription")}</p>
 
               <div className="backupList">
-                {backups.slice(0, 8).map((backup) => (
+                {backups.slice(0, 3).map((backup) => (
                   <div key={backup.filename}>
                     <strong>{backup.filename}</strong>
                     <span>
@@ -3758,6 +3764,12 @@ export default function App() {
 
                 {backups.length === 0 && <p className="emptyText">{t("settings.noBackups")}</p>}
               </div>
+
+              {backups.length > 3 && (
+                <p className="backupListHint">
+                  Exibindo os 3 backups mais recentes. Para ver todos, use Abrir pasta de backups.
+                </p>
+              )}
 
               <button
                 className="secondaryButton"
