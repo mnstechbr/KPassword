@@ -5,6 +5,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function assertPlainVault(value: unknown): asserts value is PlainVault {
+  if (!isRecord(value)) throw new Error("Payload de cofre invalido.");
+  if (value.version !== 1) throw new Error("Versao de payload incompativel.");
+  if (typeof value.createdAt !== "string" || typeof value.updatedAt !== "string") {
+    throw new Error("Datas do cofre invalidas.");
+  }
+  if (!Array.isArray(value.credentials)) throw new Error("Lista de credenciais invalida.");
+  if (!isRecord(value.settings)) throw new Error("Configuracoes do cofre invalidas.");
+}
+
 function isLegacyVaultFile(value: unknown): value is EncryptedVaultFile {
   if (!isRecord(value) || value.version !== 1 || value.app !== "KPassword") return false;
   if (value.cryptoVersion !== undefined && value.cryptoVersion !== 1) return false;
@@ -69,14 +79,29 @@ export async function decryptVault(
 ): Promise<PlainVault> {
   try {
     const decrypted = await invoke<string>("decrypt_vault_payload", { file, masterPassword });
-    return JSON.parse(decrypted) as PlainVault;
+    const parsed = JSON.parse(decrypted) as unknown;
+    assertPlainVault(parsed);
+    return parsed;
   } catch {
     throw new Error("Senha mestra incorreta ou arquivo de cofre invalido.");
   }
 }
 
+export async function validateEncryptedVaultBackup(raw: string, masterPassword: string) {
+  const file = parseEncryptedVault(raw);
+  const plainVault = await decryptVault(file, masterPassword);
+
+  return { file, plainVault };
+}
+
 export function parseEncryptedVault(raw: string): EncryptedVaultFile {
-  const parsed = JSON.parse(raw) as unknown;
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error("Arquivo de cofre invalido ou incompativel.");
+  }
 
   if (isLegacyVaultFile(parsed) || isArgon2idVaultFile(parsed)) {
     return parsed;
@@ -93,7 +118,7 @@ export function createEmptyVault(): PlainVault {
     updatedAt: now,
     credentials: [],
     settings: {
-      autoLockMinutes: 3,
+      autoLockMinutes: 10,
       backupIntervalHours: 4,
       clipboardClearSeconds: 60,
       masterPasswordChangedAt: now,

@@ -516,4 +516,27 @@ mod tests {
             sample_plaintext()
         );
     }
+
+    #[test]
+    fn unknown_crypto_version_fails_safely() {
+        let encrypted =
+            encrypt_vault_v2_with_params(&sample_plaintext(), "correct horse", None, test_params())
+                .unwrap();
+        let mut value = serde_json::to_value(encrypted).unwrap();
+        value["cryptoVersion"] = Value::Number(99.into());
+
+        assert!(decrypt_vault_file(&value, "correct horse").is_err());
+    }
+
+    #[test]
+    fn missing_v2_metadata_fails_safely() {
+        let encrypted =
+            encrypt_vault_v2_with_params(&sample_plaintext(), "correct horse", None, test_params())
+                .unwrap();
+        let mut value = serde_json::to_value(encrypted).unwrap();
+        value["cipher"].as_object_mut().unwrap().remove("nonce");
+
+        assert!(decrypt_vault_file(&value, "correct horse").is_err());
+    }
+
 }

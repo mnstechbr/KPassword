@@ -466,6 +466,7 @@ mod windows_hello_native {
     use std::ffi::c_void;
     use std::{fs, path::PathBuf, ptr};
     use tauri::{AppHandle, Manager};
+    use zeroize::Zeroize;
     use windows::core::HSTRING;
     use windows::Security::Credentials::UI::{
         UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
@@ -859,7 +860,7 @@ mod windows_hello_native {
     pub fn enable(
         app: AppHandle,
         vault_name: Option<String>,
-        master_password: String,
+        mut master_password: String,
         reason: String,
     ) -> Result<WindowsHelloStatus, String> {
         if master_password.is_empty() {
@@ -871,6 +872,7 @@ mod windows_hello_native {
         verify_user(&reason)?;
 
         let protected = protect_secret(&master_password, &safe_vault_name)?;
+        master_password.zeroize();
         fs::write(path, protected).map_err(|error| {
             format!("Erro ao salvar credencial local do Windows Hello: {error}")
         })?;

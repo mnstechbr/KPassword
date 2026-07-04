@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type MouseEvent,
@@ -13,6 +14,7 @@ import {
   encryptVault,
   needsCryptoMigration,
   parseEncryptedVault,
+  validateEncryptedVaultBackup,
   validateMasterPassword,
 } from "./crypto";
 import { generatePassword, getPasswordLabel, getPasswordScore, type PasswordGeneratorMode } from "./password";
@@ -98,7 +100,7 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "0.9.0";
+const APP_VERSION = "0.9.1";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -954,7 +956,7 @@ function normalizeVault(vault: PlainVault): PlainVault {
       };
     }),
     settings: {
-      autoLockMinutes: vault.settings?.autoLockMinutes ?? 3,
+      autoLockMinutes: vault.settings?.autoLockMinutes ?? 10,
       backupIntervalHours: vault.settings?.backupIntervalHours ?? 4,
       clipboardClearSeconds: vault.settings?.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS,
       masterPasswordChangedAt:
@@ -1032,6 +1034,8 @@ export default function App() {
   const [generatorNumbers, setGeneratorNumbers] = useState(true);
   const [generatorSymbols, setGeneratorSymbols] = useState(true);
   const [generatorAvoidAmbiguous, setGeneratorAvoidAmbiguous] = useState(true);
+  const lastActivityRef = useRef(Date.now());
+  const clipboardCleanupRef = useRef<number | null>(null);
 
   const t = useCallback(
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
@@ -1123,7 +1127,7 @@ export default function App() {
   useEffect(() => {
     if (!vault) return;
 
-    localStorage.setItem("kpassword:auto-lock-minutes", String(vault.settings.autoLockMinutes ?? 3));
+    localStorage.setItem("kpassword:auto-lock-minutes", String(vault.settings.autoLockMinutes ?? 10));
     localStorage.setItem("kpassword:lock-on-minimize", String(vault.settings.lockOnMinimize ?? true));
     localStorage.setItem("kpassword:lock-on-close", String(vault.settings.lockOnClose ?? true));
     localStorage.setItem("kpassword:lock-on-inactive", String(vault.settings.lockOnInactive ?? true));
@@ -1197,10 +1201,13 @@ export default function App() {
         setUnlockPassword("");
         setMode("locked");
         await refreshStorageInfo(activeVaultName);
-      } catch (error) {
-        console.error(error);
+      } catch {
+        setEncryptedVault(null);
+        setVault(null);
+        setMasterPassword("");
+        setUnlockPassword("");
         setMessage(t("errors.loadVault"));
-        setMode("setup");
+        setMode("locked");
       }
     })();
   }, [activeVaultName, refreshStorageInfo, refreshVaultFiles, refreshWindowsHelloStatus]);
@@ -1232,6 +1239,54 @@ export default function App() {
       setUnlockGateOpen(false);
     }
   }, [mode]);
+
+  const markActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
+
+  useEffect(() => {
+    if (mode !== "unlocked") return;
+
+    const events = ["pointerdown", "keydown", "mousemove", "touchstart", "focus"] as const;
+    const activityHandler = () => markActivity();
+
+    events.forEach((eventName) => window.addEventListener(eventName, activityHandler, { passive: true }));
+    markActivity();
+
+    return () => {
+      events.forEach((eventName) => window.removeEventListener(eventName, activityHandler));
+    };
+  }, [markActivity, mode]);
+
+  useEffect(() => {
+    if (mode !== "unlocked" || !vault?.settings.lockOnInactive) return;
+
+    const interval = window.setInterval(() => {
+      const autoLockMinutes = Math.max(1, vault.settings.autoLockMinutes ?? 10);
+      const idleMs = Date.now() - lastActivityRef.current;
+
+      if (!busy && !windowsHelloBusy && idleMs >= autoLockMinutes * 60_000) {
+        lockVault();
+        setMessage(t("security.autoLocked"));
+      }
+    }, 15_000);
+
+    return () => window.clearInterval(interval);
+  }, [busy, lockVault, mode, t, vault?.settings.autoLockMinutes, vault?.settings.lockOnInactive, windowsHelloBusy]);
+
+  useEffect(() => {
+    if (mode !== "unlocked" || !vault?.settings.lockOnMinimize) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && !busy && !windowsHelloBusy) {
+        lockVault();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [busy, lockVault, mode, vault?.settings.lockOnMinimize, windowsHelloBusy]);
 
   const persistVault = useCallback(
     async (nextVault: PlainVault, passwordOverride?: string, forceBackup = false) => {
@@ -1347,7 +1402,7 @@ export default function App() {
     setUnlockGateOpen(false);
 
     if (!encryptedVault) {
-      setMode("setup");
+      setMessage(t("errors.loadVault"));
       return;
     }
 
@@ -1371,8 +1426,7 @@ export default function App() {
       await refreshWindowsHelloStatus(activeVaultName);
       void maybeShowPasswordRotationReminder(plainVault);
       void maybeShowPasswordExpiryReminder(plainVault);
-    } catch (error) {
-      console.error(error);
+    } catch {
       setUnlockGateOpen(false);
       setMessage(t("errors.unlock"));
     } finally {
@@ -1410,7 +1464,7 @@ export default function App() {
     setUnlockGateOpen(false);
 
     if (!encryptedVault) {
-      setMode("setup");
+      setMessage(t("errors.loadVault"));
       return;
     }
 
@@ -1716,8 +1770,7 @@ export default function App() {
       }
 
       setMessage(t("success.masterPasswordChanged"));
-    } catch (error) {
-      console.error(error);
+    } catch {
       setMessage(t("errors.changeMaster"));
     } finally {
       setBusy(false);
@@ -1733,8 +1786,8 @@ export default function App() {
     setMessage("");
 
     try {
-      const parsed = parseEncryptedVault(raw);
-      const restoredVault = normalizeVault(await decryptVault(parsed, password));
+      const { file: parsed, plainVault } = await validateEncryptedVaultBackup(raw, password);
+      const restoredVault = normalizeVault(plainVault);
 
       const confirmed = await askConfirmation({
         title: t("dialog.restoreBackupTitle"),
@@ -1747,7 +1800,11 @@ export default function App() {
 
       if (!confirmed) return;
 
-      const info = await saveVaultFile(raw, activeVaultName);
+      if (vault && masterPassword) {
+        await persistVault(vault, undefined, true);
+      }
+
+      const info = await saveVaultFile(raw, activeVaultName, false);
 
       setEncryptedVault(parsed);
       setVault(restoredVault);
@@ -1759,8 +1816,7 @@ export default function App() {
       setScreen("credentials");
       setMode("unlocked");
       setMessage(t("success.backupRestored"));
-    } catch (error) {
-      console.error(error);
+    } catch {
       setMessage(t("errors.restoreBackup"));
     }
   }
@@ -1768,8 +1824,17 @@ export default function App() {
   async function handleBackupFileInput(file: File | undefined | null, password: string) {
     if (!file) return;
 
-    const raw = await file.text();
-    await restoreBackupFromText(raw, password);
+    if (!file.name.toLowerCase().endsWith(".kpvault")) {
+      setMessage(t("errors.restoreBackup"));
+      return;
+    }
+
+    try {
+      const raw = await file.text();
+      await restoreBackupFromText(raw, password);
+    } catch {
+      setMessage(t("errors.restoreBackup"));
+    }
   }
 
   async function handleCheckUpdates() {
@@ -1831,8 +1896,7 @@ export default function App() {
     try {
       await persistVault(nextVault);
       setMessage(t("success.settingsUpdated"));
-    } catch (error) {
-      console.error(error);
+    } catch {
       setMessage(t("errors.saveSettings"));
     }
   }
@@ -2328,25 +2392,29 @@ export default function App() {
   async function copySecure(value: string, label: string) {
     if (!value) return;
 
+    if (clipboardCleanupRef.current) {
+      window.clearTimeout(clipboardCleanupRef.current);
+      clipboardCleanupRef.current = null;
+    }
+
     await navigator.clipboard.writeText(value);
     setCopiedField(label);
 
-    window.setTimeout(async () => {
+    const copiedValue = value;
+
+    clipboardCleanupRef.current = window.setTimeout(async () => {
       try {
         const current = await navigator.clipboard.readText();
 
-        if (current === value) {
+        if (current === copiedValue) {
           await navigator.clipboard.writeText("");
         }
       } catch {
-        try {
-          await navigator.clipboard.writeText("");
-        } catch {
-          // Ignora falha de limpeza em ambiente sem permissão de clipboard.
-        }
+        // Sem permissão de leitura: não limpa para evitar apagar conteúdo novo do usuário.
+      } finally {
+        clipboardCleanupRef.current = null;
+        setCopiedField("");
       }
-
-      setCopiedField("");
     }, (vault?.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS) * 1000);
   }
 
@@ -3837,6 +3905,7 @@ export default function App() {
             <article className="wideCard securityActionCard">
               <h2>{t("settings.securitySettings")}</h2>
               <p>{t("settings.securitySettingsDescription")}</p>
+              <p>{t("security.localThreatModel")}</p>
 
               <div className={windowsHelloStatus.enabled ? "windowsHelloPanel enabled" : "windowsHelloPanel"}>
                 <div className="windowsHelloPanelText">
@@ -3879,7 +3948,7 @@ export default function App() {
                     type="number"
                     min={1}
                     max={120}
-                    value={vault?.settings.autoLockMinutes ?? 3}
+                    value={vault?.settings.autoLockMinutes ?? 10}
                     onChange={(event) => void updateVaultSettings({ autoLockMinutes: Number(event.target.value) })}
                   />
                 </label>
