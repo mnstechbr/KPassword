@@ -9,7 +9,7 @@ fix-updater-v030-build.cjs
 
 São os scripts principais para gerar instalador, assinatura e `latest.json`.
 
-## Scripts adicionados na v0.7.2
+## Scripts historicos e de manutenção
 
 ```text
 audit-project.ps1
@@ -32,5 +32,5 @@ Eles são preservados para histórico, mas não fazem parte do fluxo normal de r
 ```powershell
 cd C:\Projetos\KPassword
 npm run build
-powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "0.7.2"
+powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "<versao>"
 ```

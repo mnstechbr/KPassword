@@ -20,6 +20,10 @@ const LEGACY_AAD: &[u8] = b"KPassword:Vault:v1";
 const ARGON2ID_KDF: &str = "argon2id";
 const ARGON2ID_CIPHER: &str = "AES-256-GCM";
 const GENERIC_CRYPTO_ERROR: &str = "Senha mestra incorreta ou arquivo de cofre invalido.";
+const ARGON2ID_MAX_MEMORY_KIB: u32 = 262_144;
+const ARGON2ID_MAX_TIME_COST: u32 = 10;
+const ARGON2ID_MAX_PARALLELISM: u32 = 4;
+const LEGACY_PBKDF2_MAX_ITERATIONS: u32 = 2_000_000;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Argon2idParams {
@@ -112,8 +116,11 @@ fn encode_base64(bytes: &[u8]) -> String {
 
 fn validate_argon2id_params(params: Argon2idParams) -> Result<(), String> {
     if params.memory_kib == 0
+        || params.memory_kib > ARGON2ID_MAX_MEMORY_KIB
         || params.time_cost == 0
+        || params.time_cost > ARGON2ID_MAX_TIME_COST
         || params.parallelism == 0
+        || params.parallelism > ARGON2ID_MAX_PARALLELISM
         || params.output_length != 32
     {
         return Err(GENERIC_CRYPTO_ERROR.to_string());
@@ -154,7 +161,7 @@ fn derive_legacy_pbkdf2_key(
     salt: &[u8],
     iterations: u32,
 ) -> Result<Vec<u8>, String> {
-    if salt.len() < 16 || iterations == 0 {
+    if salt.len() < 16 || iterations == 0 || iterations > LEGACY_PBKDF2_MAX_ITERATIONS {
         return Err(GENERIC_CRYPTO_ERROR.to_string());
     }
 
@@ -535,6 +542,40 @@ mod tests {
                 .unwrap();
         let mut value = serde_json::to_value(encrypted).unwrap();
         value["cipher"].as_object_mut().unwrap().remove("nonce");
+
+        assert!(decrypt_vault_file(&value, "correct horse").is_err());
+    }
+
+    #[test]
+    fn excessive_argon2id_memory_is_rejected() {
+        let encrypted =
+            encrypt_vault_v2_with_params(&sample_plaintext(), "correct horse", None, test_params())
+                .unwrap();
+        let mut value = serde_json::to_value(encrypted).unwrap();
+        value["kdf"]["params"]["memoryKiB"] =
+            Value::Number((ARGON2ID_MAX_MEMORY_KIB as u64 + 1).into());
+
+        assert!(decrypt_vault_file(&value, "correct horse").is_err());
+    }
+
+    #[test]
+    fn excessive_argon2id_time_cost_is_rejected() {
+        let encrypted =
+            encrypt_vault_v2_with_params(&sample_plaintext(), "correct horse", None, test_params())
+                .unwrap();
+        let mut value = serde_json::to_value(encrypted).unwrap();
+        value["kdf"]["params"]["timeCost"] =
+            Value::Number((ARGON2ID_MAX_TIME_COST as u64 + 1).into());
+
+        assert!(decrypt_vault_file(&value, "correct horse").is_err());
+    }
+
+    #[test]
+    fn excessive_legacy_pbkdf2_iterations_are_rejected() {
+        let legacy = encrypt_legacy_for_test(&sample_plaintext(), "correct horse", 10_000);
+        let mut value = serde_json::to_value(&legacy).unwrap();
+        value["crypto"]["iterations"] =
+            Value::Number((LEGACY_PBKDF2_MAX_ITERATIONS as u64 + 1).into());
 
         assert!(decrypt_vault_file(&value, "correct horse").is_err());
     }

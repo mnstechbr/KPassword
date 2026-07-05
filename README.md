@@ -66,20 +66,20 @@ Use o script principal mantido no projeto:
 
 ```powershell
 cd C:\Projetos\KPassword
-powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "0.8.0"
+powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "<versao>"
 ```
 
 Os arquivos de release serão gerados em:
 
 ```text
-C:\Projetos\KPassword\dist-release\v0.8.0
+C:\Projetos\KPassword\dist-release\v<versao>
 ```
 
 Anexe estes arquivos na release do GitHub:
 
 ```text
-KPassword-Setup-v0.8.0.exe
-KPassword-Setup-v0.8.0.exe.sig
+KPassword-Setup-v<versao>.exe
+KPassword-Setup-v<versao>.exe.sig
 latest.json
 ```
 

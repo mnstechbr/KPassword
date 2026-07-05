@@ -1767,7 +1767,7 @@ textarea:focus {
   object-fit: contain;
 }
 
-/* Menu toggle usando o Ã­cone oficial do KPassword */
+/* Menu toggle usando o ícone oficial do KPassword */
 .sidebarToggle {
   display: grid;
   width: 54px;
@@ -1819,7 +1819,7 @@ textarea:focus {
   padding-left: 0;
 }
 
-/* CorreÃ§Ã£o segura: Ã­cone do KPassword como botÃ£o do menu lateral */
+/* Correção segura: ícone do KPassword como botão do menu lateral */
 .sidebarToggle {
   display: grid;
   width: 54px;
@@ -1867,7 +1867,7 @@ textarea:focus {
   padding-left: 0;
 }
 
-/* Remove o Ã­cone duplicado do cabeÃ§alho das pÃ¡ginas */
+/* Remove o ícone duplicado do cabeçalho das páginas */
 .topbarTitle .appLogo {
   display: none !important;
 }
@@ -1876,7 +1876,7 @@ textarea:focus {
   gap: 0 !important;
 }
 
-/* Ajuste final: deslocar somente o botÃ£o KPassword no menu fechado */
+/* Ajuste final: deslocar somente o botão KPassword no menu fechado */
 .sidebarClosed .sidebarBrand .sidebarToggle {
   transform: translateX(9px) !important;
 }
@@ -2204,7 +2204,7 @@ button,
 }
 
 /* === KPassword v0.3.3 hotfix spacing security settings START === */
-/* v0.3.3 hotfix - espaÃ§amento do card ConfiguraÃ§Ãµes de seguranÃ§a */
+/* v0.3.3 hotfix - espaçamento do card Configurações de segurança */
 .securityActionCard .settingsControlGrid {
   margin-top: 18px !important;
   margin-bottom: 18px !important;
@@ -8068,7 +8068,7 @@ body.theme-mixed,
   --kp-light-red-text-active: #ffffff;
 }
 
-/* Login: botÃ£o PIN legÃ­vel em claro/misto */
+/* Login: botão PIN legível em claro/misto */
 .app.theme-light .pinButton,
 .app.theme-mixed .pinButton,
 .app.theme-light .helloButton,
@@ -8099,7 +8099,7 @@ body.theme-mixed,
   text-shadow: none !important;
 }
 
-/* Lixeira: botÃµes legÃ­veis */
+/* Lixeira: botões legíveis */
 .app.theme-light .trashPage button,
 .app.theme-mixed .trashPage button,
 .app.theme-light .trashCard button,
@@ -8147,7 +8147,7 @@ body.theme-mixed,
   text-shadow: none !important;
 }
 
-/* Cofre: itens, textos e aÃ§Ãµes visÃ­veis em claro/misto */
+/* Cofre: itens, textos e ações visíveis em claro/misto */
 .app.theme-light .credentialRow,
 .app.theme-mixed .credentialRow,
 .app.theme-light .vaultItem,
@@ -8217,7 +8217,7 @@ body.theme-mixed,
   -webkit-text-fill-color: #1e3a8a !important;
 }
 
-/* AÃ§Ãµes das credenciais: copiar usuÃ¡rio, copiar senha, editar */
+/* Ações das credenciais: copiar usuário, copiar senha, editar */
 .app.theme-light .credentialActions button,
 .app.theme-mixed .credentialActions button,
 .app.theme-light .vaultActions button,
@@ -8305,7 +8305,7 @@ body.theme-mixed,
   color: var(--kp-light-muted) !important;
 }
 
-/* BotÃµes do detalhe: copiar, mostrar senha, abrir site, editar */
+/* Botões do detalhe: copiar, mostrar senha, abrir site, editar */
 .app.theme-light .itemDetail button,
 .app.theme-mixed .itemDetail button,
 .app.theme-light .detailCard button,
@@ -8378,7 +8378,7 @@ body.theme-mixed,
 /* === KPassword v0.8.2 HOTFIX REAL contraste Claro/Misto START === */
 
 /*
-  CorreÃ§Ã£o real usando os seletores que o app usa:
+  Correção real usando os seletores que o app usa:
   :root[data-theme="light"] e :root[data-theme="mixed"].
 
   Corrige:
@@ -8386,7 +8386,7 @@ body.theme-mixed,
   - Cofre: .credentialRow, .rowActions, .rowPassword, .rowCategory, .rowHealth
   - Lixeira: .trashActions .secondaryButton e .trashActions .dangerButton
   - Detalhe: .detailPopup, .detailActions, .attachmentsBox, .historyBox
-  - BotÃµes internos: .attachmentActions, .historyActions, .fileImportButton
+  - Botões internos: .attachmentActions, .historyActions, .fileImportButton
 */
 
 :root[data-theme="light"],
@@ -8509,7 +8509,7 @@ body.theme-mixed,
   -webkit-text-fill-color: #94a3b8 !important;
 }
 
-/* COFRE - botÃµes Copiar usuÃ¡rio / Copiar senha / Editar */
+/* COFRE - botões Copiar usuário / Copiar senha / Editar */
 :root[data-theme="light"] .rowActions button,
 :root[data-theme="mixed"] .rowActions button {
   background: var(--kp-fix-blue-bg) !important;
@@ -8624,7 +8624,7 @@ body.theme-mixed,
   text-shadow: none !important;
 }
 
-/* DETALHE - botÃµes inferiores e internos */
+/* DETALHE - botões inferiores e internos */
 :root[data-theme="light"] .detailActions button,
 :root[data-theme="mixed"] .detailActions button,
 :root[data-theme="light"] .attachmentActions button,
@@ -8672,7 +8672,7 @@ body.theme-mixed,
   -webkit-text-fill-color: #7f1d1d !important;
 }
 
-/* Fallback final: qualquer secondary/ghost dentro de superfÃ­cie clara */
+/* Fallback final: qualquer secondary/ghost dentro de superfície clara */
 :root[data-theme="light"] .wideCard .secondaryButton,
 :root[data-theme="mixed"] .wideCard .secondaryButton,
 :root[data-theme="light"] .wideCard .ghostButton,

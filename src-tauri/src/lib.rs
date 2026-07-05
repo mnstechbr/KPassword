@@ -1084,10 +1084,6 @@ fn hide_to_tray(
     }
 }
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Olá, {}! KPassword está rodando.", name)
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -1150,7 +1146,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
             hide_to_tray,
             load_vault_file,
             save_vault_file,

@@ -29,7 +29,7 @@ git push
 ## Gerar instalador/updater
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "0.7.2"
+powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "<versao>"
 ```
 
 ## Publicar release
@@ -43,16 +43,16 @@ https://github.com/mnstechbr/KPassword/releases/new
 Preencher:
 
 ```text
-Tag: v0.7.2
-Title: KPassword v0.7.2
+Tag: v<versao>
+Title: KPassword v<versao>
 ```
 
 Anexar:
 
 ```text
-C:\Projetos\KPassword\dist-release\v0.7.2\KPassword-Setup-v0.7.2.exe
-C:\Projetos\KPassword\dist-release\v0.7.2\KPassword-Setup-v0.7.2.exe.sig
-C:\Projetos\KPassword\dist-release\v0.7.2\latest.json
+C:\Projetos\KPassword\dist-release\v<versao>\KPassword-Setup-v<versao>.exe
+C:\Projetos\KPassword\dist-release\v<versao>\KPassword-Setup-v<versao>.exe.sig
+C:\Projetos\KPassword\dist-release\v<versao>\latest.json
 ```
 
 ## Depois de publicar

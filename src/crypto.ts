@@ -1,6 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { EncryptedVaultFile, EncryptedVaultFileV2, PlainVault } from "./types";
 
+const ARGON2ID_MAX_MEMORY_KIB = 262_144;
+const ARGON2ID_MAX_TIME_COST = 10;
+const ARGON2ID_MAX_PARALLELISM = 4;
+const LEGACY_PBKDF2_MAX_ITERATIONS = 2_000_000;
+
+function isPositiveIntegerAtMost(value: unknown, max: number): value is number {
+  return Number.isInteger(value) && typeof value === "number" && value > 0 && value <= max;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -23,7 +32,7 @@ function isLegacyVaultFile(value: unknown): value is EncryptedVaultFile {
   return (
     value.crypto.algorithm === "AES-GCM" &&
     value.crypto.kdf === "PBKDF2-SHA-256" &&
-    typeof value.crypto.iterations === "number" &&
+    isPositiveIntegerAtMost(value.crypto.iterations, LEGACY_PBKDF2_MAX_ITERATIONS) &&
     typeof value.crypto.salt === "string" &&
     typeof value.crypto.iv === "string" &&
     typeof value.payload === "string" &&
@@ -42,10 +51,10 @@ function isArgon2idVaultFile(value: unknown): value is EncryptedVaultFileV2 {
     typeof value.kdf.salt === "string" &&
     value.cipher.algorithm === "AES-256-GCM" &&
     typeof value.cipher.nonce === "string" &&
-    typeof value.kdf.params.memoryKiB === "number" &&
-    typeof value.kdf.params.timeCost === "number" &&
-    typeof value.kdf.params.parallelism === "number" &&
-    typeof value.kdf.params.outputLength === "number" &&
+    isPositiveIntegerAtMost(value.kdf.params.memoryKiB, ARGON2ID_MAX_MEMORY_KIB) &&
+    isPositiveIntegerAtMost(value.kdf.params.timeCost, ARGON2ID_MAX_TIME_COST) &&
+    isPositiveIntegerAtMost(value.kdf.params.parallelism, ARGON2ID_MAX_PARALLELISM) &&
+    value.kdf.params.outputLength === 32 &&
     typeof value.payload === "string" &&
     typeof value.createdAt === "string" &&
     typeof value.updatedAt === "string"

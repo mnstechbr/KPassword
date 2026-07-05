@@ -22,3 +22,13 @@ src-tauri/gen/
 *.bak
 *.old
 *.orig
+
+# Cofres e segredos locais nunca devem ser versionados.
+*.kpvault
+*.kphello
+*.kppass
+backups/
+**/backups/
+**/*.kpvault
+**/*.kphello
+KPassword-backup-*/
