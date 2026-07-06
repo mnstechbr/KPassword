@@ -46,6 +46,7 @@ export type CredentialRecord = {
   password: string;
   url: string;
   category: CredentialCategory;
+  tags?: string[];
   notes: string;
   favorite: boolean;
   deletedAt?: string;

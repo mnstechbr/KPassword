@@ -1,4 +1,4 @@
-* {
+﻿* {
   box-sizing: border-box;
 }
 
@@ -1767,7 +1767,7 @@ textarea:focus {
   object-fit: contain;
 }
 
-/* Menu toggle usando o ícone oficial do KPassword */
+/* Menu toggle usando o Ã­cone oficial do KPassword */
 .sidebarToggle {
   display: grid;
   width: 54px;
@@ -1819,7 +1819,7 @@ textarea:focus {
   padding-left: 0;
 }
 
-/* Correção segura: ícone do KPassword como botão do menu lateral */
+/* CorreÃ§Ã£o segura: Ã­cone do KPassword como botÃ£o do menu lateral */
 .sidebarToggle {
   display: grid;
   width: 54px;
@@ -1867,7 +1867,7 @@ textarea:focus {
   padding-left: 0;
 }
 
-/* Remove o ícone duplicado do cabeçalho das páginas */
+/* Remove o Ã­cone duplicado do cabeÃ§alho das pÃ¡ginas */
 .topbarTitle .appLogo {
   display: none !important;
 }
@@ -1876,7 +1876,7 @@ textarea:focus {
   gap: 0 !important;
 }
 
-/* Ajuste final: deslocar somente o botão KPassword no menu fechado */
+/* Ajuste final: deslocar somente o botÃ£o KPassword no menu fechado */
 .sidebarClosed .sidebarBrand .sidebarToggle {
   transform: translateX(9px) !important;
 }
@@ -2018,7 +2018,7 @@ button,
   }
 }
 
-/* v0.3.3 - lixeira, validade de senha, gerador avançado e saúde do cofre */
+/* v0.3.3 - lixeira, validade de senha, gerador avanÃ§ado e saÃºde do cofre */
 .metricCard.danger {
   border-color: rgba(248, 113, 113, 0.5);
   background: linear-gradient(180deg, rgba(127, 29, 29, 0.25), rgba(16, 18, 27, 0.86));
@@ -2204,7 +2204,7 @@ button,
 }
 
 /* === KPassword v0.3.3 hotfix spacing security settings START === */
-/* v0.3.3 hotfix - espaçamento do card Configurações de segurança */
+/* v0.3.3 hotfix - espaÃ§amento do card ConfiguraÃ§Ãµes de seguranÃ§a */
 .securityActionCard .settingsControlGrid {
   margin-top: 18px !important;
   margin-bottom: 18px !important;
@@ -2457,7 +2457,7 @@ button,
 /* === KPassword v0.4.0 item types and password history END === */
 
 
-/* v0.4.1 - importação, exportação e anexos criptografados */
+/* v0.4.1 - importaÃ§Ã£o, exportaÃ§Ã£o e anexos criptografados */
 .exportActionGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -3475,7 +3475,7 @@ textarea {
   gap: clamp(10px, 1.4vw, 16px);
 }
 
-/* desktop estreito/tablet: mantém tudo usável sem estourar container */
+/* desktop estreito/tablet: mantÃ©m tudo usÃ¡vel sem estourar container */
 @media (max-width: 1180px) {
   .credentialRow {
     grid-template-columns: 28px 40px minmax(0, 1fr) minmax(92px, 0.42fr) minmax(160px, auto);
@@ -3814,7 +3814,7 @@ textarea {
 
 /* === KPassword v0.6.0 hotfix desktop login + dashboard START === */
 
-/* Login: desktop-first, sem sensação de app mobile preso em container */
+/* Login: desktop-first, sem sensaÃ§Ã£o de app mobile preso em container */
 .authShell {
   min-height: 100dvh !important;
   padding: clamp(18px, 3.2vw, 42px) !important;
@@ -3928,7 +3928,7 @@ textarea {
   min-height: 52px !important;
 }
 
-/* Loading fica com cara de tela desktop, não de celular */
+/* Loading fica com cara de tela desktop, nÃ£o de celular */
 .authCard:not(:has(.authForm)) > .vaultSwitcher {
   grid-row: 2 / span 4 !important;
   align-self: center !important;
@@ -4328,7 +4328,7 @@ button.metricCard {
 }
 
 .dashboardTotalCard::after {
-  content: "▾";
+  content: "â–¾";
   position: absolute;
   right: 18px;
   top: 18px;
@@ -4454,7 +4454,7 @@ button.metricCard {
 }
 
 .checklistGrid span::before {
-  content: "✓ ";
+  content: "âœ“ ";
   color: #86efac;
   font-weight: 900;
 }
@@ -4502,7 +4502,7 @@ button.metricCard {
 }
 
 .firstUseGuide span::before {
-  content: "• ";
+  content: "â€¢ ";
   color: #7dd3fc;
   font-weight: 900;
 }
@@ -4571,7 +4571,7 @@ button.metricCard {
 /* === KPassword v0.7.0 product polish, help, about, folders END === */
 
 
-/* === KPassword v0.7.0 enxuto: navegação, ajuda e controles START === */
+/* === KPassword v0.7.0 enxuto: navegaÃ§Ã£o, ajuda e controles START === */
 select {
   appearance: none !important;
   -webkit-appearance: none !important;
@@ -4720,7 +4720,7 @@ select option:checked {
 :root[data-theme="mixed"] .localSecurityNotice span {
   color: #475569;
 }
-/* === KPassword v0.7.0 enxuto: navegação, ajuda e controles END === */
+/* === KPassword v0.7.0 enxuto: navegaÃ§Ã£o, ajuda e controles END === */
 
 /* === KPassword v0.7.0 hotfix idiomas e detalhe do item START === */
 .languageSelect.compact select {
@@ -4894,7 +4894,7 @@ select option:checked {
 }
 /* === KPassword v0.7.0 hotfix analitico limpo e add compacto END === */
 
-/* === KPassword v0.7.0 hotfix cabeçalho modal novo item START === */
+/* === KPassword v0.7.0 hotfix cabeÃ§alho modal novo item START === */
 .credentialModal .modalHeader {
   position: static !important;
   top: auto !important;
@@ -4922,7 +4922,7 @@ select option:checked {
 .credentialModal .modalHeader .iconButton {
   flex: 0 0 auto !important;
 }
-/* === KPassword v0.7.0 hotfix cabeçalho modal novo item END === */
+/* === KPassword v0.7.0 hotfix cabeÃ§alho modal novo item END === */
 
 /* === KPassword v0.7.0 hotfix gerador sem baloes START === */
 .credentialModal .generatorPanel {
@@ -5518,10 +5518,10 @@ select {
 /*
   Login desktop real:
   - remove o "app dentro do app"
-  - usa a área inteira da janela
-  - mantém só uma marca visual do KPassword
-  - reduz títulos exagerados
-  - coloca Ajustes rápidos acima de tudo
+  - usa a Ã¡rea inteira da janela
+  - mantÃ©m sÃ³ uma marca visual do KPassword
+  - reduz tÃ­tulos exagerados
+  - coloca Ajustes rÃ¡pidos acima de tudo
 */
 .authShell.authDesktopShell {
   min-height: 100dvh !important;
@@ -5721,7 +5721,7 @@ select {
   font-size: 0.98rem !important;
 }
 
-/* Ajustes rápidos: sempre por cima, sem entrar atrás do painel */
+/* Ajustes rÃ¡pidos: sempre por cima, sem entrar atrÃ¡s do painel */
 .authQuickSettings {
   position: relative !important;
   z-index: 200 !important;
@@ -5820,7 +5820,7 @@ select {
   align-content: center !important;
 }
 
-/* Janela média: continua desktop, mas mais compacto */
+/* Janela mÃ©dia: continua desktop, mas mais compacto */
 @media (max-width: 980px) {
   .authCard.authExperience {
     grid-template-columns: 1fr !important;
@@ -6201,7 +6201,7 @@ select {
   padding-inline: 18px !important;
 }
 
-/* Esconde a implementação antiga de ajustes rápidos se algum resto existir */
+/* Esconde a implementaÃ§Ã£o antiga de ajustes rÃ¡pidos se algum resto existir */
 .authQuickSettings,
 .authQuickPanel {
   display: none !important;
@@ -6333,7 +6333,7 @@ select {
 
 /* === KPassword v0.7.1 hotfix tema conectado logo e PIN START === */
 
-/* Marca do app: a barra do Windows já mostra KPassword. Na tela, a logo entra como elemento visual principal. */
+/* Marca do app: a barra do Windows jÃ¡ mostra KPassword. Na tela, a logo entra como elemento visual principal. */
 .authProductMark {
   display: none !important;
 }
@@ -6342,7 +6342,7 @@ select {
   justify-content: flex-end !important;
 }
 
-/* Logo integrada ao hero, sem duplicação de nome e com assinatura visual própria. */
+/* Logo integrada ao hero, sem duplicaÃ§Ã£o de nome e com assinatura visual prÃ³pria. */
 .authHeroBlock {
   position: relative !important;
   padding-top: 6px !important;
@@ -6388,7 +6388,7 @@ select {
     drop-shadow(0 0 26px rgba(56, 189, 248, 0.13)) !important;
 }
 
-/* Título: menos infantil/exagerado, mais produto premium. */
+/* TÃ­tulo: menos infantil/exagerado, mais produto premium. */
 .authHeroBlock h1 {
   font-size: clamp(2rem, 3.55vw, 3rem) !important;
   line-height: 1.04 !important;
@@ -6401,7 +6401,7 @@ select {
   font-size: clamp(0.98rem, 1.05vw, 1.08rem) !important;
 }
 
-/* Controles de tema conectados e com ícones. */
+/* Controles de tema conectados e com Ã­cones. */
 .authThemeButtons {
   display: inline-flex !important;
   align-items: stretch !important;
@@ -6451,7 +6451,7 @@ select {
   line-height: 1 !important;
 }
 
-/* Botão de PIN: limpo, sem ícone insignificante e com texto curto. */
+/* BotÃ£o de PIN: limpo, sem Ã­cone insignificante e com texto curto. */
 .authForm .windowsHelloButton {
   min-height: 52px !important;
   padding-inline: 18px !important;
@@ -6508,7 +6508,7 @@ select {
   color: rgba(248, 250, 252, 0.92) !important;
 }
 
-/* Modo claro: tema conectado sem botões lavados. */
+/* Modo claro: tema conectado sem botÃµes lavados. */
 :root[data-theme="light"] .authThemeButtons {
   background: rgba(255, 255, 255, 0.70) !important;
   border-color: rgba(59, 130, 246, 0.16) !important;
@@ -6557,9 +6557,9 @@ select {
 /* === KPassword v0.7.1 hotfix scroll login sem mover layout START === */
 
 /*
-  Apenas habilita rolagem quando o conteúdo da tela bloqueada ultrapassar
-  a altura disponível. Não muda grid, colunas, posição do painel, tamanho da
-  logo, título, painel de login ou breakpoints.
+  Apenas habilita rolagem quando o conteÃºdo da tela bloqueada ultrapassar
+  a altura disponÃ­vel. NÃ£o muda grid, colunas, posiÃ§Ã£o do painel, tamanho da
+  logo, tÃ­tulo, painel de login ou breakpoints.
 */
 html:has(.authDesktopShell),
 body:has(.authDesktopShell),
@@ -6582,7 +6582,7 @@ body:has(.authDesktopShell),
   overflow: visible !important;
 }
 
-/* Só garante espaço no final para o último elemento não ficar colado/cortado. */
+/* SÃ³ garante espaÃ§o no final para o Ãºltimo elemento nÃ£o ficar colado/cortado. */
 .authCard.authExperience {
   padding-bottom: max(clamp(28px, 4vw, 64px), env(safe-area-inset-bottom)) !important;
 }
@@ -6591,7 +6591,7 @@ body:has(.authDesktopShell),
 
 /* === KPassword v0.7.1 hotfix temas analitico lateral START === */
 
-/* Menu lateral: a barra superior do sistema já mostra KPassword. */
+/* Menu lateral: a barra superior do sistema jÃ¡ mostra KPassword. */
 .sidebarBrand .brandText {
   display: none !important;
 }
@@ -6747,7 +6747,7 @@ select option {
   color: var(--kp-readable) !important;
 }
 
-/* Analítico: menos estatística solta, mais leitura de saúde e ação. */
+/* AnalÃ­tico: menos estatÃ­stica solta, mais leitura de saÃºde e aÃ§Ã£o. */
 .analyticsPage {
   display: grid;
   gap: clamp(16px, 2vw, 24px);
@@ -6937,10 +6937,10 @@ select option {
 
 /*
   Regra final de contraste:
-  - superfície clara = texto escuro
-  - superfície escura = texto claro
-  - botões claros deixam de usar texto branco
-  - botões desativados continuam legíveis
+  - superfÃ­cie clara = texto escuro
+  - superfÃ­cie escura = texto claro
+  - botÃµes claros deixam de usar texto branco
+  - botÃµes desativados continuam legÃ­veis
 */
 
 /* Corrige desalinhamento herdado do menu fechado. */
@@ -6986,7 +6986,7 @@ select option {
   color: var(--kp-readable) !important;
 }
 
-/* Páginas e conteúdo */
+/* PÃ¡ginas e conteÃºdo */
 :root[data-theme="light"] .content,
 :root[data-theme="mixed"] .content {
   color: var(--kp-readable) !important;
@@ -7006,7 +7006,7 @@ select option {
   color: #334155 !important;
 }
 
-/* Cards/superfícies claras: texto escuro obrigatório */
+/* Cards/superfÃ­cies claras: texto escuro obrigatÃ³rio */
 :root[data-theme="light"] .wideCard,
 :root[data-theme="mixed"] .wideCard,
 :root[data-theme="light"] .storageCard,
@@ -7041,7 +7041,7 @@ select option {
     var(--kp-surface) !important;
 }
 
-/* Texto em superfícies claras */
+/* Texto em superfÃ­cies claras */
 :root[data-theme="light"] .wideCard h2,
 :root[data-theme="mixed"] .wideCard h2,
 :root[data-theme="light"] .wideCard h3,
@@ -7154,7 +7154,7 @@ select option {
   color: #0f172a !important;
 }
 
-/* Botões claros não podem usar texto branco */
+/* BotÃµes claros nÃ£o podem usar texto branco */
 :root[data-theme="light"] .secondaryButton,
 :root[data-theme="mixed"] .secondaryButton,
 :root[data-theme="light"] .fileImportButton,
@@ -7192,7 +7192,7 @@ select option {
   box-shadow: none !important;
 }
 
-/* Danger normal mantém contraste branco no vermelho. Disabled fica claro com texto vermelho escuro. */
+/* Danger normal mantÃ©m contraste branco no vermelho. Disabled fica claro com texto vermelho escuro. */
 :root[data-theme="light"] .dangerConfirmButton:not(:disabled),
 :root[data-theme="mixed"] .dangerConfirmButton:not(:disabled),
 :root[data-theme="light"] .dangerButton:not(:disabled),
@@ -7211,7 +7211,7 @@ select option {
   box-shadow: none !important;
 }
 
-/* Painel PIN/biometria em Segurança */
+/* Painel PIN/biometria em SeguranÃ§a */
 :root[data-theme="light"] .windowsHelloPanel,
 :root[data-theme="mixed"] .windowsHelloPanel {
   background:
@@ -7264,7 +7264,7 @@ select option {
   color: var(--kp-readable-muted) !important;
 }
 
-/* Analítico: deixar o sentido mais claro visualmente. */
+/* AnalÃ­tico: deixar o sentido mais claro visualmente. */
 .analyticsHero {
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08) !important;
 }
@@ -7314,9 +7314,9 @@ select option {
 
 /*
   Popup Adicionar/Editar item:
-  - no tema Claro/Misto, superfície clara sempre usa texto escuro
-  - botões/inputs/selects do gerador ficam legíveis
-  - textos internos do modal não herdam branco do tema escuro
+  - no tema Claro/Misto, superfÃ­cie clara sempre usa texto escuro
+  - botÃµes/inputs/selects do gerador ficam legÃ­veis
+  - textos internos do modal nÃ£o herdam branco do tema escuro
 */
 :root[data-theme="light"] .credentialModal,
 :root[data-theme="mixed"] .credentialModal {
@@ -7478,7 +7478,7 @@ select option {
   border-color: rgba(22, 163, 74, 0.20) !important;
 }
 
-/* Dark continua com contraste explícito para o popup */
+/* Dark continua com contraste explÃ­cito para o popup */
 :root[data-theme="dark"] .credentialModal {
   color: #f8fafc !important;
 }
@@ -7501,11 +7501,11 @@ select option {
 
 /*
   Modo compacto:
-  - o cabeçalho não pode ocupar metade da tela
-  - reduz espaço vertical antes do conteúdo
-  - mantém botões do topo acessíveis
-  - mantém navegação inferior menor
-  - não altera desktop
+  - o cabeÃ§alho nÃ£o pode ocupar metade da tela
+  - reduz espaÃ§o vertical antes do conteÃºdo
+  - mantÃ©m botÃµes do topo acessÃ­veis
+  - mantÃ©m navegaÃ§Ã£o inferior menor
+  - nÃ£o altera desktop
 */
 @media (max-width: 860px) {
   .appShell {
@@ -7736,7 +7736,7 @@ select option {
 }
 /* === KPassword v0.7.1 hotfix compacto topo menor END === */
 
-/* === KPassword v0.8.0 Diagnóstico do Cofre START === */
+/* === KPassword v0.8.0 DiagnÃ³stico do Cofre START === */
 .vaultHealthHero {
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -8071,7 +8071,7 @@ select option {
     width: 100%;
   }
 }
-/* === KPassword v0.8.0 Diagnóstico do Cofre END === */
+/* === KPassword v0.8.0 DiagnÃ³stico do Cofre END === */
 
 /* === KPassword v0.8.2 hotfix contraste claro/misto START === */
 
@@ -8095,7 +8095,7 @@ body.theme-mixed,
   --kp-light-red-text-active: #ffffff;
 }
 
-/* Login: botão PIN legível em claro/misto */
+/* Login: botÃ£o PIN legÃ­vel em claro/misto */
 .app.theme-light .pinButton,
 .app.theme-mixed .pinButton,
 .app.theme-light .helloButton,
@@ -8126,7 +8126,7 @@ body.theme-mixed,
   text-shadow: none !important;
 }
 
-/* Lixeira: botões legíveis */
+/* Lixeira: botÃµes legÃ­veis */
 .app.theme-light .trashPage button,
 .app.theme-mixed .trashPage button,
 .app.theme-light .trashCard button,
@@ -8174,7 +8174,7 @@ body.theme-mixed,
   text-shadow: none !important;
 }
 
-/* Cofre: itens, textos e ações visíveis em claro/misto */
+/* Cofre: itens, textos e aÃ§Ãµes visÃ­veis em claro/misto */
 .app.theme-light .credentialRow,
 .app.theme-mixed .credentialRow,
 .app.theme-light .vaultItem,
@@ -8244,7 +8244,7 @@ body.theme-mixed,
   -webkit-text-fill-color: #1e3a8a !important;
 }
 
-/* Ações das credenciais: copiar usuário, copiar senha, editar */
+/* AÃ§Ãµes das credenciais: copiar usuÃ¡rio, copiar senha, editar */
 .app.theme-light .credentialActions button,
 .app.theme-mixed .credentialActions button,
 .app.theme-light .vaultActions button,
@@ -8332,7 +8332,7 @@ body.theme-mixed,
   color: var(--kp-light-muted) !important;
 }
 
-/* Botões do detalhe: copiar, mostrar senha, abrir site, editar */
+/* BotÃµes do detalhe: copiar, mostrar senha, abrir site, editar */
 .app.theme-light .itemDetail button,
 .app.theme-mixed .itemDetail button,
 .app.theme-light .detailCard button,
@@ -8405,7 +8405,7 @@ body.theme-mixed,
 /* === KPassword v0.8.2 HOTFIX REAL contraste Claro/Misto START === */
 
 /*
-  Correção real usando os seletores que o app usa:
+  CorreÃ§Ã£o real usando os seletores que o app usa:
   :root[data-theme="light"] e :root[data-theme="mixed"].
 
   Corrige:
@@ -8413,7 +8413,7 @@ body.theme-mixed,
   - Cofre: .credentialRow, .rowActions, .rowPassword, .rowCategory, .rowHealth
   - Lixeira: .trashActions .secondaryButton e .trashActions .dangerButton
   - Detalhe: .detailPopup, .detailActions, .attachmentsBox, .historyBox
-  - Botões internos: .attachmentActions, .historyActions, .fileImportButton
+  - BotÃµes internos: .attachmentActions, .historyActions, .fileImportButton
 */
 
 :root[data-theme="light"],
@@ -8536,7 +8536,7 @@ body.theme-mixed,
   -webkit-text-fill-color: #94a3b8 !important;
 }
 
-/* COFRE - botões Copiar usuário / Copiar senha / Editar */
+/* COFRE - botÃµes Copiar usuÃ¡rio / Copiar senha / Editar */
 :root[data-theme="light"] .rowActions button,
 :root[data-theme="mixed"] .rowActions button {
   background: var(--kp-fix-blue-bg) !important;
@@ -8651,7 +8651,7 @@ body.theme-mixed,
   text-shadow: none !important;
 }
 
-/* DETALHE - botões inferiores e internos */
+/* DETALHE - botÃµes inferiores e internos */
 :root[data-theme="light"] .detailActions button,
 :root[data-theme="mixed"] .detailActions button,
 :root[data-theme="light"] .attachmentActions button,
@@ -8699,7 +8699,7 @@ body.theme-mixed,
   -webkit-text-fill-color: #7f1d1d !important;
 }
 
-/* Fallback final: qualquer secondary/ghost dentro de superfície clara */
+/* Fallback final: qualquer secondary/ghost dentro de superfÃ­cie clara */
 :root[data-theme="light"] .wideCard .secondaryButton,
 :root[data-theme="mixed"] .wideCard .secondaryButton,
 :root[data-theme="light"] .wideCard .ghostButton,
@@ -9779,10 +9779,10 @@ body.theme-mixed,
 /* === KPassword login v0.8.3 - tune4 topo limpo e centralizado START === */
 @media (min-width: 901px) {
   /*
-    Este bloco parte da base boa do tune2 e corrige apenas a régua superior.
-    Não usa fixed/absolute nos botões centrais para evitar sobreposição.
-    A linha superior fica em 3 zonas: tema | ações do cofre | idioma.
-    As zonas laterais têm o mesmo tamanho, então o grupo central fica no eixo real da janela.
+    Este bloco parte da base boa do tune2 e corrige apenas a rÃ©gua superior.
+    NÃ£o usa fixed/absolute nos botÃµes centrais para evitar sobreposiÃ§Ã£o.
+    A linha superior fica em 3 zonas: tema | aÃ§Ãµes do cofre | idioma.
+    As zonas laterais tÃªm o mesmo tamanho, entÃ£o o grupo central fica no eixo real da janela.
   */
   .authCard.authExperience .authUtilityBar,
   .authLocked .authUtilityBar {
@@ -9939,8 +9939,8 @@ body.theme-mixed,
 @media (max-width: 980px) {
   /*
     Quando a janela fica estreita, o menu deixa de ocupar a lateral.
-    Nesse modo horizontal ele deve se comportar como o menu fechado: só ícones,
-    sem rótulos truncados como "Configura..." ou "Bloq...".
+    Nesse modo horizontal ele deve se comportar como o menu fechado: sÃ³ Ã­cones,
+    sem rÃ³tulos truncados como "Configura..." ou "Bloq...".
   */
   .appShell,
   .appShell.sidebarOpen,
@@ -10110,7 +10110,7 @@ body.theme-mixed,
     - acima de 980px, o menu lateral pode abrir/fechar normalmente;
     - abaixo de 980px, o menu vira uma unica barra inferior fixa na grade;
     - nesse modo estreito, o estado aberto/fechado fica visualmente ignorado;
-    - labels ficam ocultos para evitar texto truncado e mudanças de posicao.
+    - labels ficam ocultos para evitar texto truncado e mudanÃ§as de posicao.
   */
   body {
     overflow: hidden !important;
@@ -10788,8 +10788,8 @@ textarea {
 /* === KPassword v0.9.2 compact page harmony + notification polish END === */
 
 /* === KPassword v0.9.2 page density refinement START ===
-   Refino pós-teste: mantém a harmonia visual, mas remove o efeito de
-   elementos gigantes nas páginas internas. Não altera menu lateral/inferior. */
+   Refino pÃ³s-teste: mantÃ©m a harmonia visual, mas remove o efeito de
+   elementos gigantes nas pÃ¡ginas internas. NÃ£o altera menu lateral/inferior. */
 .appShell:not(.authShell) .content,
 .mainContent,
 .pageContent {
@@ -11075,7 +11075,7 @@ textarea {
   line-height: 1.35 !important;
 }
 
-/* v0.9.4: verificação de backup sem restauração */
+/* v0.9.4: verificaÃ§Ã£o de backup sem restauraÃ§Ã£o */
 .backupVerifyCard {
   display: grid !important;
   gap: 12px !important;
@@ -11540,3 +11540,168 @@ textarea {
   }
 }
 /* === KPassword v0.9.5 - CSV export guard END === */
+
+/* KPassword v0.9.5 - tags bÃ¡sicas */
+.tagFilterBar {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(125, 211, 252, 0.16);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.tagFilterBar > span {
+  color: var(--muted, #9ca3af);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tagFilterChips,
+.credentialTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+}
+
+.credentialTags.compact {
+  gap: 5px;
+  overflow: hidden;
+  max-height: 25px;
+}
+
+.tagFilterChip,
+.tagPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  border: 1px solid rgba(125, 211, 252, 0.20);
+  border-radius: 999px;
+  background: rgba(125, 211, 252, 0.10);
+  color: #bae6fd;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 7px 10px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tagFilterChip {
+  cursor: pointer;
+}
+
+.tagFilterChip.active,
+.tagFilterChip:hover,
+.tagPill.interactive:hover {
+  border-color: rgba(14, 165, 233, 0.64);
+  background: rgba(14, 165, 233, 0.22);
+  color: #e0f2fe;
+}
+
+.tagPill.interactive {
+  cursor: pointer;
+}
+
+.tagFilterBanner {
+  border-color: rgba(14, 165, 233, 0.26);
+}
+
+.detailTagList {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(125, 211, 252, 0.15);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.26);
+}
+
+.detailTagList > span,
+.tagInputHint {
+  color: var(--muted, #9ca3af);
+  font-size: 0.82rem;
+}
+
+.tagInputHint {
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+:root[data-theme="light"] .tagFilterBar,
+:root[data-theme="mixed"] .tagFilterBar,
+:root[data-theme="light"] .detailTagList,
+:root[data-theme="mixed"] .detailTagList {
+  border-color: rgba(14, 116, 144, 0.18);
+  background: rgba(236, 254, 255, 0.72);
+}
+
+:root[data-theme="light"] .tagFilterChip,
+:root[data-theme="mixed"] .tagFilterChip,
+:root[data-theme="light"] .tagPill,
+:root[data-theme="mixed"] .tagPill {
+  border-color: rgba(14, 116, 144, 0.20);
+  background: rgba(14, 165, 233, 0.10);
+  color: #075985;
+}
+
+@media (max-width: 720px) {
+  .tagFilterBar {
+    padding: 10px;
+  }
+
+  .tagFilterChip,
+  .tagPill {
+    font-size: 0.74rem;
+    padding: 6px 8px;
+  }
+}
+/* === KPassword v0.9.5 - tags layout fix START === */
+/* Ajuste visual incremental: tags menores na lista e respiro entre filtro de tags e credenciais. */
+.tagFilterBar {
+  margin-bottom: clamp(14px, 1.5vw, 20px);
+}
+
+.tagFilterChips {
+  gap: 8px;
+}
+
+.credentialTags.compact {
+  gap: 4px;
+  max-height: none;
+  overflow: visible;
+  margin-top: 6px;
+}
+
+.credentialTags.compact .tagPill {
+  min-height: 20px;
+  max-width: min(150px, 100%);
+  padding: 4px 7px;
+  font-size: 0.68rem;
+  line-height: 1.05;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.credentialTags.compact .tagPill.interactive {
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .tagFilterBar {
+    margin-bottom: 12px;
+  }
+
+  .credentialTags.compact .tagPill {
+    max-width: 120px;
+    padding: 3px 6px;
+    font-size: 0.66rem;
+    min-height: 18px;
+  }
+}
+/* === KPassword v0.9.5 - tags layout fix END === */
+

@@ -65,6 +65,7 @@ const EMPTY_FORM: Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> = {
   password: "",
   url: "",
   category: "Trabalho",
+  tags: [],
   notes: "",
   favorite: false,
   passwordChangedAt: "",
@@ -214,7 +215,32 @@ function formatDate(value?: string | number, language: AppLanguage = "pt") {
 }
 
 function getEmptyCredential(): Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> {
-  return { ...EMPTY_FORM };
+  return { ...EMPTY_FORM, tags: [] };
+}
+
+function normalizeCredentialTags(input: unknown): string[] {
+  if (Array.isArray(input)) {
+    return Array.from(new Set(
+      input
+        .map((tag) => String(tag ?? "").trim())
+        .filter(Boolean),
+    )).slice(0, 12);
+  }
+
+  return Array.from(new Set(
+    String(input ?? "")
+      .split(/[;,\n]/)
+      .map((tag) => tag.trim())
+      .filter(Boolean),
+  )).slice(0, 12);
+}
+
+function formatTagsForInput(tags: unknown) {
+  return normalizeCredentialTags(tags).join(", ");
+}
+
+function getCredentialTags(credential: CredentialRecord) {
+  return normalizeCredentialTags(credential.tags);
 }
 
 function normalizeUrl(url: string) {
@@ -660,6 +686,7 @@ function buildCsv(items: CredentialRecord[]) {
     "type",
     "title",
     "category",
+    "tags",
     "favorite",
     "username",
     "password",
@@ -689,7 +716,7 @@ function buildCsv(items: CredentialRecord[]) {
   ];
 
   const rows = items.map((item) =>
-    headers.map((header) => escapeCsvValue((item as unknown as Record<string, unknown>)[header])).join(","),
+    headers.map((header) => escapeCsvValue(header === "tags" ? getCredentialTags(item).join("; ") : (item as unknown as Record<string, unknown>)[header])).join(","),
   );
 
   return [headers.join(","), ...rows].join("\r\n");
@@ -750,6 +777,7 @@ type CsvImportFieldKey =
   | "type"
   | "title"
   | "category"
+  | "tags"
   | "favorite"
   | "username"
   | "password"
@@ -788,6 +816,7 @@ const CSV_IMPORT_FIELD_ALIASES: Record<CsvImportFieldKey, string[]> = {
   type: ["type", "tipo", "itemtype", "item_type", "kind"],
   title: ["title", "name", "nome", "titulo", "título", "site", "servico", "serviço"],
   category: ["category", "categoria", "folder", "pasta", "grupo"],
+  tags: ["tags", "tag", "etiquetas", "marcadores", "labels", "rotulos", "rótulos"],
   favorite: ["favorite", "favorito", "starred", "favorita"],
   username: ["username", "user", "login", "email", "e-mail", "usuario", "usuário"],
   password: ["password", "senha", "pass", "secret"],
@@ -804,6 +833,7 @@ const CSV_IMPORT_FIELDS: Array<{ key: CsvImportFieldKey; labelKey: string }> = [
   { key: "url", labelKey: "import.field.url" },
   { key: "notes", labelKey: "import.field.notes" },
   { key: "category", labelKey: "import.field.category" },
+  { key: "tags", labelKey: "import.field.tags" },
   { key: "type", labelKey: "import.field.type" },
   { key: "favorite", labelKey: "import.field.favorite" },
   { key: "totpIssuer", labelKey: "import.field.totpIssuer" },
@@ -815,6 +845,7 @@ function getEmptyCsvImportMapping(): CsvImportMapping {
     type: "",
     title: "",
     category: "",
+    tags: "",
     favorite: "",
     username: "",
     password: "",
@@ -925,6 +956,7 @@ function rowToImportedCredential(row: Record<string, string>, now: string, mappi
     itemType,
     title: title.trim(),
     category: normalizeImportedCategory(getMappedCsvValue(row, "category", mapping)),
+    tags: normalizeCredentialTags(getMappedCsvValue(row, "tags", mapping)),
     favorite: ["true", "1", "sim", "yes"].includes(getMappedCsvValue(row, "favorite", mapping).toLowerCase()),
     username: itemType === "credential" ? getMappedCsvValue(row, "username", mapping) : "",
     password: itemType === "credential" ? getMappedCsvValue(row, "password", mapping) : "",
@@ -1280,10 +1312,12 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [activeDiagnosticFilter, setActiveDiagnosticFilter] = useState<DiagnosticFilter>("all");
+  const [activeTagFilter, setActiveTagFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailCredentialId, setDetailCredentialId] = useState<string | null>(null);
   const [credentialForm, setCredentialForm] = useState(getEmptyCredential);
+  const [credentialTagsInput, setCredentialTagsInput] = useState("");
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [showStoragePaths, setShowStoragePaths] = useState(false);
@@ -2266,6 +2300,7 @@ export default function App() {
   function openNewCredentialForm() {
     setEditingId(null);
     setCredentialForm(getEmptyCredential());
+    setCredentialTagsInput("");
     setFormOpen(true);
   }
 
@@ -2278,6 +2313,7 @@ export default function App() {
       password: credential.password ?? "",
       url: credential.url ?? "",
       category: credential.category,
+      tags: getCredentialTags(credential),
       notes: credential.notes ?? "",
       favorite: credential.favorite,
       passwordChangedAt: getCredentialPasswordChangedAt(credential),
@@ -2302,6 +2338,7 @@ export default function App() {
       licenseOwner: credential.licenseOwner ?? "",
       licenseExpiresAt: credential.licenseExpiresAt ?? "",
     });
+    setCredentialTagsInput(formatTagsForInput(credential.tags));
     setFormOpen(true);
   }
 
@@ -2368,6 +2405,7 @@ export default function App() {
       username: itemType === "credential" ? credentialForm.username.trim() : "",
       password: itemType === "credential" ? credentialForm.password : "",
       url: itemType === "credential" ? normalizeUrl(credentialForm.url) : "",
+      tags: normalizeCredentialTags(credentialTagsInput),
       notes: credentialForm.notes.trim(),
       favorite: credentialForm.favorite,
       passwordChangedAt:
@@ -2432,6 +2470,7 @@ export default function App() {
       setFormOpen(false);
       setEditingId(null);
       setCredentialForm(getEmptyCredential());
+      setCredentialTagsInput("");
       setDetailCredentialId(editingId ?? createdId);
       setScreen("credentials");
       setMessage(editingId ? t("success.credentialUpdated") : t("success.credentialCreated"));
@@ -3072,6 +3111,10 @@ export default function App() {
         return false;
       }
 
+      if (activeTagFilter && !getCredentialTags(credential).some((tag) => tag.toLowerCase() === activeTagFilter.toLowerCase())) {
+        return false;
+      }
+
       if (terms.length === 0) return true;
 
       const searchable = [
@@ -3080,6 +3123,7 @@ export default function App() {
         credential.url,
         credential.category,
         credential.notes,
+        getCredentialTags(credential).join(" "),
         credential.password,
         credential.totpIssuer,
         getItemTypeLabel(getItemType(credential), appLanguage),
@@ -3104,7 +3148,7 @@ export default function App() {
 
       return terms.every((term) => searchable.includes(term));
     });
-  }, [activeDiagnosticFilter, appLanguage, getDiagnosticIssuesFor, search, vault]);
+  }, [activeDiagnosticFilter, activeTagFilter, appLanguage, getDiagnosticIssuesFor, search, vault]);
 
   const detailCredential = useMemo(() => {
     if (!vault || !detailCredentialId) return null;
@@ -3164,6 +3208,9 @@ export default function App() {
   }, [vault]);
 
   const activeCredentials = getActiveCredentials(vault?.credentials ?? []);
+  const allVaultTags = Array.from(
+    new Set(activeCredentials.flatMap((credential) => getCredentialTags(credential))),
+  ).sort((first, second) => first.localeCompare(second, getDateLocale(appLanguage)));
   const deletedCredentials = getDeletedCredentials(vault?.credentials ?? []);
   const credentialItems = activeCredentials.filter(isCredentialItem);
   const expiredCredentials = credentialItems.filter(
@@ -3245,7 +3292,7 @@ export default function App() {
     .sort((first, second) => second.issues.length - first.issues.length)
     .slice(0, 6);
 
-  const canReorderCredentials = search.trim().length === 0 && activeDiagnosticFilter === "all";
+  const canReorderCredentials = search.trim().length === 0 && activeDiagnosticFilter === "all" && !activeTagFilter;
   const masterIssues = validateMasterPassword(setupPassword);
   const score = getPasswordScore(credentialForm.password);
 
@@ -3976,6 +4023,43 @@ export default function App() {
               <span>{t("search.results", { count: filteredCredentials.length })}</span>
             </div>
 
+            {allVaultTags.length > 0 && (
+              <div className="tagFilterBar" aria-label={t("tags.title")}>
+                <span>{t("tags.title")}</span>
+                <div className="tagFilterChips">
+                  <button
+                    type="button"
+                    className={activeTagFilter ? "tagFilterChip" : "tagFilterChip active"}
+                    onClick={() => setActiveTagFilter("")}
+                  >
+                    {t("tags.filterAll")}
+                  </button>
+                  {allVaultTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={activeTagFilter === tag ? "tagFilterChip active" : "tagFilterChip"}
+                      onClick={() => setActiveTagFilter(tag)}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTagFilter && (
+              <div className="diagnosticFilterBanner tagFilterBanner">
+                <div>
+                  <strong>{t("tags.filteringBy")}</strong>
+                  <span>#{activeTagFilter}</span>
+                </div>
+                <button type="button" className="secondaryButton" onClick={() => setActiveTagFilter("")}>
+                  {t("tags.clearFilter")}
+                </button>
+              </div>
+            )}
+
             {activeDiagnosticFilter !== "all" && (
               <div className="diagnosticFilterBanner">
                 <div>
@@ -4045,6 +4129,13 @@ export default function App() {
                     <span className="rowMain">
                       <strong>{credential.title}</strong>
                       <small>{getItemSubtitle(credential, appLanguage)}</small>
+                      {getCredentialTags(credential).length > 0 && (
+                        <span className="credentialTags compact">
+                          {getCredentialTags(credential).slice(0, 3).map((tag) => (
+                            <span key={tag} className="tagPill">#{tag}</span>
+                          ))}
+                        </span>
+                      )}
                     </span>
 
                     <span className="rowPassword">
@@ -4918,6 +5009,28 @@ export default function App() {
                 </button>
               </div>
 
+              {getCredentialTags(detailCredential).length > 0 && (
+                <div className="detailTagList">
+                  <span>{t("detail.tags")}</span>
+                  <div className="credentialTags">
+                    {getCredentialTags(detailCredential).map((tag) => (
+                      <button
+                        type="button"
+                        key={tag}
+                        className="tagPill interactive"
+                        onClick={() => {
+                          setActiveTagFilter(tag);
+                          setDetailCredentialId(null);
+                          setScreen("credentials");
+                        }}
+                      >
+                        #{tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {itemType === "credential" && (
                 <div className="detailGrid">
                   <div>
@@ -5288,6 +5401,7 @@ export default function App() {
                       itemType,
                       title: current.title,
                       category: current.category,
+                      tags: normalizeCredentialTags(credentialTagsInput),
                       favorite: current.favorite,
                     }))
                   }
@@ -5326,6 +5440,22 @@ export default function App() {
                     <option key={category} value={category}>{getCategoryLabel(category, appLanguage)}</option>
                   ))}
                 </select>
+              </label>
+
+              <label className="full">
+                {t("tags.input")}
+                <input
+                  value={credentialTagsInput}
+                  onChange={(event) => {
+                    setCredentialTagsInput(event.target.value);
+                    setCredentialForm((current) => ({
+                      ...current,
+                      tags: normalizeCredentialTags(event.target.value),
+                    }));
+                  }}
+                  placeholder={t("tags.placeholder")}
+                />
+                <small className="tagInputHint">{t("tags.hint")}</small>
               </label>
 
               {(credentialForm.itemType ?? "credential") === "credential" && (
