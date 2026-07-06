@@ -270,7 +270,10 @@ if ($HashFiles.Count -eq 0) {
         continue
       }
 
-      if ($Line -notmatch '(?i)\b(?<hash>[a-f0-9]{64})\b') {
+      $HashTargetName = ""
+      if ($Line -match '(?i)^\s*(?<hash>[a-f0-9]{64})\s+\*?(?<name>.+?)\s*$') {
+        $HashTargetName = [System.IO.Path]::GetFileName($Matches.name.Trim().Trim('"'))
+      } elseif ($Line -notmatch '(?i)\b(?<hash>[a-f0-9]{64})\b') {
         Add-ValidationError "Linha de hash invalida em $($HashFile.Name): $Line"
         continue
       }
@@ -278,14 +281,20 @@ if ($HashFiles.Count -eq 0) {
       $ExpectedHash = $Matches.hash.ToLowerInvariant()
       $TargetFile = $null
 
-      foreach ($File in $ReleaseFiles) {
-        if ($File.FullName -eq $HashFile.FullName) {
-          continue
-        }
+      if (-not [string]::IsNullOrWhiteSpace($HashTargetName)) {
+        $TargetFile = $ReleaseFiles |
+          Where-Object { $_.Name -ieq $HashTargetName -and $_.FullName -ne $HashFile.FullName } |
+          Select-Object -First 1
+      } else {
+        foreach ($File in ($ReleaseFiles | Sort-Object @{ Expression = { $_.Name.Length } } -Descending)) {
+          if ($File.FullName -eq $HashFile.FullName) {
+            continue
+          }
 
-        if ($Line.IndexOf($File.Name, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-          $TargetFile = $File
-          break
+          if ($Line.IndexOf($File.Name, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            $TargetFile = $File
+            break
+          }
         }
       }
 

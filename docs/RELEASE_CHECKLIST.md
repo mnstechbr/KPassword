@@ -11,6 +11,7 @@ git status --short
 Confirmar:
 
 - [ ] `npm run build` passou.
+- [ ] `npm run release:hash -- -ReleaseDir ".\dist-release\v<versao>"` gerou `SHA256SUMS.txt`.
 - [ ] `npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"` passou antes de publicar os assets.
 - [ ] Versão em `package.json` está correta.
 - [ ] Versão em `package-lock.json` está correta.
@@ -54,11 +55,13 @@ Anexar:
 C:\Projetos\KPassword\dist-release\v<versao>\KPassword-Setup-v<versao>.exe
 C:\Projetos\KPassword\dist-release\v<versao>\KPassword-Setup-v<versao>.exe.sig
 C:\Projetos\KPassword\dist-release\v<versao>\latest.json
+C:\Projetos\KPassword\dist-release\v<versao>\SHA256SUMS.txt
 ```
 
-Validar antes de anexar:
+Gerar hashes e validar antes de anexar:
 
 ```powershell
+npm run release:hash -- -ReleaseDir ".\dist-release\v<versao>"
 npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 ```
 
