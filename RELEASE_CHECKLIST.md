@@ -9,12 +9,14 @@ Antes de publicar uma release do KPassword:
 - [ ] `npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"`
 - [ ] `cargo check` em `src-tauri`
 - [ ] `cargo test` em `src-tauri`
+- [ ] `cargo clippy` em `src-tauri`
 - [ ] `npm run security:audit`
 - [ ] `npm audit`
 - [ ] `cargo audit`, se instalado
 
 ## Testes manuais
 
+- [ ] teste manual completo do app instalado ou em ambiente local equivalente;
 - [ ] abrir cofre existente;
 - [ ] testar senha mestra errada;
 - [ ] criar, editar e excluir credencial de teste;
@@ -36,6 +38,7 @@ Antes de publicar uma release do KPassword:
 - [ ] validar assets locais com `tools\validate-release-assets.ps1`;
 - [ ] conferir se `latest.json` aponta para a tag correta;
 - [ ] marcar como latest release quando apropriado.
+- [ ] validar o site oficial após a release, incluindo a página "Verificar download".
 
 ## Segurança operacional
 

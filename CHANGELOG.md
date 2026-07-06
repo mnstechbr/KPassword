@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.9.4
+
+Release focada em confiança operacional, diagnóstico e preparação segura de publicação.
+
+### Confiança e release
+
+- Adicionado validador local de assets de release para conferir instalador, `.sig`, `latest.json`, versão, URL do asset, assinatura e arquivos sensíveis antes da publicação.
+- Adicionada geração de `SHA256SUMS.txt` para os assets públicos de release.
+- Atualizados checklists para incluir `npm run release:hash`, `npm run release:validate`, `cargo check`, `cargo test`, `cargo clippy`, teste manual do app e validação do site oficial após a release.
+- Documentação de arquitetura e segurança revisada para refletir o núcleo atual em Tauri/Rust e o fluxo real de release.
+
+### Backup e diagnóstico
+
+- Adicionada verificação de backup sem restaurar o cofre atual.
+- Diagnóstico do Cofre passa a apresentar explicações e ações sugeridas para pontos que merecem revisão.
+
+### Observações
+
+- Esta versão não altera o formato do cofre nem o núcleo criptográfico.
+- O site oficial ganhou uma página pública para orientar a verificação de download.
+
 
 ## [0.8.2] - Hotfix
 

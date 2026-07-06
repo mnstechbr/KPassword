@@ -5,17 +5,24 @@
 ```powershell
 cd C:\Projetos\KPassword
 npm run build
+cd src-tauri
+cargo check
+cargo test
+cargo clippy
+cd ..
 git status --short
 ```
 
 Confirmar:
 
 - [ ] `npm run build` passou.
+- [ ] `cargo check`, `cargo test` e `cargo clippy` passaram em `src-tauri`.
 - [ ] Versão em `package.json` está correta.
 - [ ] Versão em `package-lock.json` está correta.
 - [ ] Versão em `src-tauri/tauri.conf.json` está correta.
 - [ ] `APP_VERSION` em `src/App.tsx` está correta.
 - [ ] QA básico executado.
+- [ ] Teste manual do app executado.
 - [ ] Nenhuma chave privada foi adicionada ao projeto.
 
 ## Commit
@@ -82,3 +89,5 @@ npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 - [ ] Abrir cofre antigo.
 - [ ] Validar bandeja.
 - [ ] Validar login.
+- [ ] Validar site oficial após a release.
+- [ ] Validar página "Verificar download" com a nova release.
