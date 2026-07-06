@@ -12255,3 +12255,265 @@ textarea {
   }
 }
 /* === KPassword v0.9.5 - filtro dropdown no cofre END === */
+
+/* === KPassword v1.0 - TOTP pratico por QR START === */
+.totpEasyCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 20px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), color-mix(in srgb, var(--card) 82%, transparent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.totpEasyCard > div:first-child {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.totpEasyCard strong {
+  font-size: 1rem;
+}
+
+.totpEasyCard p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.totpEasyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.dangerButton.ghost {
+  background: color-mix(in srgb, var(--danger, #ff6b7a) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger, #ff6b7a) 38%, var(--border));
+  color: color-mix(in srgb, var(--danger, #ff6b7a) 80%, white);
+}
+
+.totpBox.empty strong.totpEmptyTitle {
+  font-size: 1.05rem;
+  letter-spacing: 0;
+  font-variant-numeric: normal;
+}
+
+.totpBoxActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.totpEasyOverlay {
+  z-index: 80;
+}
+
+.totpEasyModal {
+  max-width: 720px;
+}
+
+.totpEasyNotice {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, #f5a524 42%, var(--border));
+  border-radius: 18px;
+  background: color-mix(in srgb, #f5a524 13%, var(--card));
+}
+
+.totpEasyNotice strong,
+.totpEasyNotice p {
+  margin: 0;
+}
+
+.totpEasyNotice p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.totpEasyChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.totpEasyChoice {
+  min-height: 116px;
+  padding: 18px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  color: var(--text);
+}
+
+.totpEasyChoice.primary {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, var(--card)), color-mix(in srgb, var(--card) 84%, transparent));
+}
+
+.totpEasyChoice span {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.totpEasyChoice small,
+.totpManualPanel small,
+.totpPreviewGrid span,
+.totpPreviewCode span,
+.totpPreviewCode small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.totpManualPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.totpManualPanel textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.totpPreviewPanel {
+  display: grid;
+  gap: 16px;
+}
+
+.totpPreviewCode {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+}
+
+.totpPreviewCode strong {
+  font-size: clamp(2rem, 8vw, 3.4rem);
+  letter-spacing: 0.16em;
+  font-variant-numeric: tabular-nums;
+}
+
+.totpPreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.totpPreviewGrid > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+}
+
+.totpPreviewGrid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.totpEasyError {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger, #ff6b7a) 45%, var(--border));
+  border-radius: 14px;
+  color: color-mix(in srgb, var(--danger, #ff6b7a) 82%, white);
+  background: color-mix(in srgb, var(--danger, #ff6b7a) 12%, transparent);
+}
+
+@media (max-width: 720px) {
+  .totpEasyCard,
+  .totpBoxActions {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .totpEasyActions,
+  .totpBoxActions {
+    justify-content: stretch;
+  }
+
+  .totpEasyActions button,
+  .totpBoxActions button,
+  .totpEasyChoiceGrid,
+  .totpPreviewGrid {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+}
+/* === KPassword v1.0 - TOTP pratico por QR END === */
+
+/* === KPassword v1.0 - refinamento modal 2FA e senha mascarada START === */
+.totpEasyModal {
+  display: grid;
+  gap: 18px;
+}
+
+.totpEasyModal .modalHeader {
+  margin-bottom: 0 !important;
+}
+
+.totpEasyModal .totpEasyNotice {
+  margin: 0;
+}
+
+.totpEasyModal .totpEasyChoiceGrid,
+.totpEasyModal .totpManualPanel,
+.totpEasyModal .totpPreviewPanel {
+  margin-top: 2px;
+}
+
+.totpEasyModal .totpEasyChoice {
+  min-height: 126px;
+  padding: 20px 22px;
+}
+
+.totpEasyModal .totpManualPanel label {
+  display: grid;
+  gap: 10px;
+}
+
+.totpEasyModal .totpManualPanel textarea,
+.totpEasyModal .totpManualPanel input {
+  margin-top: 0;
+}
+
+.totpEasyModal .totpEasyError {
+  margin-top: -2px;
+}
+
+.totpEasyModal .modalActions {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.passwordInput input[type="password"] {
+  font-family: inherit;
+}
+
+@media (max-width: 720px) {
+  .totpEasyModal {
+    gap: 14px;
+  }
+
+  .totpEasyModal .totpEasyChoice {
+    min-height: 112px;
+  }
+}
+/* === KPassword v1.0 - refinamento modal 2FA e senha mascarada END === */

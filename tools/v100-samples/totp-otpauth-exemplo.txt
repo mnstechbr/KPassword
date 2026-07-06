@@ -1,0 +1,1 @@
+otpauth://totp/KPassword:teste@example.com?secret=JBSWY3DPEHPK3PXP&issuer=KPassword

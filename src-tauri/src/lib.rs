@@ -5,6 +5,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use base64::{engine::general_purpose, Engine as _};
 use serde::Serialize;
 use tauri_plugin_notification::NotificationExt;
 use zeroize::Zeroize;
@@ -1121,6 +1122,112 @@ fn hide_to_tray(
     }
 }
 
+fn first_non_empty_qr_payload(payloads: Vec<String>) -> Option<String> {
+    payloads
+        .into_iter()
+        .map(|content| content.trim().to_string())
+        .find(|content| !content.is_empty())
+}
+
+fn decode_qr_with_rqrr(gray_image: image::GrayImage) -> Option<String> {
+    let mut prepared = rqrr::PreparedImage::prepare(gray_image);
+    let grids = prepared.detect_grids();
+
+    let mut payloads = Vec::new();
+    for grid in grids {
+        if let Ok((_meta, content)) = grid.decode() {
+            payloads.push(content);
+        }
+    }
+
+    first_non_empty_qr_payload(payloads)
+}
+
+fn decode_qr_with_quircs(gray_image: &image::GrayImage) -> Option<String> {
+    let mut decoder = quircs::Quirc::default();
+    let codes = decoder.identify(
+        gray_image.width() as usize,
+        gray_image.height() as usize,
+        gray_image.as_raw(),
+    );
+
+    let mut payloads = Vec::new();
+    for code in codes {
+        let Ok(code) = code else {
+            continue;
+        };
+        let Ok(decoded) = code.decode() else {
+            continue;
+        };
+        if let Ok(content) = std::str::from_utf8(&decoded.payload) {
+            payloads.push(content.to_string());
+        }
+    }
+
+    first_non_empty_qr_payload(payloads)
+}
+
+fn brighten_qr_image(gray_image: &image::GrayImage) -> image::GrayImage {
+    let mut output = gray_image.clone();
+
+    for pixel in output.pixels_mut() {
+        let value = pixel[0];
+        pixel[0] = if value < 150 { 0 } else { 255 };
+    }
+
+    output
+}
+
+fn qr_image_variants(decoded_image: &image::DynamicImage) -> Vec<image::GrayImage> {
+    let original = decoded_image.to_luma8();
+    let mut variants = vec![original.clone(), brighten_qr_image(&original)];
+
+    let max_dimension = original.width().max(original.height());
+    if max_dimension < 700 {
+        let scaled = image::imageops::resize(
+            &original,
+            original.width().saturating_mul(2),
+            original.height().saturating_mul(2),
+            image::imageops::FilterType::Nearest,
+        );
+        variants.push(scaled.clone());
+        variants.push(brighten_qr_image(&scaled));
+    }
+
+    variants
+}
+
+#[tauri::command]
+fn decode_qr_from_image_data_url(data_url: String) -> Result<String, String> {
+    let encoded = data_url
+        .split_once(',')
+        .map(|(_, payload)| payload)
+        .unwrap_or(data_url.as_str());
+
+    let image_bytes = general_purpose::STANDARD
+        .decode(encoded.as_bytes())
+        .map_err(|_| "Imagem inválida ou corrompida.".to_string())?;
+
+    if image_bytes.len() > 12 * 1024 * 1024 {
+        return Err("Imagem muito grande. Use um print menor do QR Code.".to_string());
+    }
+
+    let decoded_image = image::load_from_memory(&image_bytes)
+        .map_err(|_| "Não foi possível abrir a imagem do QR Code.".to_string())?;
+
+    for variant in qr_image_variants(&decoded_image) {
+        if let Some(content) = decode_qr_with_quircs(&variant) {
+            return Ok(content);
+        }
+
+        if let Some(content) = decode_qr_with_rqrr(variant) {
+            return Ok(content);
+        }
+    }
+
+    Err("Não foi possível ler um QR Code nessa imagem.".to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1198,7 +1305,8 @@ pub fn run() {
             windows_hello_status,
             enable_windows_hello,
             disable_windows_hello,
-            unlock_with_windows_hello
+            unlock_with_windows_hello,
+            decode_qr_from_image_data_url
         ])
         .run(tauri::generate_context!())
         .expect("erro ao executar o KPassword");

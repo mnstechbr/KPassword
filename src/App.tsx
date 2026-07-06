@@ -4,9 +4,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
   type FormEvent,
   type MouseEvent,
 } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   createEmptyVault,
@@ -19,6 +21,7 @@ import {
   verifyEncryptedVaultBackup,
 } from "./crypto";
 import { generatePassword, getPasswordLabel, getPasswordScore, type PasswordGeneratorMode } from "./password";
+import { decodeQrFromImageFile } from "./totp-qr-reader";
 import {
   createPreArgon2Backup,
   getStorageInfo,
@@ -149,6 +152,22 @@ type QuickVaultFilter =
   | "missingTotp"
   | "incomplete"
   | "withTags";
+
+
+type TotpSetupMode = "choice" | "manual" | "preview";
+type TotpSetupSource = "image" | "manual";
+
+type TotpPreview = {
+  secret: string;
+  issuer: string;
+  account: string;
+  label: string;
+  digits: number;
+  period: number;
+  algorithm: string;
+  source: TotpSetupSource;
+  currentCode: string;
+};
 
 const DIAGNOSTIC_QUICK_FILTERS: DiagnosticIssue[] = [
   "weak",
@@ -324,6 +343,65 @@ function getVaultDisplayName(vaultName: string, vaultFiles: VaultFileInfo[]) {
   return vaultName.replace(/[-_]+/g, " ");
 }
 
+function parseTotpCandidate(value: string, fallbackIssuer = "", source: TotpSetupSource = "manual"): Omit<TotpPreview, "currentCode"> {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new Error("totp.error.empty");
+  }
+
+  if (/^otpauth:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      const secret = normalizeTotpSecret(url.searchParams.get("secret") ?? "");
+      const rawLabel = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+      const [labelIssuer, ...accountParts] = rawLabel.split(":");
+      const account = accountParts.join(":").trim();
+      const issuer = (url.searchParams.get("issuer") ?? labelIssuer ?? fallbackIssuer).trim();
+      const digits = Number(url.searchParams.get("digits") ?? 6);
+      const period = Number(url.searchParams.get("period") ?? TOTP_PERIOD_SECONDS);
+      const algorithm = (url.searchParams.get("algorithm") ?? "SHA1").replace(/[-_]/g, "").toUpperCase();
+
+      if (!secret) {
+        throw new Error("totp.error.noSecret");
+      }
+
+      return {
+        secret,
+        issuer,
+        account,
+        label: rawLabel,
+        digits,
+        period,
+        algorithm,
+        source,
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("totp.error.")) {
+        throw error;
+      }
+      throw new Error("totp.error.invalidUrl");
+    }
+  }
+
+  const secret = normalizeTotpSecret(trimmed);
+
+  if (!secret) {
+    throw new Error("totp.error.noSecret");
+  }
+
+  return {
+    secret,
+    issuer: fallbackIssuer.trim(),
+    account: "",
+    label: fallbackIssuer.trim(),
+    digits: 6,
+    period: TOTP_PERIOD_SECONDS,
+    algorithm: "SHA1",
+    source,
+  };
+}
+
 function parseTotpInput(value: string, fallbackIssuer = "") {
   const trimmed = value.trim();
 
@@ -331,22 +409,20 @@ function parseTotpInput(value: string, fallbackIssuer = "") {
     return { secret: "", issuer: fallbackIssuer };
   }
 
-  if (/^otpauth:\/\//i.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-      const secret = url.searchParams.get("secret") ?? "";
-      const issuer = url.searchParams.get("issuer") ?? fallbackIssuer;
-      return { secret: normalizeTotpSecret(secret), issuer };
-    } catch {
-      return { secret: normalizeTotpSecret(trimmed), issuer: fallbackIssuer };
-    }
+  try {
+    const parsed = parseTotpCandidate(trimmed, fallbackIssuer, "manual");
+    return { secret: parsed.secret, issuer: parsed.issuer };
+  } catch {
+    return { secret: normalizeTotpSecret(trimmed), issuer: fallbackIssuer };
   }
-
-  return { secret: normalizeTotpSecret(trimmed), issuer: fallbackIssuer };
 }
 
 function normalizeTotpSecret(secret: string) {
   return secret.toUpperCase().replace(/[^A-Z2-7]/g, "");
+}
+
+function isStandardTotp(candidate: Pick<TotpPreview, "digits" | "period" | "algorithm">) {
+  return candidate.digits === 6 && candidate.period === TOTP_PERIOD_SECONDS && candidate.algorithm === "SHA1";
 }
 
 function decodeBase32(value: string) {
@@ -1375,6 +1451,13 @@ export default function App() {
   const [newVaultName, setNewVaultName] = useState("");
   const [totpTick, setTotpTick] = useState(Date.now());
   const [detailTotpCode, setDetailTotpCode] = useState("");
+  const [totpSetupOpen, setTotpSetupOpen] = useState(false);
+  const [totpSetupMode, setTotpSetupMode] = useState<TotpSetupMode>("choice");
+  const [totpManualValue, setTotpManualValue] = useState("");
+  const [totpManualIssuer, setTotpManualIssuer] = useState("");
+  const [totpPreview, setTotpPreview] = useState<TotpPreview | null>(null);
+  const [totpSetupError, setTotpSetupError] = useState("");
+  const [totpQrBusy, setTotpQrBusy] = useState(false);
   const [appLanguage, setAppLanguage] = useState<AppLanguage>(getInitialLanguage);
   const [generatorMode, setGeneratorMode] = useState<PasswordGeneratorMode>("random");
   const [generatorLength, setGeneratorLength] = useState(24);
@@ -1386,6 +1469,7 @@ export default function App() {
   const lastActivityRef = useRef(Date.now());
   const clipboardCleanupRef = useRef<number | null>(null);
   const quickFilterMenuRef = useRef<HTMLDivElement | null>(null);
+  const totpImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const t = useCallback(
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
@@ -2395,6 +2479,130 @@ export default function App() {
     });
     setCredentialTagsInput(formatTagsForInput(credential.tags));
     setFormOpen(true);
+  }
+
+
+  function resetTotpSetup() {
+    setTotpSetupMode("choice");
+    setTotpManualValue("");
+    setTotpManualIssuer("");
+    setTotpPreview(null);
+    setTotpSetupError("");
+    setTotpQrBusy(false);
+  }
+
+  function openTotpSetup(mode: TotpSetupMode = "choice") {
+    setTotpSetupMode(mode);
+    setTotpManualValue(credentialForm.totpSecret ?? "");
+    setTotpManualIssuer(credentialForm.totpIssuer ?? credentialForm.title ?? "");
+    setTotpPreview(null);
+    setTotpSetupError("");
+    setTotpSetupOpen(true);
+  }
+
+  function closeTotpSetup() {
+    setTotpSetupOpen(false);
+    resetTotpSetup();
+  }
+
+  async function prepareTotpPreview(rawValue: string, source: TotpSetupSource, fallbackIssuer = credentialForm.totpIssuer || credentialForm.title) {
+    try {
+      const candidate = parseTotpCandidate(rawValue, fallbackIssuer, source);
+
+      if (!isStandardTotp(candidate)) {
+        setTotpSetupError(t("totp.easy.errorUnsupported"));
+        setTotpPreview(null);
+        setTotpSetupMode(source === "manual" ? "manual" : "choice");
+        return;
+      }
+
+      const currentCode = await generateTotp(candidate.secret);
+      setTotpPreview({ ...candidate, currentCode });
+      setTotpSetupMode("preview");
+      setTotpSetupError("");
+    } catch (error) {
+      const key = error instanceof Error && error.message.startsWith("totp.error.")
+        ? error.message
+        : "totp.easy.errorInvalid";
+      setTotpSetupError(t(key as Parameters<typeof translate>[1]));
+      setTotpPreview(null);
+      setTotpSetupMode(source === "manual" ? "manual" : "choice");
+    }
+  }
+
+  async function handleTotpManualVerify() {
+    await prepareTotpPreview(totpManualValue, "manual", totpManualIssuer || credentialForm.totpIssuer || credentialForm.title);
+  }
+
+  async function handleTotpImageSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setTotpSetupError(t("totp.easy.errorImageOnly"));
+      return;
+    }
+
+    setTotpQrBusy(true);
+    setTotpSetupError("");
+
+    try {
+      let content = "";
+
+      try {
+        content = await decodeQrFromImageFile(file);
+      } catch {
+        const dataUrl = await readFileAsDataUrl(file);
+        content = await invoke<string>("decode_qr_from_image_data_url", { dataUrl });
+      }
+
+      await prepareTotpPreview(content, "image", credentialForm.totpIssuer || credentialForm.title);
+    } catch {
+      setTotpSetupError(t("totp.easy.errorQrNotFound"));
+      setTotpPreview(null);
+      setTotpSetupMode("choice");
+    } finally {
+      setTotpQrBusy(false);
+    }
+  }
+
+  function applyTotpPreview() {
+    if (!totpPreview) return;
+
+    setCredentialForm((current) => ({
+      ...current,
+      totpSecret: totpPreview.secret,
+      totpIssuer: totpPreview.issuer || current.title,
+    }));
+    closeTotpSetup();
+  }
+
+  async function clearTotpFromForm() {
+    const confirmed = await askConfirmation({
+      title: t("totp.easy.removeTitle"),
+      message: t("totp.easy.removeMessage"),
+      confirmText: t("totp.easy.removeConfirm"),
+      cancelText: t("dialog.cancel"),
+      tone: "danger",
+    });
+
+    if (!confirmed) return;
+
+    setCredentialForm((current) => ({ ...current, totpSecret: "", totpIssuer: "" }));
+  }
+
+  function openCredentialTotpSetup(credential: CredentialRecord) {
+    openEditCredentialForm(credential);
+    window.setTimeout(() => {
+      setTotpSetupMode("choice");
+      setTotpManualValue(credential.totpSecret ?? "");
+      setTotpManualIssuer(credential.totpIssuer ?? credential.title ?? "");
+      setTotpPreview(null);
+      setTotpSetupError("");
+      setTotpSetupOpen(true);
+    }, 0);
   }
 
   async function handleSaveCredential(event: FormEvent) {
@@ -3551,6 +3759,114 @@ export default function App() {
           >
             {confirmDialog.confirmText ?? t("dialog.confirm")}
           </button>
+        </div>
+      </section>
+    </div>
+  ) : null;
+
+  const totpSetupDialog = totpSetupOpen ? (
+    <div className="modalOverlay totpEasyOverlay" onMouseDown={closeTotpSetup}>
+      <section className="credentialModal totpEasyModal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modalHeader">
+          <div>
+            <p className="eyebrow">{t("totp.easy.eyebrow")}</p>
+            <h2>{t("totp.easy.title")}</h2>
+          </div>
+          <button type="button" className="iconButton" onClick={closeTotpSetup}>×</button>
+        </div>
+
+        <div className="totpEasyNotice">
+          <strong>{t("totp.easy.noticeTitle")}</strong>
+          <p>{t("totp.easy.noticeText")}</p>
+        </div>
+
+        <input
+          ref={totpImageInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(event) => void handleTotpImageSelected(event)}
+        />
+
+        {totpSetupMode === "choice" && (
+          <div className="totpEasyChoiceGrid">
+            <button
+              type="button"
+              className="totpEasyChoice primary"
+              disabled={totpQrBusy}
+              onClick={() => totpImageInputRef.current?.click()}
+            >
+              <span>{totpQrBusy ? t("totp.easy.reading") : t("totp.easy.importImage")}</span>
+              <small>{t("totp.easy.importImageHint")}</small>
+            </button>
+
+            <button type="button" className="totpEasyChoice" onClick={() => setTotpSetupMode("manual")}>
+              <span>{t("totp.easy.manual")}</span>
+              <small>{t("totp.easy.manualHint")}</small>
+            </button>
+          </div>
+        )}
+
+        {totpSetupMode === "manual" && (
+          <div className="totpManualPanel">
+            <label>
+              {t("totp.easy.manualIssuer")}
+              <input
+                value={totpManualIssuer}
+                onChange={(event) => setTotpManualIssuer(event.target.value)}
+                placeholder={t("totp.issuerPlaceholder")}
+              />
+            </label>
+
+            <label>
+              {t("totp.easy.manualValue")}
+              <textarea
+                value={totpManualValue}
+                onChange={(event) => setTotpManualValue(event.target.value)}
+                placeholder={t("totp.secretPlaceholder")}
+                rows={4}
+              />
+              <small>{t("totp.easy.manualHelp")}</small>
+            </label>
+          </div>
+        )}
+
+        {totpSetupMode === "preview" && totpPreview && (
+          <div className="totpPreviewPanel">
+            <div className="totpPreviewCode">
+              <span>{t("totp.easy.currentCode")}</span>
+              <strong>{totpPreview.currentCode}</strong>
+              <small>{t("totp.remaining", { seconds: getTotpRemainingSeconds(totpTick) })}</small>
+            </div>
+
+            <div className="totpPreviewGrid">
+              <div><span>{t("totp.easy.service")}</span><strong>{totpPreview.issuer || t("totp.easy.genericIssuer")}</strong></div>
+              <div><span>{t("totp.easy.account")}</span><strong>{totpPreview.account || credentialForm.username || "—"}</strong></div>
+              <div><span>{t("totp.easy.type")}</span><strong>TOTP · {totpPreview.digits} · {totpPreview.period}s</strong></div>
+              <div><span>{t("totp.easy.source")}</span><strong>{t(totpPreview.source === "image" ? "totp.easy.sourceImage" : "totp.easy.sourceManual")}</strong></div>
+            </div>
+          </div>
+        )}
+
+        {totpSetupError && <p className="totpEasyError">{totpSetupError}</p>}
+
+        <div className="modalActions">
+          {totpSetupMode === "manual" && (
+            <button type="button" className="primaryButton" onClick={() => void handleTotpManualVerify()}>
+              {t("totp.easy.verify")}
+            </button>
+          )}
+          {totpSetupMode === "preview" && (
+            <button type="button" className="primaryButton" onClick={applyTotpPreview}>
+              {credentialForm.totpSecret ? t("totp.easy.replaceConfirm") : t("totp.easy.saveConfirm")}
+            </button>
+          )}
+          {totpSetupMode !== "choice" && (
+            <button type="button" className="secondaryButton" onClick={() => { setTotpSetupMode("choice"); setTotpSetupError(""); setTotpPreview(null); }}>
+              {t("totp.easy.back")}
+            </button>
+          )}
+          <button type="button" className="secondaryButton" onClick={closeTotpSetup}>{t("dialog.cancel")}</button>
         </div>
       </section>
     </div>
@@ -5255,22 +5571,42 @@ export default function App() {
                 );
               })()}
 
-              {itemType === "credential" && detailCredential.totpSecret && (
-                <div className="totpBox">
-                  <div>
-                    <span>{t("totp.title")}</span>
-                    <strong>{detailTotpCode || "------"}</strong>
-                    <small>{t("totp.remaining", { seconds: getTotpRemainingSeconds(totpTick) })}</small>
-                    {detailCredential.totpIssuer && <small>{t("totp.issuer")}: {detailCredential.totpIssuer}</small>}
-                  </div>
-                  <button
-                    type="button"
-                    className="secondaryButton"
-                    disabled={!detailTotpCode}
-                    onClick={() => void copySecure(detailTotpCode, `totp-${detailCredential.id}`)}
-                  >
-                    {copiedField === `totp-${detailCredential.id}` ? t("credential.copied") : t("totp.copy")}
-                  </button>
+              {itemType === "credential" && (
+                <div className={detailCredential.totpSecret ? "totpBox" : "totpBox empty"}>
+                  {detailCredential.totpSecret ? (
+                    <>
+                      <div>
+                        <span>{t("totp.title")}</span>
+                        <strong>{detailTotpCode || "------"}</strong>
+                        <small>{t("totp.remaining", { seconds: getTotpRemainingSeconds(totpTick) })}</small>
+                        {detailCredential.totpIssuer && <small>{t("totp.issuer")}: {detailCredential.totpIssuer}</small>}
+                      </div>
+                      <div className="totpBoxActions">
+                        <button
+                          type="button"
+                          className="secondaryButton"
+                          disabled={!detailTotpCode}
+                          onClick={() => void copySecure(detailTotpCode, `totp-${detailCredential.id}`)}
+                        >
+                          {copiedField === `totp-${detailCredential.id}` ? t("credential.copied") : t("totp.copy")}
+                        </button>
+                        <button type="button" className="secondaryButton" onClick={() => openCredentialTotpSetup(detailCredential)}>
+                          {t("totp.easy.change")}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <span>{t("totp.title")}</span>
+                        <strong className="totpEmptyTitle">{t("totp.easy.notConfigured")}</strong>
+                        <small>{t("totp.easy.detailHint")}</small>
+                      </div>
+                      <button type="button" className="secondaryButton" onClick={() => openCredentialTotpSetup(detailCredential)}>
+                        {t("totp.easy.add")}
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -5628,27 +5964,23 @@ export default function App() {
                     />
                   </label>
 
-                  <label>
-                    {t("totp.issuer")}
-                    <input
-                      value={credentialForm.totpIssuer ?? ""}
-                      onChange={(event) =>
-                        setCredentialForm((current) => ({ ...current, totpIssuer: event.target.value }))
-                      }
-                      placeholder={t("totp.issuerPlaceholder")}
-                    />
-                  </label>
-
-                  <label>
-                    {t("totp.secret")}
-                    <input
-                      value={credentialForm.totpSecret ?? ""}
-                      onChange={(event) =>
-                        setCredentialForm((current) => ({ ...current, totpSecret: event.target.value }))
-                      }
-                      placeholder={t("totp.secretPlaceholder")}
-                    />
-                  </label>
+                  <div className="totpEasyCard full">
+                    <div>
+                      <span className="eyebrow">{t("totp.easy.eyebrow")}</span>
+                      <strong>{credentialForm.totpSecret ? t("totp.easy.configured") : t("totp.easy.notConfigured")}</strong>
+                      <p>{credentialForm.totpSecret ? t("totp.easy.configuredDescription", { issuer: credentialForm.totpIssuer || credentialForm.title || t("totp.easy.genericIssuer") }) : t("totp.easy.description")}</p>
+                    </div>
+                    <div className="totpEasyActions">
+                      <button type="button" className="secondaryButton" onClick={() => openTotpSetup("choice")}>
+                        {credentialForm.totpSecret ? t("totp.easy.change") : t("totp.easy.add")}
+                      </button>
+                      {credentialForm.totpSecret && (
+                        <button type="button" className="dangerButton ghost" onClick={() => void clearTotpFromForm()}>
+                          {t("totp.easy.remove")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
                   <label>
                     {t("expiry.expiresIn")}
@@ -5692,6 +6024,8 @@ export default function App() {
                     {t("form.password")}
                     <div className="passwordInput">
                       <input
+                        type="password"
+                        autoComplete="new-password"
                         value={credentialForm.password}
                         onChange={(event) =>
                           setCredentialForm((current) => ({
@@ -5947,6 +6281,7 @@ export default function App() {
         </div>
       )}
 
+      {totpSetupDialog}
       {csvExportDialog}
       {csvImportDialog}
       {confirmDialogElement}
