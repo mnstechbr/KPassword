@@ -139,6 +139,58 @@ type DiagnosticIssue = Exclude<DiagnosticFilter, "all">;
 
 const OLD_PASSWORD_DAYS = 180;
 
+type DiagnosticGuidance = {
+  explanation: string;
+  action: string;
+};
+
+const DIAGNOSTIC_GUIDANCE_KEYS: Partial<Record<DiagnosticIssue, DiagnosticGuidance>> = {
+  weak: {
+    explanation: "diagnostic.guidance.weak.explanation",
+    action: "diagnostic.guidance.weak.action",
+  },
+  reused: {
+    explanation: "diagnostic.guidance.reused.explanation",
+    action: "diagnostic.guidance.reused.action",
+  },
+  old: {
+    explanation: "diagnostic.guidance.old.explanation",
+    action: "diagnostic.guidance.old.action",
+  },
+  expired: {
+    explanation: "diagnostic.guidance.expired.explanation",
+    action: "diagnostic.guidance.expired.action",
+  },
+  expiring: {
+    explanation: "diagnostic.guidance.expiring.explanation",
+    action: "diagnostic.guidance.expiring.action",
+  },
+  missingTotp: {
+    explanation: "diagnostic.guidance.missingTotp.explanation",
+    action: "diagnostic.guidance.missingTotp.action",
+  },
+  incomplete: {
+    explanation: "diagnostic.guidance.incomplete.explanation",
+    action: "diagnostic.guidance.incomplete.action",
+  },
+};
+
+function getVaultIssueGuidance(
+  issue: DiagnosticIssue,
+  translateText: (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) => string,
+) {
+  const guidance = DIAGNOSTIC_GUIDANCE_KEYS[issue] ?? {
+    explanation: "diagnostic.guidance.generic.explanation",
+    action: "diagnostic.guidance.generic.action",
+  };
+  const values = issue === "old" ? { days: OLD_PASSWORD_DAYS } : undefined;
+
+  return {
+    explanation: translateText(guidance.explanation, values),
+    action: translateText(guidance.action, values),
+  };
+}
+
 type ConfirmDialog = {
   title: string;
   message: string;
@@ -2853,18 +2905,19 @@ export default function App() {
   const analyticIssueCount = Object.values(diagnosticIssueCounts).reduce((total, count) => total + count, 0);
 
   const diagnosticCards: Array<{
-    filter: DiagnosticFilter;
+    filter: DiagnosticIssue;
     count: number;
     tone: "danger" | "warning" | "neutral";
     description: string;
+    guidance: DiagnosticGuidance;
   }> = [
-    { filter: "expired", count: diagnosticIssueCounts.expired, tone: "danger", description: t("diagnostic.description.expired") },
-    { filter: "reused", count: diagnosticIssueCounts.reused, tone: "danger", description: t("diagnostic.description.reused") },
-    { filter: "weak", count: diagnosticIssueCounts.weak, tone: "warning", description: t("diagnostic.description.weak") },
-    { filter: "expiring", count: diagnosticIssueCounts.expiring, tone: "warning", description: t("diagnostic.description.expiring") },
-    { filter: "old", count: diagnosticIssueCounts.old, tone: "neutral", description: t("diagnostic.description.old", { days: OLD_PASSWORD_DAYS }) },
-    { filter: "missingTotp", count: diagnosticIssueCounts.missingTotp, tone: "neutral", description: t("diagnostic.description.missingTotp") },
-    { filter: "incomplete", count: diagnosticIssueCounts.incomplete, tone: "neutral", description: t("diagnostic.description.incomplete") },
+    { filter: "expired", count: diagnosticIssueCounts.expired, tone: "danger", description: t("diagnostic.description.expired"), guidance: getVaultIssueGuidance("expired", t) },
+    { filter: "reused", count: diagnosticIssueCounts.reused, tone: "danger", description: t("diagnostic.description.reused"), guidance: getVaultIssueGuidance("reused", t) },
+    { filter: "weak", count: diagnosticIssueCounts.weak, tone: "warning", description: t("diagnostic.description.weak"), guidance: getVaultIssueGuidance("weak", t) },
+    { filter: "expiring", count: diagnosticIssueCounts.expiring, tone: "warning", description: t("diagnostic.description.expiring"), guidance: getVaultIssueGuidance("expiring", t) },
+    { filter: "old", count: diagnosticIssueCounts.old, tone: "neutral", description: t("diagnostic.description.old", { days: OLD_PASSWORD_DAYS }), guidance: getVaultIssueGuidance("old", t) },
+    { filter: "missingTotp", count: diagnosticIssueCounts.missingTotp, tone: "neutral", description: t("diagnostic.description.missingTotp"), guidance: getVaultIssueGuidance("missingTotp", t) },
+    { filter: "incomplete", count: diagnosticIssueCounts.incomplete, tone: "neutral", description: t("diagnostic.description.incomplete"), guidance: getVaultIssueGuidance("incomplete", t) },
   ];
 
   const analyticSignals = diagnosticCards
@@ -3625,6 +3678,14 @@ export default function App() {
                   <span>{getDiagnosticLabel(card.filter)}</span>
                   <strong>{card.count}</strong>
                   <small>{card.description}</small>
+                  {card.count > 0 && (
+                    <>
+                      <small className="diagnosticGuidanceText">{card.guidance.explanation}</small>
+                      <small className="diagnosticGuidanceAction">
+                        <b>{t("diagnostic.guidance.actionLabel")}</b> {card.guidance.action}
+                      </small>
+                    </>
+                  )}
                   <em>{card.count > 0 ? t("diagnostic.viewItems") : t("diagnostic.ok")}</em>
                 </button>
               ))}

@@ -7833,6 +7833,32 @@ select option {
   line-height: 1.35;
 }
 
+.diagnosticCard .diagnosticGuidanceText,
+.diagnosticCard .diagnosticGuidanceAction {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.76rem;
+  line-height: 1.32;
+}
+
+.diagnosticCard .diagnosticGuidanceText {
+  margin-top: 2px;
+  color: var(--kp-readable) !important;
+}
+
+.diagnosticCard .diagnosticGuidanceAction {
+  margin-top: 1px;
+  padding-top: 7px;
+  border-top: 1px solid var(--kp-line);
+}
+
+.diagnosticCard .diagnosticGuidanceAction b {
+  color: var(--kp-readable) !important;
+  font-weight: 820;
+}
+
 .diagnosticCard em {
   align-self: end;
   width: fit-content;
