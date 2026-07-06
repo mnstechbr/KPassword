@@ -736,11 +736,11 @@ function isCredentialItem(credential: CredentialRecord) {
 
 function getItemTypeIcon(itemType: VaultItemType) {
   const icons: Record<VaultItemType, string> = {
-    credential: "ðŸ”‘",
-    secure_note: "ðŸ“",
-    card: "ðŸ’³",
-    identity: "ðŸªª",
-    license: "ðŸ“œ",
+    credential: "🔑",
+    secure_note: "📝",
+    card: "💳",
+    identity: "🪪",
+    license: "📜",
   };
 
   return icons[itemType];
@@ -2516,6 +2516,7 @@ export default function App() {
     if (!value.trim()) return fallback;
     return clampVaultInteger(Number(value), fallback, min, max);
   }
+
   async function updateVaultSettings(nextSettings: Partial<PlainVault["settings"]>) {
     if (!vault) return;
 
@@ -4202,7 +4203,7 @@ export default function App() {
             className={appTheme === "dark" ? "authThemeButton active" : "authThemeButton"}
             onClick={() => setAppTheme("dark")}
           >
-            <span className="authThemeIcon" aria-hidden="true">â˜¾</span>
+            <span className="authThemeIcon" aria-hidden="true">☾</span>
             <span>{t("preferences.dark")}</span>
           </button>
           <button
@@ -4212,7 +4213,7 @@ export default function App() {
             className={appTheme === "light" ? "authThemeButton active" : "authThemeButton"}
             onClick={() => setAppTheme("light")}
           >
-            <span className="authThemeIcon" aria-hidden="true">â˜€</span>
+            <span className="authThemeIcon" aria-hidden="true">☀</span>
             <span>{t("preferences.light")}</span>
           </button>
           <button
@@ -4222,7 +4223,7 @@ export default function App() {
             className={appTheme === "mixed" ? "authThemeButton active" : "authThemeButton"}
             onClick={() => setAppTheme("mixed")}
           >
-            <span className="authThemeIcon" aria-hidden="true">â—</span>
+            <span className="authThemeIcon" aria-hidden="true">◐</span>
             <span>{t("preferences.mixed")}</span>
           </button>
         </div>
@@ -4272,7 +4273,7 @@ export default function App() {
     <div className="confirmOverlay" onMouseDown={() => closeConfirmDialog(false)}>
       <section className="confirmCard" onMouseDown={(event) => event.stopPropagation()}>
         <div className={confirmDialog.tone === "danger" ? "confirmIcon danger" : "confirmIcon"}>
-          {confirmDialog.tone === "danger" ? "!" : "âœ“"}
+          {confirmDialog.tone === "danger" ? "!" : "✓"}
         </div>
         <div>
           <h2>{confirmDialog.title}</h2>
@@ -4931,7 +4932,7 @@ export default function App() {
             title={t("nav.credentials")}
             aria-label={t("nav.credentials")}
           >
-            <span className="navIcon" aria-hidden="true">ðŸ”‘</span>
+            <span className="navIcon" aria-hidden="true">🔑</span>
             <span className="navLabel">{t("nav.credentials")}</span>
           </button>
           <button
@@ -4940,7 +4941,7 @@ export default function App() {
             title={t("nav.dashboard")}
             aria-label={t("nav.dashboard")}
           >
-            <span className="navIcon" aria-hidden="true">ðŸ“Š</span>
+            <span className="navIcon" aria-hidden="true">📊</span>
             <span className="navLabel">{t("nav.dashboard")}</span>
           </button>
           <button
@@ -4949,7 +4950,7 @@ export default function App() {
             title={t("nav.trash")}
             aria-label={t("nav.trash")}
           >
-            <span className="navIcon" aria-hidden="true">ðŸ—‘ï¸</span>
+            <span className="navIcon" aria-hidden="true">🗑️</span>
             <span className="navLabel">{t("nav.trash")}</span>
           </button>
           <button
@@ -4958,7 +4959,7 @@ export default function App() {
             title={t("nav.securityBackup")}
             aria-label={t("nav.securityBackup")}
           >
-            <span className="navIcon" aria-hidden="true">ðŸ›¡ï¸</span>
+            <span className="navIcon" aria-hidden="true">🛡️</span>
             <span className="navLabel">{t("nav.securityBackup")}</span>
           </button>
           <button
@@ -4967,14 +4968,14 @@ export default function App() {
             title={t("nav.preferences")}
             aria-label={t("nav.preferences")}
           >
-            <span className="navIcon" aria-hidden="true">âš™ï¸</span>
+            <span className="navIcon" aria-hidden="true">⚙️</span>
             <span className="navLabel">{t("nav.preferences")}</span>
           </button>
         </nav>
 
         <div className="sidebarFooter">
           <button className="lockButton" onClick={lockVault} title={t("nav.lockVault")} aria-label={t("nav.lockVault")}>
-            <span className="navIcon" aria-hidden="true">ðŸ”’</span>
+            <span className="navIcon" aria-hidden="true">🔒</span>
             <span className="navLabel">{t("nav.lockVault")}</span>
           </button>
         </div>
@@ -5041,7 +5042,7 @@ export default function App() {
                 >
                   <span>{quickFilterButtonLabel}</span>
                   <strong>{quickFilterButtonCount}</strong>
-                  <span className="quickFilterMenuChevron" aria-hidden="true">âŒ„</span>
+                  <span className="quickFilterMenuChevron" aria-hidden="true">⌄</span>
                 </button>
 
                 {quickFilterMenuOpen && (
@@ -5180,7 +5181,7 @@ export default function App() {
                       }}
                       title={credential.favorite ? t("credential.removeFavorite") : t("credential.favorite")}
                     >
-                      â˜…
+                      ★
                     </span>
 
                     <span className="rowMain">
@@ -5299,7 +5300,7 @@ export default function App() {
             <section className="assistantDecisionGrid">
               <article className={`assistantNextCard tone-${assistantMainAction?.tone ?? "neutral"}`}>
                 <div className="assistantCardHeader">
-                  <span className="assistantOrb" aria-hidden="true">âœ¦</span>
+                  <span className="assistantOrb" aria-hidden="true">✦</span>
                   <div>
                     <p className="eyebrow">{t("assistant.nextEyebrow")}</p>
                     <h2>{assistantMainAction ? t(`assistant.action.title.${assistantMainAction.issue}`, { title: assistantMainAction.credential.title }) : t("assistant.noActionTitle")}</h2>
@@ -5970,7 +5971,7 @@ export default function App() {
                   className={appTheme === "dark" ? "optionButton active" : "optionButton"}
                   onClick={() => setAppTheme("dark")}
                 >
-                  <span>ðŸŒ™</span>
+                  <span>🌙</span>
                   <strong>{t("preferences.dark")}</strong>
                   <small>{t("preferences.darkDescription")}</small>
                 </button>
@@ -5979,7 +5980,7 @@ export default function App() {
                   className={appTheme === "light" ? "optionButton active" : "optionButton"}
                   onClick={() => setAppTheme("light")}
                 >
-                  <span>â˜€ï¸</span>
+                  <span>☀️</span>
                   <strong>{t("preferences.light")}</strong>
                   <small>{t("preferences.lightDescription")}</small>
                 </button>
@@ -5988,7 +5989,7 @@ export default function App() {
                   className={appTheme === "mixed" ? "optionButton active" : "optionButton"}
                   onClick={() => setAppTheme("mixed")}
                 >
-                  <span>ðŸŒ“</span>
+                  <span>🌓</span>
                   <strong>{t("preferences.mixed")}</strong>
                   <small>{t("preferences.mixedDescription")}</small>
                 </button>
@@ -6933,4 +6934,3 @@ export default function App() {
     </main>
   );
 }
-
