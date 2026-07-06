@@ -237,7 +237,7 @@ function getCredentialImportanceScore(credential: CredentialRecord) {
 
   if (credential.favorite) score += 22;
   if (["Banco", "E-mail", "Sistema"].includes(credential.category)) score += 16;
-  if (/bank|banco|nubank|itau|itaú|bradesco|santander|caixa|inter|finance|pay|paypal|wise|binance|mercado\s*pago/.test(haystack)) score += 18;
+  if (/bank|banco|nubank|itau|itaÃº|bradesco|santander|caixa|inter|finance|pay|paypal|wise|binance|mercado\s*pago/.test(haystack)) score += 18;
   if (/mail|gmail|outlook|hotmail|proton|icloud|email|e-mail/.test(haystack)) score += 15;
   if (/github|gitlab|vercel|cloudflare|aws|azure|google|microsoft|admin|root|sistema/.test(haystack)) score += 14;
 
@@ -247,9 +247,9 @@ function getCredentialImportanceScore(credential: CredentialRecord) {
 function inferCredentialTag(credential: CredentialRecord) {
   const haystack = `${credential.title} ${credential.url} ${credential.category}`.toLowerCase();
 
-  if (/bank|banco|nubank|itau|itaú|bradesco|santander|caixa|inter|finance|pay|paypal|wise|binance|mercado\s*pago/.test(haystack)) return "banco";
+  if (/bank|banco|nubank|itau|itaÃº|bradesco|santander|caixa|inter|finance|pay|paypal|wise|binance|mercado\s*pago/.test(haystack)) return "banco";
   if (/mail|gmail|outlook|hotmail|proton|icloud|email|e-mail/.test(haystack)) return "email";
-  if (/github|gitlab|vercel|cloudflare|aws|azure|docker|npm|dev|deploy|código|codigo|code/.test(haystack)) return "desenvolvimento";
+  if (/github|gitlab|vercel|cloudflare|aws|azure|docker|npm|dev|deploy|cÃ³digo|codigo|code/.test(haystack)) return "desenvolvimento";
   if (/amazon|mercado\s*livre|shop|loja|compra|compras|aliexpress|shopee|magazine|magalu/.test(haystack)) return "compras";
   if (/netflix|spotify|disney|prime|hbo|max|stream|youtube|twitch/.test(haystack)) return "streaming";
   if (/instagram|facebook|linkedin|twitter|x\.com|tiktok|social/.test(haystack)) return "social";
@@ -327,7 +327,7 @@ function createId() {
 }
 
 function formatDate(value?: string | number, language: AppLanguage = "pt") {
-  if (!value) return "—";
+  if (!value) return "â€”";
 
   return new Intl.DateTimeFormat(getDateLocale(language), {
     dateStyle: "short",
@@ -388,8 +388,8 @@ async function openExternalUrl(url: string) {
 }
 
 function maskPassword(password: string) {
-  if (!password) return "—";
-  return "••••••••••••";
+  if (!password) return "â€”";
+  return "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢";
 }
 
 function getOrderedCredentials(credentials: CredentialRecord[]) {
@@ -602,8 +602,8 @@ function AppLogo({
 
 const localizedLanguageNames: Record<AppLanguage, Record<AppLanguage, string>> = {
   pt: {
-    pt: "Português",
-    en: "Inglês",
+    pt: "PortuguÃªs",
+    en: "InglÃªs",
     es: "Espanhol",
     tr: "Turco",
   },
@@ -614,16 +614,16 @@ const localizedLanguageNames: Record<AppLanguage, Record<AppLanguage, string>> =
     tr: "Turkish",
   },
   es: {
-    pt: "Portugués",
-    en: "Inglés",
-    es: "Español",
+    pt: "PortuguÃ©s",
+    en: "InglÃ©s",
+    es: "EspaÃ±ol",
     tr: "Turco",
   },
   tr: {
     pt: "Portekizce",
-    en: "İngilizce",
-    es: "İspanyolca",
-    tr: "Türkçe",
+    en: "Ä°ngilizce",
+    es: "Ä°spanyolca",
+    tr: "TÃ¼rkÃ§e",
   },
 };
 
@@ -736,11 +736,11 @@ function isCredentialItem(credential: CredentialRecord) {
 
 function getItemTypeIcon(itemType: VaultItemType) {
   const icons: Record<VaultItemType, string> = {
-    credential: "🔑",
-    secure_note: "📝",
-    card: "💳",
-    identity: "🪪",
-    license: "📜",
+    credential: "ðŸ”‘",
+    secure_note: "ðŸ“",
+    card: "ðŸ’³",
+    identity: "ðŸªª",
+    license: "ðŸ“œ",
   };
 
   return icons[itemType];
@@ -784,11 +784,11 @@ function getItemPrimarySecret(item: CredentialRecord) {
 }
 
 function maskGenericSecret(value?: string) {
-  if (!value) return "—";
+  if (!value) return "â€”";
   const normalized = value.replace(/\s+/g, "");
 
-  if (normalized.length <= 4) return "••••";
-  return `•••• ${normalized.slice(-4)}`;
+  if (normalized.length <= 4) return "â€¢â€¢â€¢â€¢";
+  return `â€¢â€¢â€¢â€¢ ${normalized.slice(-4)}`;
 }
 
 function getAttachments(credential?: Partial<CredentialRecord> | null): VaultAttachment[] {
@@ -1003,14 +1003,14 @@ type CsvImportAnalysis = {
 
 const CSV_IMPORT_FIELD_ALIASES: Record<CsvImportFieldKey, string[]> = {
   type: ["type", "tipo", "itemtype", "item_type", "kind"],
-  title: ["title", "name", "nome", "titulo", "título", "site", "servico", "serviço"],
+  title: ["title", "name", "nome", "titulo", "tÃ­tulo", "site", "servico", "serviÃ§o"],
   category: ["category", "categoria", "folder", "pasta", "grupo"],
-  tags: ["tags", "tag", "etiquetas", "marcadores", "labels", "rotulos", "rótulos"],
+  tags: ["tags", "tag", "etiquetas", "marcadores", "labels", "rotulos", "rÃ³tulos"],
   favorite: ["favorite", "favorito", "starred", "favorita"],
-  username: ["username", "user", "login", "email", "e-mail", "usuario", "usuário"],
+  username: ["username", "user", "login", "email", "e-mail", "usuario", "usuÃ¡rio"],
   password: ["password", "senha", "pass", "secret"],
   url: ["url", "site", "website", "link", "uri"],
-  notes: ["notes", "nota", "notas", "observacoes", "observações", "content", "conteudo", "conteúdo", "comments"],
+  notes: ["notes", "nota", "notas", "observacoes", "observaÃ§Ãµes", "content", "conteudo", "conteÃºdo", "comments"],
   totpIssuer: ["totpissuer", "totp_issuer", "issuer", "emissor"],
   totpSecret: ["totpsecret", "totp_secret", "otp", "2fa", "mfa", "segredo_totp", "otpauth"],
 };
@@ -1113,9 +1113,9 @@ function normalizeImportedItemType(value: string): VaultItemType {
   const normalized = value.trim().toLowerCase();
 
   if (["secure_note", "secure note", "note", "nota", "nota segura"].includes(normalized)) return "secure_note";
-  if (["card", "cartao", "cartão", "tarjeta"].includes(normalized)) return "card";
+  if (["card", "cartao", "cartÃ£o", "tarjeta"].includes(normalized)) return "card";
   if (["identity", "identidade", "identidad", "kimlik"].includes(normalized)) return "identity";
-  if (["license", "licenca", "licença", "licencia", "lisans"].includes(normalized)) return "license";
+  if (["license", "licenca", "licenÃ§a", "licencia", "lisans"].includes(normalized)) return "license";
 
   return "credential";
 }
@@ -1127,7 +1127,7 @@ function normalizeImportedCategory(value: string): CredentialCategory {
   if (["banco", "bank", "banco/bank"].includes(normalized)) return "Banco";
   if (["e-mail", "email", "mail"].includes(normalized)) return "E-mail";
   if (["sistema", "system", "sistema/system"].includes(normalized)) return "Sistema";
-  if (["outro", "other", "otro", "diğer"].includes(normalized)) return "Outro";
+  if (["outro", "other", "otro", "diÄŸer"].includes(normalized)) return "Outro";
 
   return "Trabalho";
 }
@@ -1159,7 +1159,7 @@ function rowToImportedCredential(row: Record<string, string>, now: string, mappi
     totpIssuer: itemType === "credential" ? getMappedCsvValue(row, "totpIssuer", mapping) : "",
     totpSecret: itemType === "credential" ? getMappedCsvValue(row, "totpSecret", mapping) : "",
     cardholderName: itemType === "card" ? getCsvValue(row, ["cardholdername", "card_holder", "nome_cartao"]) : "",
-    cardNumber: itemType === "card" ? getCsvValue(row, ["cardnumber", "card_number", "numero_cartao", "número_cartão"]) : "",
+    cardNumber: itemType === "card" ? getCsvValue(row, ["cardnumber", "card_number", "numero_cartao", "nÃºmero_cartÃ£o"]) : "",
     cardExpiry: itemType === "card" ? getCsvValue(row, ["cardexpiry", "card_expiry", "validade_cartao"]) : "",
     cardCvv: itemType === "card" ? getCsvValue(row, ["cardcvv", "card_cvv", "cvv"]) : "",
     cardIssuer: itemType === "card" ? getCsvValue(row, ["cardissuer", "card_issuer", "banco_cartao", "emissor"]) : "",
@@ -1167,10 +1167,10 @@ function rowToImportedCredential(row: Record<string, string>, now: string, mappi
     identityDocument: itemType === "identity" ? getCsvValue(row, ["identitydocument", "identity_document", "documento"]) : "",
     identityEmail: itemType === "identity" ? getCsvValue(row, ["identityemail", "identity_email"]) : "",
     identityPhone: itemType === "identity" ? getCsvValue(row, ["identityphone", "identity_phone", "telefone"]) : "",
-    identityAddress: itemType === "identity" ? getCsvValue(row, ["identityaddress", "identity_address", "endereco", "endereço"]) : "",
+    identityAddress: itemType === "identity" ? getCsvValue(row, ["identityaddress", "identity_address", "endereco", "endereÃ§o"]) : "",
     licenseProduct: itemType === "license" ? getCsvValue(row, ["licenseproduct", "license_product", "produto"]) : "",
     licenseKey: itemType === "license" ? getCsvValue(row, ["licensekey", "license_key", "chave", "serial"]) : "",
-    licenseOwner: itemType === "license" ? getCsvValue(row, ["licenseowner", "license_owner", "proprietario", "proprietário"]) : "",
+    licenseOwner: itemType === "license" ? getCsvValue(row, ["licenseowner", "license_owner", "proprietario", "proprietÃ¡rio"]) : "",
     licenseExpiresAt: itemType === "license" ? getCsvValue(row, ["licenseexpiresat", "license_expires_at", "expira_em"]) : "",
     createdAt: now,
     updatedAt: now,
@@ -1718,7 +1718,7 @@ export default function App() {
       setStorageInfo(info);
       setBackups(backupFiles);
     } catch (error) {
-      console.error("Erro ao carregar informações de armazenamento:", error);
+      console.error("Erro ao carregar informaÃ§Ãµes de armazenamento:", error);
     }
   }, [activeVaultName]);
 
@@ -1898,7 +1898,7 @@ export default function App() {
 
     const interval = window.setInterval(() => {
       void persistVault(vault).catch((error) => {
-        console.error("Erro ao criar backup automático:", error);
+        console.error("Erro ao criar backup automÃ¡tico:", error);
       });
     }, vault.settings.backupIntervalHours * 60 * 60 * 1000);
 
@@ -2681,7 +2681,7 @@ export default function App() {
         try {
           await appWindow.setAlwaysOnTop(true);
         } catch {
-          // Se o sistema negar o topo temporário, ainda tentamos foco normal.
+          // Se o sistema negar o topo temporÃ¡rio, ainda tentamos foco normal.
         }
       }
 
@@ -2693,14 +2693,14 @@ export default function App() {
         }, 450);
       }
     } catch {
-      // Conveniência de UX. A captura continua válida mesmo se o Windows bloquear o foco imediato.
+      // ConveniÃªncia de UX. A captura continua vÃ¡lida mesmo se o Windows bloquear o foco imediato.
     }
   }
 
   async function restoreTotpWindowAfterScreenSelection() {
-    // Não deixamos a janela como always-on-top antes do seletor do Windows, porque isso pode causar
-    // o retorno para a tela compartilhada em alguns ambientes. O "top bump" acontece só depois
-    // que o frame já foi capturado e o stream encerrado.
+    // NÃ£o deixamos a janela como always-on-top antes do seletor do Windows, porque isso pode causar
+    // o retorno para a tela compartilhada em alguns ambientes. O "top bump" acontece sÃ³ depois
+    // que o frame jÃ¡ foi capturado e o stream encerrado.
     await bringTotpWindowToFront(120, true);
     window.setTimeout(() => void bringTotpWindowToFront(0, true), 450);
     window.setTimeout(() => void bringTotpWindowToFront(0, false), 1000);
@@ -2781,8 +2781,8 @@ export default function App() {
 
     try {
       // O seletor nativo do Windows/WebView pode focar a tela ou janela escolhida.
-      // Não prendemos o KPassword no topo antes do seletor para evitar o comportamento
-      // em que ele volta a minimizar ou fica atrás da origem compartilhada.
+      // NÃ£o prendemos o KPassword no topo antes do seletor para evitar o comportamento
+      // em que ele volta a minimizar ou fica atrÃ¡s da origem compartilhada.
       stream = await mediaDevices.getDisplayMedia({ video: true, audio: false });
       shouldRestoreWindow = true;
       const video = document.createElement("video");
@@ -2830,7 +2830,9 @@ export default function App() {
   async function decodeTotpScreenSelection() {
     const image = totpScreenImageRef.current;
 
-    if (!image || !totpScreenImage || !isTotpScreenSelectionReady(totpScreenSelection)) {
+    const selection = totpScreenSelection;
+
+    if (!image || !totpScreenImage || !selection || !isTotpScreenSelectionReady(selection)) {
       setTotpSetupError(t("totp.easy.errorScreenSelection"));
       return;
     }
@@ -2845,10 +2847,10 @@ export default function App() {
 
     const scaleX = image.naturalWidth / displayWidth;
     const scaleY = image.naturalHeight / displayHeight;
-    const sourceX = Math.max(0, Math.round(totpScreenSelection.x * scaleX));
-    const sourceY = Math.max(0, Math.round(totpScreenSelection.y * scaleY));
-    const sourceWidth = Math.max(1, Math.round(totpScreenSelection.width * scaleX));
-    const sourceHeight = Math.max(1, Math.round(totpScreenSelection.height * scaleY));
+    const sourceX = Math.max(0, Math.round(selection.x * scaleX));
+    const sourceY = Math.max(0, Math.round(selection.y * scaleY));
+    const sourceWidth = Math.max(1, Math.round(selection.width * scaleX));
+    const sourceHeight = Math.max(1, Math.round(selection.height * scaleY));
 
     const canvas = document.createElement("canvas");
     canvas.width = sourceWidth;
@@ -3032,7 +3034,7 @@ export default function App() {
 
     const preview = suggestions
       .slice(0, 6)
-      .map((suggestion) => `${suggestion.credential.title} → #${suggestion.tag}`)
+      .map((suggestion) => `${suggestion.credential.title} â†’ #${suggestion.tag}`)
       .join("\n");
     const extraCount = Math.max(suggestions.length - 6, 0);
     const confirmed = await askConfirmation({
@@ -3522,7 +3524,7 @@ export default function App() {
           await navigator.clipboard.writeText("");
         }
       } catch {
-        // Sem permissão de leitura: não limpa para evitar apagar conteúdo novo do usuário.
+        // Sem permissÃ£o de leitura: nÃ£o limpa para evitar apagar conteÃºdo novo do usuÃ¡rio.
       } finally {
         clipboardCleanupRef.current = null;
         setCopiedField("");
@@ -4010,7 +4012,6 @@ export default function App() {
 
   const vaultHealthScore = getVaultHealthScore(diagnosticIssueCounts);
   const vaultHealthTone = getVaultHealthTone(vaultHealthScore);
-  const analyticIssueCount = Object.values(diagnosticIssueCounts).reduce((total, count) => total + count, 0);
 
   const diagnosticCards: Array<{
     filter: DiagnosticIssue;
@@ -4045,33 +4046,6 @@ export default function App() {
   const activeQuickFilterLabel = activeQuickFilterOption?.label ?? t("quickFilters.all");
   const quickFilterButtonLabel = activeQuickFilter === "all" ? t("quickFilters.button") : activeQuickFilterLabel;
   const quickFilterButtonCount = activeQuickFilter === "all" ? filteredCredentials.length : activeQuickFilterOption?.count ?? filteredCredentials.length;
-
-  const analyticSignals = diagnosticCards
-    .filter((item) => item.count > 0)
-    .map((item) => ({
-      label: t("diagnostic.signal", { label: getDiagnosticLabel(item.filter), count: item.count }),
-      count: item.count,
-      tone: item.tone,
-    }));
-
-  const analyticSummaryItems = [
-    { label: t("itemType.credential"), count: stats.credentialItems },
-    { label: t("itemType.secure_note"), count: stats.secureNotes },
-    { label: t("item.card"), count: stats.cards },
-    { label: t("item.identity"), count: stats.identities },
-    { label: t("item.license"), count: stats.licenses },
-    { label: t("dashboard.favorites"), count: stats.favorites },
-    { label: t("nav.trash"), count: stats.deleted },
-  ];
-
-  const analyticAttentionItems = credentialItems
-    .map((credential) => ({
-      credential,
-      issues: getDiagnosticIssuesFor(credential),
-    }))
-    .filter((item) => item.issues.length > 0)
-    .sort((first, second) => second.issues.length - first.issues.length)
-    .slice(0, 6);
 
   const assistantActions = useMemo<AssistantAction[]>(() => {
     return credentialItems
@@ -4186,7 +4160,7 @@ export default function App() {
             className={appTheme === "dark" ? "authThemeButton active" : "authThemeButton"}
             onClick={() => setAppTheme("dark")}
           >
-            <span className="authThemeIcon" aria-hidden="true">☾</span>
+            <span className="authThemeIcon" aria-hidden="true">â˜¾</span>
             <span>{t("preferences.dark")}</span>
           </button>
           <button
@@ -4196,7 +4170,7 @@ export default function App() {
             className={appTheme === "light" ? "authThemeButton active" : "authThemeButton"}
             onClick={() => setAppTheme("light")}
           >
-            <span className="authThemeIcon" aria-hidden="true">☀</span>
+            <span className="authThemeIcon" aria-hidden="true">â˜€</span>
             <span>{t("preferences.light")}</span>
           </button>
           <button
@@ -4206,7 +4180,7 @@ export default function App() {
             className={appTheme === "mixed" ? "authThemeButton active" : "authThemeButton"}
             onClick={() => setAppTheme("mixed")}
           >
-            <span className="authThemeIcon" aria-hidden="true">◐</span>
+            <span className="authThemeIcon" aria-hidden="true">â—</span>
             <span>{t("preferences.mixed")}</span>
           </button>
         </div>
@@ -4256,7 +4230,7 @@ export default function App() {
     <div className="confirmOverlay" onMouseDown={() => closeConfirmDialog(false)}>
       <section className="confirmCard" onMouseDown={(event) => event.stopPropagation()}>
         <div className={confirmDialog.tone === "danger" ? "confirmIcon danger" : "confirmIcon"}>
-          {confirmDialog.tone === "danger" ? "!" : "✓"}
+          {confirmDialog.tone === "danger" ? "!" : "âœ“"}
         </div>
         <div>
           <h2>{confirmDialog.title}</h2>
@@ -4285,7 +4259,7 @@ export default function App() {
             <p className="eyebrow">{t("totp.easy.eyebrow")}</p>
             <h2>{t("totp.easy.title")}</h2>
           </div>
-          <button type="button" className="iconButton" onClick={closeTotpSetup}>×</button>
+          <button type="button" className="iconButton" onClick={closeTotpSetup}>Ã—</button>
         </div>
 
         <div className="totpEasyNotice">
@@ -4405,8 +4379,8 @@ export default function App() {
 
             <div className="totpPreviewGrid">
               <div><span>{t("totp.easy.service")}</span><strong>{totpPreview.issuer || t("totp.easy.genericIssuer")}</strong></div>
-              <div><span>{t("totp.easy.account")}</span><strong>{totpPreview.account || credentialForm.username || "—"}</strong></div>
-              <div><span>{t("totp.easy.type")}</span><strong>TOTP · {totpPreview.digits} · {totpPreview.period}s</strong></div>
+              <div><span>{t("totp.easy.account")}</span><strong>{totpPreview.account || credentialForm.username || "â€”"}</strong></div>
+              <div><span>{t("totp.easy.type")}</span><strong>TOTP Â· {totpPreview.digits} Â· {totpPreview.period}s</strong></div>
               <div><span>{t("totp.easy.source")}</span><strong>{t(totpPreview.source === "screen" ? "totp.easy.sourceScreen" : totpPreview.source === "image" ? "totp.easy.sourceImage" : "totp.easy.sourceManual")}</strong></div>
             </div>
           </div>
@@ -4467,7 +4441,7 @@ export default function App() {
             <span>{t("export.csvModalSubtitle")}</span>
           </div>
           <button type="button" className="iconButton" aria-label={t("dialog.cancel")} onClick={closeCsvExportDialog}>
-            ×
+            Ã—
           </button>
         </div>
 
@@ -4546,7 +4520,7 @@ export default function App() {
               setRestorePassword("");
             }}
           >
-            ×
+            Ã—
           </button>
         </div>
 
@@ -4588,7 +4562,7 @@ export default function App() {
             <span>{t("import.previewFile", { name: csvImportPreview.filename })}</span>
           </div>
           <button type="button" className="iconButton" aria-label={t("import.cancelPreview")} onClick={cancelCsvImportPreview}>
-            ×
+            Ã—
           </button>
         </div>
 
@@ -4651,7 +4625,7 @@ export default function App() {
                 <div>
                   <strong>{item.credential.title}</strong>
                   <span>
-                    {t("import.previewLine", { line: item.lineNumber })} · {item.credential.username || item.credential.url || t("credential.noUser")}
+                    {t("import.previewLine", { line: item.lineNumber })} Â· {item.credential.username || item.credential.url || t("credential.noUser")}
                   </span>
                 </div>
                 {(item.errors.length > 0 || item.warnings.length > 0) && (
@@ -4915,7 +4889,7 @@ export default function App() {
             title={t("nav.credentials")}
             aria-label={t("nav.credentials")}
           >
-            <span className="navIcon" aria-hidden="true">🔑</span>
+            <span className="navIcon" aria-hidden="true">ðŸ”‘</span>
             <span className="navLabel">{t("nav.credentials")}</span>
           </button>
           <button
@@ -4924,7 +4898,7 @@ export default function App() {
             title={t("nav.dashboard")}
             aria-label={t("nav.dashboard")}
           >
-            <span className="navIcon" aria-hidden="true">📊</span>
+            <span className="navIcon" aria-hidden="true">ðŸ“Š</span>
             <span className="navLabel">{t("nav.dashboard")}</span>
           </button>
           <button
@@ -4933,7 +4907,7 @@ export default function App() {
             title={t("nav.trash")}
             aria-label={t("nav.trash")}
           >
-            <span className="navIcon" aria-hidden="true">🗑️</span>
+            <span className="navIcon" aria-hidden="true">ðŸ—‘ï¸</span>
             <span className="navLabel">{t("nav.trash")}</span>
           </button>
           <button
@@ -4942,7 +4916,7 @@ export default function App() {
             title={t("nav.securityBackup")}
             aria-label={t("nav.securityBackup")}
           >
-            <span className="navIcon" aria-hidden="true">🛡️</span>
+            <span className="navIcon" aria-hidden="true">ðŸ›¡ï¸</span>
             <span className="navLabel">{t("nav.securityBackup")}</span>
           </button>
           <button
@@ -4951,14 +4925,14 @@ export default function App() {
             title={t("nav.preferences")}
             aria-label={t("nav.preferences")}
           >
-            <span className="navIcon" aria-hidden="true">⚙️</span>
+            <span className="navIcon" aria-hidden="true">âš™ï¸</span>
             <span className="navLabel">{t("nav.preferences")}</span>
           </button>
         </nav>
 
         <div className="sidebarFooter">
           <button className="lockButton" onClick={lockVault} title={t("nav.lockVault")} aria-label={t("nav.lockVault")}>
-            <span className="navIcon" aria-hidden="true">🔒</span>
+            <span className="navIcon" aria-hidden="true">ðŸ”’</span>
             <span className="navLabel">{t("nav.lockVault")}</span>
           </button>
         </div>
@@ -5025,7 +4999,7 @@ export default function App() {
                 >
                   <span>{quickFilterButtonLabel}</span>
                   <strong>{quickFilterButtonCount}</strong>
-                  <span className="quickFilterMenuChevron" aria-hidden="true">⌄</span>
+                  <span className="quickFilterMenuChevron" aria-hidden="true">âŒ„</span>
                 </button>
 
                 {quickFilterMenuOpen && (
@@ -5142,7 +5116,7 @@ export default function App() {
                           void moveCredentialByOffset(credential.id, -1);
                         }}
                       >
-                        ↑
+                        â†‘
                       </button>
                       <button
                         type="button"
@@ -5153,7 +5127,7 @@ export default function App() {
                           void moveCredentialByOffset(credential.id, 1);
                         }}
                       >
-                        ↓
+                        â†“
                       </button>
                     </span>
                     <span
@@ -5164,7 +5138,7 @@ export default function App() {
                       }}
                       title={credential.favorite ? t("credential.removeFavorite") : t("credential.favorite")}
                     >
-                      ★
+                      â˜…
                     </span>
 
                     <span className="rowMain">
@@ -5190,7 +5164,7 @@ export default function App() {
                     <span className="rowHealth">
                       {isCredentialItem(credential) ? (
                         <>
-                          <span>{translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} · {passwordScore}%</span>
+                          <span>{translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} Â· {passwordScore}%</span>
                           <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
                             {getExpiryLabel(credential)}
                           </span>
@@ -5283,7 +5257,7 @@ export default function App() {
             <section className="assistantDecisionGrid">
               <article className={`assistantNextCard tone-${assistantMainAction?.tone ?? "neutral"}`}>
                 <div className="assistantCardHeader">
-                  <span className="assistantOrb" aria-hidden="true">✦</span>
+                  <span className="assistantOrb" aria-hidden="true">âœ¦</span>
                   <div>
                     <p className="eyebrow">{t("assistant.nextEyebrow")}</p>
                     <h2>{assistantMainAction ? t(`assistant.action.title.${assistantMainAction.issue}`, { title: assistantMainAction.credential.title }) : t("assistant.noActionTitle")}</h2>
@@ -5436,7 +5410,7 @@ export default function App() {
                     <div>
                       <strong>{credential.title}</strong>
                       <span>
-                        {credential.username || t("credential.noUser")} · {t("trash.deletedAt")} {formatDate(credential.deletedAt, appLanguage)}
+                        {credential.username || t("credential.noUser")} Â· {t("trash.deletedAt")} {formatDate(credential.deletedAt, appLanguage)}
                       </span>
                     </div>
                     <div className="trashActions">
@@ -5518,7 +5492,7 @@ export default function App() {
                   <div key={backup.filename}>
                     <strong>{backup.filename}</strong>
                     <span>
-                      {formatDate(backup.modified_epoch_ms)} · {(backup.size_bytes / 1024).toFixed(1)} KB
+                      {formatDate(backup.modified_epoch_ms)} Â· {(backup.size_bytes / 1024).toFixed(1)} KB
                     </span>
                   </div>
                 ))}
@@ -5559,7 +5533,7 @@ export default function App() {
             <article className="wideCard securityActionCard">
               <h2>{t("settings.masterPasswordTitle")}</h2>
               <p>
-                Não existe recuperação da senha mestra atual. Se ela for perdida, o cofre e os backups criptografados não podem ser descriptografados. Troque a senha periodicamente e guarde-a em local seguro.
+                NÃ£o existe recuperaÃ§Ã£o da senha mestra atual. Se ela for perdida, o cofre e os backups criptografados nÃ£o podem ser descriptografados. Troque a senha periodicamente e guarde-a em local seguro.
               </p>
 
               <form className="changePasswordForm" onSubmit={handleChangeMasterPassword}>
@@ -5954,7 +5928,7 @@ export default function App() {
                   className={appTheme === "dark" ? "optionButton active" : "optionButton"}
                   onClick={() => setAppTheme("dark")}
                 >
-                  <span>🌙</span>
+                  <span>ðŸŒ™</span>
                   <strong>{t("preferences.dark")}</strong>
                   <small>{t("preferences.darkDescription")}</small>
                 </button>
@@ -5963,7 +5937,7 @@ export default function App() {
                   className={appTheme === "light" ? "optionButton active" : "optionButton"}
                   onClick={() => setAppTheme("light")}
                 >
-                  <span>☀️</span>
+                  <span>â˜€ï¸</span>
                   <strong>{t("preferences.light")}</strong>
                   <small>{t("preferences.lightDescription")}</small>
                 </button>
@@ -5972,7 +5946,7 @@ export default function App() {
                   className={appTheme === "mixed" ? "optionButton active" : "optionButton"}
                   onClick={() => setAppTheme("mixed")}
                 >
-                  <span>🌓</span>
+                  <span>ðŸŒ“</span>
                   <strong>{t("preferences.mixed")}</strong>
                   <small>{t("preferences.mixedDescription")}</small>
                 </button>
@@ -6086,11 +6060,11 @@ export default function App() {
             <aside className="detailPopup" onMouseDown={(event) => event.stopPropagation()}>
               <div className="detailHeader">
                 <div>
-                  <span>{getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)} · {getCategoryLabel(detailCredential.category, appLanguage)}</span>
+                  <span>{getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)} Â· {getCategoryLabel(detailCredential.category, appLanguage)}</span>
                   <h2>{detailCredential.title}</h2>
                 </div>
                 <button className="iconButton" onClick={() => setDetailCredentialId(null)}>
-                  ×
+                  Ã—
                 </button>
               </div>
 
@@ -6120,7 +6094,7 @@ export default function App() {
                 <div className="detailGrid">
                   <div>
                     <span>{t("detail.user")}</span>
-                    <strong>{detailCredential.username || "—"}</strong>
+                    <strong>{detailCredential.username || "â€”"}</strong>
                   </div>
 
                   <div>
@@ -6134,13 +6108,13 @@ export default function App() {
 
                   <div>
                     <span>{t("detail.site")}</span>
-                    <strong>{detailCredential.url || "—"}</strong>
+                    <strong>{detailCredential.url || "â€”"}</strong>
                   </div>
 
                   <div>
                     <span>{t("detail.strength")}</span>
                     <strong>
-                      {translatePasswordLabel(getPasswordLabel(getPasswordScore(detailCredential.password)), appLanguage)} ·{" "}
+                      {translatePasswordLabel(getPasswordLabel(getPasswordScore(detailCredential.password)), appLanguage)} Â·{" "}
                       {getPasswordScore(detailCredential.password)}%
                     </strong>
                   </div>
@@ -6258,23 +6232,23 @@ export default function App() {
                 <div className="detailGrid">
                   <div>
                     <span>{t("card.holder")}</span>
-                    <strong>{detailCredential.cardholderName || "—"}</strong>
+                    <strong>{detailCredential.cardholderName || "â€”"}</strong>
                   </div>
                   <div>
                     <span>{t("card.number")}</span>
-                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardNumber || "—" : maskGenericSecret(detailCredential.cardNumber)}</strong>
+                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardNumber || "â€”" : maskGenericSecret(detailCredential.cardNumber)}</strong>
                   </div>
                   <div>
                     <span>{t("card.expiry")}</span>
-                    <strong>{detailCredential.cardExpiry || "—"}</strong>
+                    <strong>{detailCredential.cardExpiry || "â€”"}</strong>
                   </div>
                   <div>
                     <span>{t("card.cvv")}</span>
-                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardCvv || "—" : maskGenericSecret(detailCredential.cardCvv)}</strong>
+                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardCvv || "â€”" : maskGenericSecret(detailCredential.cardCvv)}</strong>
                   </div>
                   <div>
                     <span>{t("card.issuer")}</span>
-                    <strong>{detailCredential.cardIssuer || "—"}</strong>
+                    <strong>{detailCredential.cardIssuer || "â€”"}</strong>
                   </div>
                   <div>
                     <span>{t("detail.updatedAt")}</span>
@@ -6287,23 +6261,23 @@ export default function App() {
                 <div className="detailGrid">
                   <div>
                     <span>{t("identity.fullName")}</span>
-                    <strong>{detailCredential.identityFullName || "—"}</strong>
+                    <strong>{detailCredential.identityFullName || "â€”"}</strong>
                   </div>
                   <div>
                     <span>{t("identity.document")}</span>
-                    <strong>{detailCredential.identityDocument || "—"}</strong>
+                    <strong>{detailCredential.identityDocument || "â€”"}</strong>
                   </div>
                   <div>
                     <span>{t("identity.email")}</span>
-                    <strong>{detailCredential.identityEmail || "—"}</strong>
+                    <strong>{detailCredential.identityEmail || "â€”"}</strong>
                   </div>
                   <div>
                     <span>{t("identity.phone")}</span>
-                    <strong>{detailCredential.identityPhone || "—"}</strong>
+                    <strong>{detailCredential.identityPhone || "â€”"}</strong>
                   </div>
                   <div className="full">
                     <span>{t("identity.address")}</span>
-                    <strong>{detailCredential.identityAddress || "—"}</strong>
+                    <strong>{detailCredential.identityAddress || "â€”"}</strong>
                   </div>
                 </div>
               )}
@@ -6312,19 +6286,19 @@ export default function App() {
                 <div className="detailGrid">
                   <div>
                     <span>{t("license.product")}</span>
-                    <strong>{detailCredential.licenseProduct || "—"}</strong>
+                    <strong>{detailCredential.licenseProduct || "â€”"}</strong>
                   </div>
                   <div>
                     <span>{t("license.key")}</span>
-                    <strong>{visiblePasswords[`license-${detailCredential.id}`] ? detailCredential.licenseKey || "—" : maskGenericSecret(detailCredential.licenseKey)}</strong>
+                    <strong>{visiblePasswords[`license-${detailCredential.id}`] ? detailCredential.licenseKey || "â€”" : maskGenericSecret(detailCredential.licenseKey)}</strong>
                   </div>
                   <div>
                     <span>{t("license.owner")}</span>
-                    <strong>{detailCredential.licenseOwner || "—"}</strong>
+                    <strong>{detailCredential.licenseOwner || "â€”"}</strong>
                   </div>
                   <div>
                     <span>{t("license.expiresAt")}</span>
-                    <strong>{detailCredential.licenseExpiresAt || "—"}</strong>
+                    <strong>{detailCredential.licenseExpiresAt || "â€”"}</strong>
                   </div>
                 </div>
               )}
@@ -6358,7 +6332,7 @@ export default function App() {
                       <div>
                         <strong>{attachment.name}</strong>
                         <span>
-                          {formatBytes(attachment.sizeBytes)} · {attachment.mimeType || "application/octet-stream"} · {formatDate(attachment.createdAt, appLanguage)}
+                          {formatBytes(attachment.sizeBytes)} Â· {attachment.mimeType || "application/octet-stream"} Â· {formatDate(attachment.createdAt, appLanguage)}
                         </span>
                       </div>
                       <div className="attachmentActions">
@@ -6402,7 +6376,7 @@ export default function App() {
                             {visibleHistoryPasswords[entry.id] ? entry.password : maskPassword(entry.password)}
                           </strong>
                           <span>
-                            {t("history.savedAt")} {formatDate(entry.savedAt, appLanguage)} · {t("history.changedAt")} {formatDate(entry.changedAt, appLanguage)}
+                            {t("history.savedAt")} {formatDate(entry.savedAt, appLanguage)} Â· {t("history.changedAt")} {formatDate(entry.changedAt, appLanguage)}
                           </span>
                         </div>
                         <div className="historyActions">
@@ -6495,7 +6469,7 @@ export default function App() {
                 <h2>{editingId ? t("form.editItem") : t("form.addItem")}</h2>
               </div>
               <button type="button" className="iconButton" onClick={() => setFormOpen(false)}>
-                ×
+                Ã—
               </button>
             </div>
 
@@ -6917,3 +6891,4 @@ export default function App() {
     </main>
   );
 }
+
