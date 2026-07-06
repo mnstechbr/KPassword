@@ -190,6 +190,75 @@ function isDiagnosticQuickFilter(filter: QuickVaultFilter): filter is Diagnostic
   return DIAGNOSTIC_QUICK_FILTERS.includes(filter as DiagnosticIssue);
 }
 
+type AssistantActionKind = "addTotp" | "changePassword" | "reviewPassword" | "completeCredential";
+
+type AssistantAction = {
+  id: string;
+  credential: CredentialRecord;
+  issue: DiagnosticIssue;
+  priority: number;
+  tone: "danger" | "warning" | "neutral";
+  kind: AssistantActionKind;
+};
+
+type AssistantTagSuggestion = {
+  id: string;
+  credential: CredentialRecord;
+  tag: string;
+  priority: number;
+};
+
+const ASSISTANT_ISSUE_PRIORITY: Record<DiagnosticIssue, number> = {
+  reused: 120,
+  expired: 112,
+  weak: 104,
+  missingTotp: 92,
+  expiring: 76,
+  old: 68,
+  incomplete: 54,
+};
+
+function getAssistantIssueTone(issue: DiagnosticIssue): "danger" | "warning" | "neutral" {
+  if (issue === "reused" || issue === "expired") return "danger";
+  if (issue === "weak" || issue === "missingTotp" || issue === "expiring") return "warning";
+  return "neutral";
+}
+
+function getAssistantActionKind(issue: DiagnosticIssue): AssistantActionKind {
+  if (issue === "missingTotp") return "addTotp";
+  if (issue === "incomplete") return "completeCredential";
+  if (issue === "weak" || issue === "reused" || issue === "expired") return "changePassword";
+  return "reviewPassword";
+}
+
+function getCredentialImportanceScore(credential: CredentialRecord) {
+  const haystack = `${credential.title} ${credential.url} ${credential.category}`.toLowerCase();
+  let score = 0;
+
+  if (credential.favorite) score += 22;
+  if (["Banco", "E-mail", "Sistema"].includes(credential.category)) score += 16;
+  if (/bank|banco|nubank|itau|itaú|bradesco|santander|caixa|inter|finance|pay|paypal|wise|binance|mercado\s*pago/.test(haystack)) score += 18;
+  if (/mail|gmail|outlook|hotmail|proton|icloud|email|e-mail/.test(haystack)) score += 15;
+  if (/github|gitlab|vercel|cloudflare|aws|azure|google|microsoft|admin|root|sistema/.test(haystack)) score += 14;
+
+  return score;
+}
+
+function inferCredentialTag(credential: CredentialRecord) {
+  const haystack = `${credential.title} ${credential.url} ${credential.category}`.toLowerCase();
+
+  if (/bank|banco|nubank|itau|itaú|bradesco|santander|caixa|inter|finance|pay|paypal|wise|binance|mercado\s*pago/.test(haystack)) return "banco";
+  if (/mail|gmail|outlook|hotmail|proton|icloud|email|e-mail/.test(haystack)) return "email";
+  if (/github|gitlab|vercel|cloudflare|aws|azure|docker|npm|dev|deploy|código|codigo|code/.test(haystack)) return "desenvolvimento";
+  if (/amazon|mercado\s*livre|shop|loja|compra|compras|aliexpress|shopee|magazine|magalu/.test(haystack)) return "compras";
+  if (/netflix|spotify|disney|prime|hbo|max|stream|youtube|twitch/.test(haystack)) return "streaming";
+  if (/instagram|facebook|linkedin|twitter|x\.com|tiktok|social/.test(haystack)) return "social";
+  if (/slack|teams|zoom|work|trabalho|empresa|corp/.test(haystack)) return "trabalho";
+  if (credential.favorite) return "importante";
+
+  return "revisar";
+}
+
 const OLD_PASSWORD_DAYS = 180;
 
 type DiagnosticGuidance = {
@@ -305,6 +374,17 @@ function normalizeUrl(url: string) {
   }
 
   return `https://${trimmed}`;
+}
+
+async function openExternalUrl(url: string) {
+  const normalized = normalizeUrl(url);
+
+  if (!normalized) {
+    return false;
+  }
+
+  await invoke("open_external_url", { url: normalized });
+  return true;
 }
 
 function maskPassword(password: string) {
@@ -1424,6 +1504,8 @@ export default function App() {
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickVaultFilter>("all");
   const [quickFilterMenuOpen, setQuickFilterMenuOpen] = useState(false);
   const [activeTagFilter, setActiveTagFilter] = useState("");
+  const [assistantFocusId, setAssistantFocusId] = useState("");
+  const [assistantSkippedIds, setAssistantSkippedIds] = useState<string[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailCredentialId, setDetailCredentialId] = useState<string | null>(null);
@@ -2910,6 +2992,93 @@ export default function App() {
     }, 0);
   }
 
+  function openAssistantCredential(credential: CredentialRecord) {
+    setDetailCredentialId(credential.id);
+    setScreen("credentials");
+  }
+
+  async function openAssistantSite(credential: CredentialRecord) {
+    if (!credential.url.trim()) {
+      openEditCredentialForm(credential);
+      return;
+    }
+
+    try {
+      await openExternalUrl(credential.url);
+    } catch (error) {
+      console.error(error);
+      setMessage(t("assistant.openSiteError"));
+    }
+  }
+
+  function skipAssistantAction(action: AssistantAction) {
+    setAssistantSkippedIds((current) => current.includes(action.id) ? current : [...current, action.id]);
+    if (assistantFocusId === action.id) {
+      setAssistantFocusId("");
+    }
+  }
+
+  function runAssistantPrimaryAction(action: AssistantAction) {
+    if (action.kind === "addTotp") {
+      openCredentialTotpSetup(action.credential);
+      return;
+    }
+
+    openEditCredentialForm(action.credential);
+  }
+
+  async function applyAssistantTagSuggestions(suggestions: AssistantTagSuggestion[]) {
+    if (!vault || suggestions.length === 0) return;
+
+    const preview = suggestions
+      .slice(0, 6)
+      .map((suggestion) => `${suggestion.credential.title} → #${suggestion.tag}`)
+      .join("\n");
+    const extraCount = Math.max(suggestions.length - 6, 0);
+    const confirmed = await askConfirmation({
+      title: t("assistant.tags.confirmTitle", { count: suggestions.length }),
+      message: `${t("assistant.tags.confirmMessage", { count: suggestions.length })}\n\n${preview}${extraCount > 0 ? `\n${t("assistant.tags.confirmMore", { count: extraCount })}` : ""}`,
+      confirmText: t("assistant.tags.applyCount", { count: suggestions.length }),
+      cancelText: t("dialog.cancel"),
+    });
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    try {
+      const now = new Date().toISOString();
+      const suggestionMap = new Map(suggestions.map((suggestion) => [suggestion.credential.id, suggestion.tag]));
+
+      await persistVault({
+        ...vault,
+        credentials: vault.credentials.map((credential) => {
+          const tag = suggestionMap.get(credential.id);
+
+          if (!tag) return credential;
+
+          return {
+            ...credential,
+            tags: normalizeCredentialTags([...getCredentialTags(credential), tag]),
+            updatedAt: now,
+          };
+        }),
+        updatedAt: now,
+      });
+
+      setMessage(t("assistant.tags.applied", { count: suggestions.length }));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("assistant.tags.error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyAssistantTagSuggestion(suggestion: AssistantTagSuggestion) {
+    await applyAssistantTagSuggestions([suggestion]);
+  }
+
   async function handleSaveCredential(event: FormEvent) {
     event.preventDefault();
 
@@ -3903,6 +4072,45 @@ export default function App() {
     .filter((item) => item.issues.length > 0)
     .sort((first, second) => second.issues.length - first.issues.length)
     .slice(0, 6);
+
+  const assistantActions = useMemo<AssistantAction[]>(() => {
+    return credentialItems
+      .flatMap((credential) => {
+        const issues = getDiagnosticIssuesFor(credential);
+        const importance = getCredentialImportanceScore(credential);
+
+        return issues.map((issue) => ({
+          id: `${credential.id}:${issue}`,
+          credential,
+          issue,
+          priority: ASSISTANT_ISSUE_PRIORITY[issue] + importance + issues.length * 3,
+          tone: getAssistantIssueTone(issue),
+          kind: getAssistantActionKind(issue),
+        }));
+      })
+      .sort((first, second) => second.priority - first.priority);
+  }, [credentialItems, getDiagnosticIssuesFor]);
+
+  const assistantTagSuggestions = useMemo<AssistantTagSuggestion[]>(() => {
+    return credentialItems
+      .filter((credential) => getCredentialTags(credential).length === 0)
+      .map((credential) => ({
+        id: `${credential.id}:tag`,
+        credential,
+        tag: inferCredentialTag(credential),
+        priority: getCredentialImportanceScore(credential),
+      }))
+      .sort((first, second) => second.priority - first.priority || first.credential.title.localeCompare(second.credential.title, getDateLocale(appLanguage)))
+      .slice(0, 12);
+  }, [appLanguage, credentialItems]);
+
+  const assistantVisibleActions = assistantActions.filter((action) => !assistantSkippedIds.includes(action.id));
+  const assistantMainAction = assistantVisibleActions.find((action) => action.id === assistantFocusId) ?? assistantVisibleActions[0] ?? null;
+  const assistantQueue = assistantVisibleActions.filter((action) => action.id !== assistantMainAction?.id).slice(0, 4);
+  const assistantImprovementCount = assistantActions.length + assistantTagSuggestions.length;
+  const assistantExternalActionCount = assistantActions.filter((action) => action.kind !== "completeCredential").length;
+  const assistantSafeActionCount = assistantTagSuggestions.length;
+  const assistantSkippedCount = assistantSkippedIds.length;
 
   const canReorderCredentials = search.trim().length === 0 && activeDiagnosticFilter === "all" && activeQuickFilter === "all" && !activeTagFilter;
   const masterIssues = validateMasterPassword(setupPassword);
@@ -5053,110 +5261,154 @@ export default function App() {
         )}
 
         {screen === "dashboard" && (
-          <div className="analyticsPage">
-            <section className={`analyticsHero vaultHealthHero ${analyticIssueCount > 0 ? "attention" : "safe"} tone-${vaultHealthTone}`}>
+          <div className="assistantPage">
+            <section className={`assistantHero tone-${vaultHealthTone}`}>
               <div>
-                <p className="eyebrow">{t("diagnostic.title")}</p>
-                <h2>{t(`diagnostic.health.${vaultHealthTone}`)}</h2>
+                <p className="eyebrow">{t("assistant.eyebrow")}</p>
+                <h2>{t("assistant.title")}</h2>
                 <p>
-                  {analyticIssueCount > 0
-                    ? t("diagnostic.heroIssues", { count: analyticIssueCount })
-                    : t("diagnostic.heroSafe")}
+                  {assistantImprovementCount > 0
+                    ? t("assistant.heroWithActions", { count: assistantImprovementCount })
+                    : t("assistant.heroClean")}
                 </p>
               </div>
 
-              <div className="vaultScoreBadge" aria-label={t("diagnostic.score")}>
+              <div className="assistantPulse" aria-label={t("diagnostic.score")}>
                 <span>{t("diagnostic.score")}</span>
                 <strong>{vaultHealthScore}</strong>
-                <small>/100 · {getVaultDisplayName(activeVaultName, vaultFiles)}</small>
+                <small>{t(`diagnostic.health.${vaultHealthTone}`)}</small>
               </div>
             </section>
 
-            <section className="diagnosticCardGrid">
-              {diagnosticCards.map((card) => (
-                <button
-                  key={card.filter}
-                  type="button"
-                  className={`diagnosticCard tone-${card.tone} ${card.count > 0 ? "hasIssues" : "clear"}`}
-                  onClick={() => card.count > 0 && openDiagnosticFilter(card.filter)}
-                  disabled={card.count === 0}
-                >
-                  <span>{getDiagnosticLabel(card.filter)}</span>
-                  <strong>{card.count}</strong>
-                  <small>{card.description}</small>
-                  {card.count > 0 && (
-                    <>
-                      <small className="diagnosticGuidanceText">{card.guidance.explanation}</small>
-                      <small className="diagnosticGuidanceAction">
-                        <b>{t("diagnostic.guidance.actionLabel")}</b> {card.guidance.action}
-                      </small>
-                    </>
-                  )}
-                  <em>{card.count > 0 ? t("diagnostic.viewItems") : t("diagnostic.ok")}</em>
-                </button>
-              ))}
-            </section>
-
-            <section className="analyticsGrid">
-              <article className="wideCard analyticsCard analyticsSignalsCard">
-                <h2>{t("dashboard.securityHealth")}</h2>
-                <div className="analyticsSignals">
-                  {analyticSignals.length > 0 ? (
-                    analyticSignals.map((signal) => (
-                      <span key={signal.label} className={`analyticsSignal tone-${signal.tone}`}>
-                        {signal.label}
-                      </span>
-                    ))
-                  ) : (
-                    <p className="emptyText">{t("diagnostic.noIssues")}</p>
-                  )}
+            <section className="assistantDecisionGrid">
+              <article className={`assistantNextCard tone-${assistantMainAction?.tone ?? "neutral"}`}>
+                <div className="assistantCardHeader">
+                  <span className="assistantOrb" aria-hidden="true">✦</span>
+                  <div>
+                    <p className="eyebrow">{t("assistant.nextEyebrow")}</p>
+                    <h2>{assistantMainAction ? t(`assistant.action.title.${assistantMainAction.issue}`, { title: assistantMainAction.credential.title }) : t("assistant.noActionTitle")}</h2>
+                  </div>
                 </div>
+
+                {assistantMainAction ? (
+                  <>
+                    <p className="assistantReason">
+                      {t(`assistant.action.reason.${assistantMainAction.issue}`, { title: assistantMainAction.credential.title })}
+                    </p>
+
+                    <div className="assistantIssueLine">
+                      <span className={`diagnosticMiniBadge issue-${assistantMainAction.issue}`}>{getDiagnosticLabel(assistantMainAction.issue)}</span>
+                      <span>{getItemSubtitle(assistantMainAction.credential, appLanguage)}</span>
+                    </div>
+
+                    <div className="assistantActionButtons">
+                      <button className="primaryButton" type="button" onClick={() => runAssistantPrimaryAction(assistantMainAction)}>
+                        {t(`assistant.primary.${assistantMainAction.kind}`)}
+                      </button>
+                      {assistantMainAction.credential.url.trim() && (
+                        <button className="secondaryButton" type="button" onClick={() => void openAssistantSite(assistantMainAction.credential)}>
+                          {t("assistant.openSite")}
+                        </button>
+                      )}
+                      <button className="ghostButton" type="button" onClick={() => openAssistantCredential(assistantMainAction.credential)}>
+                        {t("assistant.viewCredential")}
+                      </button>
+                      <button className="ghostButton assistantSkipButton" type="button" onClick={() => skipAssistantAction(assistantMainAction)}>
+                        {t("assistant.skipNow")}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="assistantEmptyAction">
+                    <p>{t("assistant.noActionDescription")}</p>
+                    <button className="primaryButton" type="button" onClick={() => setScreen("credentials")}>{t("assistant.goVault")}</button>
+                  </div>
+                )}
               </article>
 
-              <article className="wideCard analyticsCard analyticsAttentionCard">
-                <h2>{t("diagnostic.reviewFirst")}</h2>
-                <div className="miniList analyticsMiniList">
-                  {analyticAttentionItems.length > 0 ? (
-                    analyticAttentionItems.map((item) => (
+              <article className="assistantQueueCard">
+                <div className="assistantCardHeader compact">
+                  <div>
+                    <p className="eyebrow">{t("assistant.queueEyebrow")}</p>
+                    <h2>{t("assistant.queueTitle")}</h2>
+                  </div>
+                  {assistantSkippedCount > 0 && (
+                    <button className="ghostButton" type="button" onClick={() => setAssistantSkippedIds([])}>
+                      {t("assistant.restoreSkipped", { count: assistantSkippedCount })}
+                    </button>
+                  )}
+                </div>
+
+                <div className="assistantQueueList">
+                  {assistantQueue.length > 0 ? (
+                    assistantQueue.map((action, index) => (
                       <button
-                        key={item.credential.id}
-                        onClick={() => {
-                          setDetailCredentialId(item.credential.id);
-                          setScreen("credentials");
-                        }}
+                        key={action.id}
+                        type="button"
+                        className={`assistantQueueItem tone-${action.tone}`}
+                        onClick={() => setAssistantFocusId(action.id)}
                       >
-                        <strong>{item.credential.title}</strong>
-                        <span>{item.issues.map((issue) => getDiagnosticLabel(issue)).slice(0, 3).join(" · ")}</span>
+                        <span>{index + 1}</span>
+                        <strong>{action.credential.title}</strong>
+                        <small>{getDiagnosticLabel(action.issue)}</small>
                       </button>
                     ))
                   ) : (
-                    <p className="emptyText">{t("diagnostic.noIssues")}</p>
+                    <p className="emptyText">{assistantMainAction ? t("assistant.queueEmpty") : t("assistant.noIssuesQueue")}</p>
                   )}
                 </div>
               </article>
+            </section>
 
-              <article className="wideCard analyticsCard analyticsSummaryCard">
-                <h2>{t("dashboard.total")}</h2>
-                <div className="analyticsSummaryList">
-                  {analyticSummaryItems.map((item) => (
-                    <span key={item.label}>
-                      <small>{item.label}</small>
-                      <strong>{item.count}</strong>
-                    </span>
-                  ))}
+            <section className="assistantActionColumns">
+              <article className="assistantSafeCard">
+                <div>
+                  <p className="eyebrow">{t("assistant.safeEyebrow")}</p>
+                  <h2>{t("assistant.safeTitle")}</h2>
+                  <p>{assistantSafeActionCount > 0 ? t("assistant.safeDescription", { count: assistantSafeActionCount }) : t("assistant.safeEmpty")}</p>
                 </div>
+
+                {assistantTagSuggestions.length > 0 && (
+                  <>
+                    <div className="assistantTagRail">
+                      {assistantTagSuggestions.slice(0, 5).map((suggestion) => (
+                        <button key={suggestion.id} className="assistantSuggestionButton" type="button" onClick={() => void applyAssistantTagSuggestion(suggestion)} disabled={busy}>
+                          <span>{suggestion.credential.title}</span>
+                          <strong>#{suggestion.tag}</strong>
+                        </button>
+                      ))}
+                    </div>
+
+                    <button className="primaryButton" type="button" onClick={() => void applyAssistantTagSuggestions(assistantTagSuggestions)} disabled={busy}>
+                      {t("assistant.tags.applyCount", { count: assistantTagSuggestions.length })}
+                    </button>
+                  </>
+                )}
               </article>
 
-              <article className="wideCard analyticsCard analyticsProtectionCard">
-                <h2>{t("dashboard.protectionTitle")}</h2>
-                <div className="analyticsProtectionList">
-                  <span>{t("security.aes")}</span>
-                  <span>{t("security.encryptedBackups")}</span>
-                  <span>{t("security.autolock")}</span>
-                  <span>{t("security.clipboard")}</span>
-                  <span>{t("security.offline")}</span>
+              <article className="assistantNeedsYouCard">
+                <div>
+                  <p className="eyebrow">{t("assistant.needsYouEyebrow")}</p>
+                  <h2>{t("assistant.needsYouTitle")}</h2>
+                  <p>{assistantExternalActionCount > 0 ? t("assistant.needsYouDescription", { count: assistantExternalActionCount }) : t("assistant.needsYouEmpty")}</p>
+                </div>
+
+                <div className="assistantIssueChips">
+                  {diagnosticCards
+                    .filter((card) => card.count > 0)
+                    .map((card) => (
+                      <button key={card.filter} type="button" className={`assistantIssueChipButton tone-${card.tone}`} onClick={() => openDiagnosticFilter(card.filter)}>
+                        <strong>{card.count}</strong>
+                        <span>{getDiagnosticLabel(card.filter)}</span>
+                      </button>
+                    ))}
                 </div>
               </article>
+            </section>
+
+            <section className="assistantRulesCard">
+              <strong>{t("assistant.ruleTitle")}</strong>
+              <span>{t("assistant.ruleText")}</span>
             </section>
           </div>
         )}
@@ -6210,7 +6462,12 @@ export default function App() {
                 )}
 
                 {detailCredential.url && (
-                  <button onClick={() => window.open(detailCredential.url, "_blank")}>
+                  <button
+                    onClick={() => void openExternalUrl(detailCredential.url).catch((error) => {
+                      console.error(error);
+                      setMessage(t("credential.openSiteError"));
+                    })}
+                  >
                     {t("credential.openSite")}
                   </button>
                 )}

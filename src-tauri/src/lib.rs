@@ -281,6 +281,51 @@ fn open_folder(path: PathBuf) -> Result<(), String> {
     Err("Abrir pasta não é suportado nesta plataforma.".to_string())
 }
 
+fn is_safe_external_url(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    lower.starts_with("https://") || lower.starts_with("http://")
+}
+
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    let trimmed = url.trim();
+
+    if !is_safe_external_url(trimmed) {
+        return Err("URL externa inválida. Use http:// ou https://.".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("rundll32")
+            .arg("url.dll,FileProtocolHandler")
+            .arg(trimmed)
+            .spawn()
+            .map_err(|error| format!("Erro ao abrir site no navegador: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(trimmed)
+            .spawn()
+            .map_err(|error| format!("Erro ao abrir site no navegador: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        Command::new("xdg-open")
+            .arg(trimmed)
+            .spawn()
+            .map_err(|error| format!("Erro ao abrir site no navegador: {error}"))?;
+        return Ok(());
+    }
+
+    #[allow(unreachable_code)]
+    Err("Abrir site não é suportado nesta plataforma.".to_string())
+}
+
 #[tauri::command]
 fn open_vault_folder(app: AppHandle, vault_name: Option<String>) -> Result<(), String> {
     let (vault_path, _, _) = storage_paths(&app, vault_name)?;
@@ -1302,6 +1347,7 @@ pub fn run() {
             verify_backup_payload,
             open_vault_folder,
             open_backup_folder,
+            open_external_url,
             windows_hello_status,
             enable_windows_hello,
             disable_windows_hello,

@@ -1,4 +1,4 @@
-﻿* {
+* {
   box-sizing: border-box;
 }
 
@@ -12705,3 +12705,975 @@ textarea {
   }
 }
 /* === KPassword v1.0 - ajuste tela grande para seleção de QR END === */
+
+/* === KPassword v1.0 - Assistente do Cofre START === */
+.assistantPage {
+  display: grid;
+  gap: 20px;
+}
+
+.assistantHero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 22%, transparent), transparent 36%),
+    linear-gradient(135deg, color-mix(in srgb, var(--card) 95%, var(--accent)), var(--card));
+  box-shadow: var(--shadow);
+}
+
+.assistantHero h2 {
+  margin: 4px 0 8px;
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+}
+
+.assistantHero p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.assistantPulse {
+  min-width: 148px;
+  aspect-ratio: 1;
+  border-radius: 34px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+}
+
+.assistantPulse span,
+.assistantPulse small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.assistantPulse strong {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.assistantDecisionGrid,
+.assistantActionColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.assistantNextCard,
+.assistantQueueCard,
+.assistantSafeCard,
+.assistantNeedsYouCard,
+.assistantRulesCard {
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.assistantNextCard {
+  padding: 24px;
+  min-height: 320px;
+  display: grid;
+  align-content: space-between;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.assistantNextCard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 12% 10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 34%);
+}
+
+.assistantNextCard.tone-danger {
+  border-color: color-mix(in srgb, #ef4444 42%, var(--border));
+}
+
+.assistantNextCard.tone-warning {
+  border-color: color-mix(in srgb, #f59e0b 42%, var(--border));
+}
+
+.assistantNextCard > * {
+  position: relative;
+}
+
+.assistantCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.assistantCardHeader.compact {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.assistantCardHeader h2 {
+  margin: 3px 0 0;
+}
+
+.assistantOrb {
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 52%, #8b5cf6));
+  box-shadow: 0 18px 34px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.assistantReason {
+  margin: 0;
+  max-width: 760px;
+  color: var(--text);
+  font-size: 1.02rem;
+  line-height: 1.55;
+}
+
+.assistantIssueLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  color: var(--muted);
+}
+
+.assistantActionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.assistantQueueCard,
+.assistantSafeCard,
+.assistantNeedsYouCard {
+  padding: 20px;
+}
+
+.assistantQueueList {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.assistantQueueItem {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-areas:
+    "num title"
+    "num issue";
+  gap: 2px 10px;
+  align-items: center;
+  text-align: left;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 92%, var(--accent));
+}
+
+.assistantQueueItem > span:first-child {
+  grid-area: num;
+  width: 34px;
+  height: 34px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.assistantQueueItem strong {
+  grid-area: title;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistantQueueItem small {
+  grid-area: issue;
+  color: var(--muted);
+}
+
+.assistantSafeCard,
+.assistantNeedsYouCard {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.assistantSafeCard p,
+.assistantNeedsYouCard p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.assistantTagRail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.assistantTagRail button {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  max-width: 210px;
+  padding: 11px 13px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 90%, var(--accent));
+}
+
+.assistantTagRail span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.assistantTagRail strong {
+  color: var(--accent);
+}
+
+.assistantIssueChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.assistantIssueChips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 92%, var(--accent));
+}
+
+.assistantIssueChips strong {
+  min-width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.assistantRulesCard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  padding: 16px 18px;
+  color: var(--muted);
+}
+
+.assistantRulesCard strong {
+  color: var(--text);
+}
+
+.assistantEmptyAction {
+  display: grid;
+  gap: 14px;
+  align-items: start;
+}
+
+.ghostButton {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+@media (max-width: 980px) {
+  .assistantHero,
+  .assistantDecisionGrid,
+  .assistantActionColumns {
+    grid-template-columns: 1fr;
+  }
+
+  .assistantHero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .assistantPulse {
+    width: 100%;
+    aspect-ratio: auto;
+    min-height: 112px;
+  }
+}
+/* === KPassword v1.0 - Assistente do Cofre END === */
+
+/* === KPassword v1.0 - Assistente do Cofre - temas e botões START === */
+:root[data-theme="dark"] {
+  --assistant-hero-bg:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 36%),
+    linear-gradient(135deg, rgba(8, 10, 20, 0.96), rgba(12, 16, 28, 0.98));
+  --assistant-panel-bg: linear-gradient(180deg, rgba(10, 13, 23, 0.94), rgba(12, 16, 29, 0.96));
+  --assistant-soft-bg: rgba(255, 255, 255, 0.035);
+  --assistant-border: rgba(125, 211, 252, 0.14);
+  --assistant-border-strong: rgba(125, 211, 252, 0.22);
+  --assistant-muted-surface: rgba(255, 255, 255, 0.04);
+  --assistant-chip-count-bg: rgba(14, 165, 233, 0.18);
+}
+
+:root[data-theme="light"] {
+  --assistant-hero-bg:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.09), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 255, 0.98));
+  --assistant-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  --assistant-soft-bg: rgba(14, 165, 233, 0.06);
+  --assistant-border: rgba(2, 132, 199, 0.16);
+  --assistant-border-strong: rgba(2, 132, 199, 0.24);
+  --assistant-muted-surface: rgba(2, 132, 199, 0.045);
+  --assistant-chip-count-bg: rgba(14, 165, 233, 0.12);
+}
+
+:root[data-theme="mixed"] {
+  --assistant-hero-bg:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.1), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(242, 247, 255, 0.98));
+  --assistant-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 250, 255, 0.98));
+  --assistant-soft-bg: rgba(14, 165, 233, 0.065);
+  --assistant-border: rgba(59, 130, 246, 0.15);
+  --assistant-border-strong: rgba(59, 130, 246, 0.24);
+  --assistant-muted-surface: rgba(59, 130, 246, 0.05);
+  --assistant-chip-count-bg: rgba(14, 165, 233, 0.13);
+}
+
+.assistantHero {
+  border-color: var(--assistant-border);
+  background: var(--assistant-hero-bg);
+}
+
+.assistantPulse,
+.assistantNextCard,
+.assistantQueueCard,
+.assistantSafeCard,
+.assistantNeedsYouCard,
+.assistantRulesCard {
+  border-color: var(--assistant-border);
+}
+
+.assistantNextCard,
+.assistantQueueCard,
+.assistantSafeCard,
+.assistantNeedsYouCard,
+.assistantRulesCard {
+  background: var(--assistant-panel-bg);
+}
+
+.assistantPulse,
+.assistantQueueItem,
+.assistantSuggestionButton,
+.assistantIssueChipButton {
+  background: var(--assistant-soft-bg);
+}
+
+.assistantNextCard::before {
+  background: radial-gradient(circle at 12% 10%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 34%);
+}
+
+.assistantCardHeader h2,
+.assistantQueueItem strong,
+.assistantTagRail strong,
+.assistantRulesCard strong,
+.assistantIssueChips span {
+  color: var(--kp-readable);
+}
+
+.assistantHero p,
+.assistantPulse span,
+.assistantPulse small,
+.assistantQueueItem small,
+.assistantSafeCard p,
+.assistantNeedsYouCard p,
+.assistantTagRail span,
+.assistantRulesCard span {
+  color: var(--kp-readable-muted);
+}
+
+.assistantActionButtons .primaryButton,
+.assistantActionButtons .secondaryButton,
+.assistantActionButtons .ghostButton,
+.assistantEmptyAction .primaryButton,
+.assistantSafeCard > .primaryButton {
+  min-height: 52px;
+}
+
+.assistantActionButtons .secondaryButton,
+.assistantActionButtons .ghostButton,
+.assistantEmptyAction .primaryButton,
+.assistantSafeCard > .primaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.assistantActionButtons .ghostButton,
+.assistantActionButtons .secondaryButton,
+.assistantSkipButton {
+  box-shadow: none;
+}
+
+.assistantQueueItem,
+.assistantSuggestionButton,
+.assistantIssueChipButton {
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.assistantQueueItem:hover,
+.assistantSuggestionButton:hover:not(:disabled),
+.assistantIssueChipButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--assistant-border-strong);
+}
+
+.assistantSuggestionButton {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  max-width: 210px;
+  padding: 11px 13px;
+  border-radius: 16px;
+  border: 1px solid var(--assistant-border);
+  color: var(--kp-readable);
+}
+
+.assistantSuggestionButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.assistantIssueChipButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--assistant-border);
+  border-radius: 999px;
+  color: var(--kp-readable);
+}
+
+.assistantIssueChipButton strong {
+  min-width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--assistant-chip-count-bg);
+  color: var(--kp-readable);
+}
+
+.assistantIssueChipButton.tone-danger {
+  border-color: color-mix(in srgb, #ef4444 35%, var(--assistant-border));
+}
+
+.assistantIssueChipButton.tone-warning {
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--assistant-border));
+}
+
+.assistantIssueChipButton.tone-danger strong {
+  background: color-mix(in srgb, #ef4444 18%, var(--assistant-soft-bg));
+}
+
+.assistantIssueChipButton.tone-warning strong {
+  background: color-mix(in srgb, #f59e0b 18%, var(--assistant-soft-bg));
+}
+
+.assistantRulesCard {
+  background: linear-gradient(180deg, var(--assistant-muted-surface), var(--assistant-muted-surface));
+}
+
+:root[data-theme="light"] .assistantOrb,
+:root[data-theme="mixed"] .assistantOrb {
+  box-shadow: 0 12px 24px rgba(14, 165, 233, 0.18);
+}
+
+:root[data-theme="light"] .assistantNextCard.tone-danger,
+:root[data-theme="mixed"] .assistantNextCard.tone-danger {
+  border-color: rgba(239, 68, 68, 0.26);
+}
+
+:root[data-theme="light"] .assistantNextCard.tone-warning,
+:root[data-theme="mixed"] .assistantNextCard.tone-warning {
+  border-color: rgba(245, 158, 11, 0.26);
+}
+/* === KPassword v1.0 - Assistente do Cofre - temas e botões END === */
+
+/* === KPassword v1.0 - Assistente do Cofre theme/button fix START === */
+.assistantPage {
+  --assistant-card-bg: color-mix(in srgb, var(--card) 94%, #020617);
+  --assistant-card-bg-soft: color-mix(in srgb, var(--card) 88%, var(--accent));
+  --assistant-border: color-mix(in srgb, var(--border) 88%, var(--accent));
+  --assistant-text: var(--text);
+  --assistant-muted: var(--muted);
+  --assistant-chip-bg: rgba(255, 255, 255, 0.055);
+  color: var(--assistant-text);
+}
+
+.assistantPage h1,
+.assistantPage h2,
+.assistantPage h3,
+.assistantPage strong,
+.assistantPage label,
+.assistantPage .eyebrow {
+  color: var(--assistant-text) !important;
+}
+
+.assistantPage p,
+.assistantPage span,
+.assistantPage small,
+.assistantPage .emptyText {
+  color: var(--assistant-muted) !important;
+}
+
+.assistantHero,
+.assistantNextCard,
+.assistantQueueCard,
+.assistantSafeCard,
+.assistantNeedsYouCard,
+.assistantRulesCard {
+  color: var(--assistant-text) !important;
+  border-color: var(--assistant-border) !important;
+  background: var(--assistant-card-bg) !important;
+}
+
+.assistantHero {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 18%, transparent), transparent 38%),
+    linear-gradient(135deg, color-mix(in srgb, var(--assistant-card-bg) 96%, var(--accent)), var(--assistant-card-bg)) !important;
+}
+
+.assistantPulse,
+.assistantQueueItem,
+.assistantSuggestionButton,
+.assistantIssueChipButton {
+  color: var(--assistant-text) !important;
+  border-color: var(--assistant-border) !important;
+  background: var(--assistant-card-bg-soft) !important;
+}
+
+.assistantQueueItem strong,
+.assistantIssueChipButton span,
+.assistantIssueChipButton strong {
+  color: var(--assistant-text) !important;
+}
+
+.assistantSuggestionButton strong {
+  color: var(--accent) !important;
+}
+
+.assistantActionButtons .primaryButton,
+.assistantSafeCard .primaryButton {
+  min-height: 44px;
+  border: 0 !important;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #0ea5e9, #7c3aed) !important;
+  box-shadow: 0 14px 32px rgba(14, 165, 233, 0.22) !important;
+}
+
+.assistantActionButtons .secondaryButton,
+.assistantActionButtons .ghostButton,
+.assistantQueueCard .ghostButton,
+.assistantEmptyAction .primaryButton {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-weight: 800;
+}
+
+.assistantActionButtons .secondaryButton,
+.assistantActionButtons .ghostButton,
+.assistantQueueCard .ghostButton {
+  color: var(--assistant-text) !important;
+  border: 1px solid var(--assistant-border) !important;
+  background: var(--assistant-chip-bg) !important;
+  box-shadow: none !important;
+}
+
+.assistantActionButtons .secondaryButton:hover:not(:disabled),
+.assistantActionButtons .ghostButton:hover:not(:disabled),
+.assistantQueueCard .ghostButton:hover:not(:disabled),
+.assistantQueueItem:hover:not(:disabled),
+.assistantSuggestionButton:hover:not(:disabled),
+.assistantIssueChipButton:hover:not(:disabled) {
+  color: var(--assistant-text) !important;
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--assistant-border)) !important;
+  background: color-mix(in srgb, var(--assistant-card-bg-soft) 82%, var(--accent)) !important;
+  transform: translateY(-1px);
+}
+
+.assistantQueueItem,
+.assistantSuggestionButton,
+.assistantIssueChipButton {
+  cursor: pointer;
+}
+
+.assistantIssueChipButton strong {
+  background: color-mix(in srgb, var(--accent) 16%, transparent) !important;
+}
+
+:root[data-theme="light"] .assistantPage,
+:root[data-theme="mixed"] .assistantPage {
+  --assistant-card-bg: rgba(255, 255, 255, 0.94);
+  --assistant-card-bg-soft: rgba(248, 250, 252, 0.96);
+  --assistant-border: rgba(15, 23, 42, 0.12);
+  --assistant-text: #0f172a;
+  --assistant-muted: #475569;
+  --assistant-chip-bg: rgba(2, 132, 199, 0.08);
+}
+
+:root[data-theme="light"] .assistantHero,
+:root[data-theme="mixed"] .assistantHero {
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 38%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.94)) !important;
+}
+
+:root[data-theme="light"] .assistantNextCard.tone-danger,
+:root[data-theme="mixed"] .assistantNextCard.tone-danger {
+  border-color: rgba(220, 38, 38, 0.32) !important;
+  background:
+    radial-gradient(circle at top left, rgba(239, 68, 68, 0.08), transparent 38%),
+    var(--assistant-card-bg) !important;
+}
+
+:root[data-theme="light"] .assistantNextCard.tone-warning,
+:root[data-theme="mixed"] .assistantNextCard.tone-warning {
+  border-color: rgba(217, 119, 6, 0.32) !important;
+  background:
+    radial-gradient(circle at top left, rgba(245, 158, 11, 0.1), transparent 38%),
+    var(--assistant-card-bg) !important;
+}
+
+:root[data-theme="light"] .assistantActionButtons .secondaryButton,
+:root[data-theme="mixed"] .assistantActionButtons .secondaryButton,
+:root[data-theme="light"] .assistantActionButtons .ghostButton,
+:root[data-theme="mixed"] .assistantActionButtons .ghostButton,
+:root[data-theme="light"] .assistantQueueCard .ghostButton,
+:root[data-theme="mixed"] .assistantQueueCard .ghostButton {
+  color: #075985 !important;
+  border-color: rgba(2, 132, 199, 0.16) !important;
+  background: rgba(14, 165, 233, 0.1) !important;
+}
+
+:root[data-theme="light"] .assistantActionButtons .secondaryButton:hover:not(:disabled),
+:root[data-theme="mixed"] .assistantActionButtons .secondaryButton:hover:not(:disabled),
+:root[data-theme="light"] .assistantActionButtons .ghostButton:hover:not(:disabled),
+:root[data-theme="mixed"] .assistantActionButtons .ghostButton:hover:not(:disabled),
+:root[data-theme="light"] .assistantQueueCard .ghostButton:hover:not(:disabled),
+:root[data-theme="mixed"] .assistantQueueCard .ghostButton:hover:not(:disabled) {
+  color: #082f49 !important;
+  background: rgba(14, 165, 233, 0.18) !important;
+}
+
+:root[data-theme="light"] .assistantSuggestionButton strong,
+:root[data-theme="mixed"] .assistantSuggestionButton strong {
+  color: #0369a1 !important;
+}
+
+:root[data-theme="light"] .assistantNextCard::before,
+:root[data-theme="mixed"] .assistantNextCard::before {
+  opacity: 0.75;
+}
+
+/* === KPassword v1.0 - Assistente do Cofre theme/button fix END === */
+
+
+/* === KPassword v1.0 - Assistente do Cofre integração visual START === */
+.assistantPage {
+  gap: 18px !important;
+  color: var(--kp-readable, var(--kp-text, #f7f7fb)) !important;
+}
+
+.assistantHero,
+.assistantNextCard,
+.assistantQueueCard,
+.assistantSafeCard,
+.assistantNeedsYouCard,
+.assistantRulesCard {
+  border: 1px solid var(--kp-border, var(--border)) !important;
+  background: var(--kp-card, var(--card)) !important;
+  box-shadow: var(--kp-shadow, var(--shadow)) !important;
+  color: var(--kp-readable, var(--kp-text, #f7f7fb)) !important;
+}
+
+.assistantHero {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--kp-primary, #0ea5e9) 10%, transparent), transparent 38%),
+    var(--kp-card, var(--card)) !important;
+}
+
+.assistantNextCard {
+  min-height: 300px !important;
+}
+
+.assistantNextCard::before {
+  opacity: 0.55 !important;
+  background: radial-gradient(circle at 12% 10%, color-mix(in srgb, var(--kp-primary, #0ea5e9) 10%, transparent), transparent 34%) !important;
+}
+
+.assistantNextCard.tone-danger,
+.assistantNextCard.tone-warning {
+  border-color: var(--kp-border, var(--border)) !important;
+}
+
+.assistantNextCard.tone-danger::after,
+.assistantNextCard.tone-warning::after {
+  content: "";
+  position: absolute;
+  inset: 18px auto 18px 0;
+  width: 3px;
+  border-radius: 999px;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.assistantNextCard.tone-danger::after {
+  background: color-mix(in srgb, var(--kp-danger, #dc2626) 70%, var(--kp-primary, #0ea5e9));
+}
+
+.assistantNextCard.tone-warning::after {
+  background: color-mix(in srgb, var(--kp-warning, #f59e0b) 76%, var(--kp-primary, #0ea5e9));
+}
+
+.assistantPulse,
+.assistantQueueItem,
+.assistantSuggestionButton,
+.assistantIssueChipButton {
+  border: 1px solid var(--kp-border-soft, var(--kp-border, var(--border))) !important;
+  background: var(--kp-field-bg, rgba(255, 255, 255, 0.055)) !important;
+  color: var(--kp-readable, var(--kp-text, #f7f7fb)) !important;
+  box-shadow: none !important;
+}
+
+.assistantQueueItem:hover:not(:disabled),
+.assistantSuggestionButton:hover:not(:disabled),
+.assistantIssueChipButton:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--kp-primary, #0ea5e9) 36%, var(--kp-border, var(--border))) !important;
+  background: color-mix(in srgb, var(--kp-field-bg, rgba(255, 255, 255, 0.055)) 78%, var(--kp-primary, #0ea5e9)) !important;
+  transform: translateY(-1px);
+}
+
+.assistantOrb {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 15px !important;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(124, 58, 237, 0.2)) !important;
+  border: 1px solid rgba(0, 225, 255, 0.28) !important;
+  color: #c7fbff !important;
+  box-shadow: none !important;
+}
+
+.assistantPage h2,
+.assistantCardHeader h2,
+.assistantQueueItem strong,
+.assistantRulesCard strong,
+.assistantIssueChipButton span,
+.assistantIssueChipButton strong,
+.assistantSuggestionButton span {
+  color: var(--kp-readable, var(--kp-text, #f7f7fb)) !important;
+}
+
+.assistantPage p,
+.assistantPulse span,
+.assistantPulse small,
+.assistantQueueItem small,
+.assistantSafeCard p,
+.assistantNeedsYouCard p,
+.assistantTagRail span,
+.assistantRulesCard span,
+.assistantIssueLine,
+.assistantEmptyAction p {
+  color: var(--kp-readable-muted, var(--kp-muted, #aab0c5)) !important;
+}
+
+.assistantReason {
+  color: var(--kp-readable, var(--kp-text, #f7f7fb)) !important;
+}
+
+.assistantSuggestionButton strong {
+  color: #7dd3fc !important;
+}
+
+.assistantIssueChipButton strong,
+.assistantQueueItem > span:first-child {
+  background: color-mix(in srgb, var(--kp-primary, #0ea5e9) 14%, transparent) !important;
+  color: var(--kp-readable, var(--kp-text, #f7f7fb)) !important;
+}
+
+.assistantIssueChipButton.tone-danger strong {
+  background: color-mix(in srgb, var(--kp-danger, #dc2626) 15%, transparent) !important;
+}
+
+.assistantIssueChipButton.tone-warning strong {
+  background: color-mix(in srgb, var(--kp-warning, #f59e0b) 16%, transparent) !important;
+}
+
+.assistantRulesCard {
+  background: color-mix(in srgb, var(--kp-card, var(--card)) 92%, var(--kp-primary, #0ea5e9)) !important;
+}
+
+.assistantActionButtons > button:not(.primaryButton),
+.assistantActionButtons .secondaryButton,
+.assistantActionButtons .ghostButton,
+.assistantQueueCard .ghostButton,
+.assistantSkipButton {
+  min-height: 44px !important;
+  padding: 12px 16px !important;
+  border-radius: 14px !important;
+  border: 1px solid var(--kp-border, var(--border)) !important;
+  background: var(--kp-field-bg, rgba(255, 255, 255, 0.055)) !important;
+  color: var(--kp-readable, var(--kp-text, #f7f7fb)) !important;
+  box-shadow: none !important;
+  font-weight: 800 !important;
+}
+
+.assistantActionButtons > button:not(.primaryButton):hover:not(:disabled),
+.assistantActionButtons .secondaryButton:hover:not(:disabled),
+.assistantActionButtons .ghostButton:hover:not(:disabled),
+.assistantQueueCard .ghostButton:hover:not(:disabled),
+.assistantSkipButton:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--kp-primary, #0ea5e9) 40%, var(--kp-border, var(--border))) !important;
+  background: color-mix(in srgb, var(--kp-field-bg, rgba(255, 255, 255, 0.055)) 70%, var(--kp-primary, #0ea5e9)) !important;
+  color: var(--kp-readable, var(--kp-text, #f7f7fb)) !important;
+}
+
+.assistantActionButtons .primaryButton,
+.assistantSafeCard .primaryButton,
+.assistantEmptyAction .primaryButton {
+  min-height: 44px !important;
+  border-radius: 14px !important;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #0ea5e9, #7c3aed) !important;
+  box-shadow: 0 14px 32px rgba(14, 165, 233, 0.22) !important;
+}
+
+:root[data-theme="light"] .assistantHero,
+:root[data-theme="mixed"] .assistantHero,
+:root[data-theme="light"] .assistantNextCard,
+:root[data-theme="mixed"] .assistantNextCard,
+:root[data-theme="light"] .assistantQueueCard,
+:root[data-theme="mixed"] .assistantQueueCard,
+:root[data-theme="light"] .assistantSafeCard,
+:root[data-theme="mixed"] .assistantSafeCard,
+:root[data-theme="light"] .assistantNeedsYouCard,
+:root[data-theme="mixed"] .assistantNeedsYouCard,
+:root[data-theme="light"] .assistantRulesCard,
+:root[data-theme="mixed"] .assistantRulesCard {
+  background: var(--kp-card-strong, var(--kp-card, #fff)) !important;
+  border-color: var(--kp-border, rgba(15, 23, 42, 0.12)) !important;
+}
+
+:root[data-theme="light"] .assistantHero,
+:root[data-theme="mixed"] .assistantHero {
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.08), transparent 38%),
+    var(--kp-card-strong, #fff) !important;
+}
+
+:root[data-theme="light"] .assistantNextCard::before,
+:root[data-theme="mixed"] .assistantNextCard::before {
+  opacity: 0.35 !important;
+}
+
+:root[data-theme="light"] .assistantPulse,
+:root[data-theme="mixed"] .assistantPulse,
+:root[data-theme="light"] .assistantQueueItem,
+:root[data-theme="mixed"] .assistantQueueItem,
+:root[data-theme="light"] .assistantSuggestionButton,
+:root[data-theme="mixed"] .assistantSuggestionButton,
+:root[data-theme="light"] .assistantIssueChipButton,
+:root[data-theme="mixed"] .assistantIssueChipButton,
+:root[data-theme="light"] .assistantActionButtons > button:not(.primaryButton),
+:root[data-theme="mixed"] .assistantActionButtons > button:not(.primaryButton),
+:root[data-theme="light"] .assistantQueueCard .ghostButton,
+:root[data-theme="mixed"] .assistantQueueCard .ghostButton {
+  background: rgba(15, 23, 42, 0.045) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  color: #111827 !important;
+}
+
+:root[data-theme="light"] .assistantPage h2,
+:root[data-theme="mixed"] .assistantPage h2,
+:root[data-theme="light"] .assistantCardHeader h2,
+:root[data-theme="mixed"] .assistantCardHeader h2,
+:root[data-theme="light"] .assistantQueueItem strong,
+:root[data-theme="mixed"] .assistantQueueItem strong,
+:root[data-theme="light"] .assistantIssueChipButton span,
+:root[data-theme="mixed"] .assistantIssueChipButton span,
+:root[data-theme="light"] .assistantIssueChipButton strong,
+:root[data-theme="mixed"] .assistantIssueChipButton strong,
+:root[data-theme="light"] .assistantReason,
+:root[data-theme="mixed"] .assistantReason,
+:root[data-theme="light"] .assistantRulesCard strong,
+:root[data-theme="mixed"] .assistantRulesCard strong {
+  color: #111827 !important;
+}
+
+:root[data-theme="light"] .assistantPage p,
+:root[data-theme="mixed"] .assistantPage p,
+:root[data-theme="light"] .assistantPulse span,
+:root[data-theme="mixed"] .assistantPulse span,
+:root[data-theme="light"] .assistantPulse small,
+:root[data-theme="mixed"] .assistantPulse small,
+:root[data-theme="light"] .assistantQueueItem small,
+:root[data-theme="mixed"] .assistantQueueItem small,
+:root[data-theme="light"] .assistantIssueLine,
+:root[data-theme="mixed"] .assistantIssueLine,
+:root[data-theme="light"] .assistantRulesCard span,
+:root[data-theme="mixed"] .assistantRulesCard span {
+  color: #4b5563 !important;
+}
+
+:root[data-theme="light"] .assistantSuggestionButton strong,
+:root[data-theme="mixed"] .assistantSuggestionButton strong {
+  color: #0369a1 !important;
+}
+
+:root[data-theme="light"] .assistantActionButtons > button:not(.primaryButton):hover:not(:disabled),
+:root[data-theme="mixed"] .assistantActionButtons > button:not(.primaryButton):hover:not(:disabled),
+:root[data-theme="light"] .assistantQueueItem:hover:not(:disabled),
+:root[data-theme="mixed"] .assistantQueueItem:hover:not(:disabled),
+:root[data-theme="light"] .assistantSuggestionButton:hover:not(:disabled),
+:root[data-theme="mixed"] .assistantSuggestionButton:hover:not(:disabled),
+:root[data-theme="light"] .assistantIssueChipButton:hover:not(:disabled),
+:root[data-theme="mixed"] .assistantIssueChipButton:hover:not(:disabled) {
+  background: rgba(14, 165, 233, 0.1) !important;
+  border-color: rgba(2, 132, 199, 0.2) !important;
+  color: #0f172a !important;
+}
+
+@media (max-width: 980px) {
+  .assistantNextCard {
+    min-height: 260px !important;
+  }
+}
+/* === KPassword v1.0 - Assistente do Cofre integração visual END === */
