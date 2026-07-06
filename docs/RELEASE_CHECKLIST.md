@@ -23,6 +23,9 @@ Confirmar:
 - [ ] `APP_VERSION` em `src/App.tsx` está correta.
 - [ ] QA básico executado.
 - [ ] Teste manual do app executado.
+- [ ] Teste de importação CSV com prévia executado.
+- [ ] Teste de exportação CSV com aviso de não criptografado executado.
+- [ ] Teste de tags e filtros rápidos executado.
 - [ ] Nenhuma chave privada foi adicionada ao projeto.
 
 ## Commit

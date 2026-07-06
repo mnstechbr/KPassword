@@ -26,6 +26,10 @@ Antes de publicar uma release do KPassword:
 - [ ] testar bloqueio por inatividade;
 - [ ] testar limpeza do clipboard;
 - [ ] testar updater a partir da versão anterior instalada.
+- [ ] testar importação CSV com prévia, mapeamento e duplicados;
+- [ ] testar exportação CSV para migração, incluindo aviso de arquivo não criptografado;
+- [ ] testar tags em criar, editar, lista, detalhe e filtro;
+- [ ] testar dropdown de filtros rápidos junto com busca e tags;
 
 ## Release GitHub
 

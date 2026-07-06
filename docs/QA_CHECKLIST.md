@@ -75,7 +75,26 @@ Use este checklist antes de publicar qualquer versão.
 - [ ] Restaurar backup de outro cofre.
 - [ ] Confirmar isolamento entre cofres.
 
-## 8. Multi-cofres
+## 8. Importação/exportação CSV e organização
+
+- [ ] Importar CSV com colunas reconhecidas automaticamente.
+- [ ] Ajustar mapeamento de colunas antes de importar.
+- [ ] Confirmar prévia antes de gravar no cofre.
+- [ ] Testar CSV com linha incompleta.
+- [ ] Testar CSV com duplicado provável.
+- [ ] Confirmar que cancelar importação não altera o cofre.
+- [ ] Exportar CSV para migração.
+- [ ] Confirmar aviso de CSV não criptografado.
+- [ ] Confirmar que o botão de exportação exige confirmação explícita.
+- [ ] Confirmar que o arquivo exportado contém `NAO-CRIPTOGRAFADO` no nome.
+- [ ] Criar item com tags.
+- [ ] Editar tags de item existente.
+- [ ] Filtrar por tag.
+- [ ] Usar busca textual por tag.
+- [ ] Testar dropdown de filtros rápidos.
+- [ ] Usar filtros rápidos junto com busca e tags.
+
+## 9. Multi-cofres
 
 - [ ] Criar cofre novo.
 - [ ] Criar item no cofre novo.
@@ -84,7 +103,7 @@ Use este checklist antes de publicar qualquer versão.
 - [ ] Trocar para cofre novo novamente.
 - [ ] Confirmar PIN/biometria separado por cofre.
 
-## 9. Temas e responsividade
+## 10. Temas e responsividade
 
 Testar em Escuro, Claro e Misto:
 
@@ -114,7 +133,7 @@ Regra visual:
 - [ ] Dropdowns não cortam texto.
 - [ ] Scroll aparece quando necessário.
 
-## 10. Bandeja e janela
+## 11. Bandeja e janela
 
 - [ ] X envia para bandeja.
 - [ ] Inatividade envia para bandeja.
@@ -127,7 +146,7 @@ Regra visual:
 - [ ] Abrir APP Compacto restaura tamanho compacto.
 - [ ] Sair encerra o processo.
 
-## 11. Updater
+## 12. Updater
 
 - [ ] Gerar release.
 - [ ] Gerar `SHA256SUMS.txt`.

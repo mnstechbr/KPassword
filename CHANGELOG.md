@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.9.5
+
+Release focada em organização do cofre e importação/exportação CSV mais segura.
+
+### Importação e exportação CSV
+
+- Adicionado assistente de importação CSV com prévia antes de gravar no cofre.
+- Adicionado mapeamento de colunas para nome, usuário/e-mail, senha, URL/site, notas, categoria, tipo, favorito, TOTP e tags.
+- Adicionada validação de linhas antes da importação, com indicação de itens válidos, incompletos, inválidos e duplicados prováveis.
+- Adicionado modal de importação CSV para evitar que a tela principal fique comprimida durante a prévia.
+- Reclassificada a exportação CSV como recurso de migração, deixando claro que CSV não é criptografado.
+- Adicionado aviso forte antes de exportar CSV, com confirmação explícita do usuário.
+- Arquivos CSV exportados passam a usar nome com indicação de `NAO-CRIPTOGRAFADO`.
+
+### Organização do cofre
+
+- Adicionado suporte básico a tags nas credenciais.
+- Tags podem ser editadas no cadastro e na edição de itens.
+- Tags aparecem na lista e no detalhe das credenciais.
+- A busca textual também considera tags.
+- A importação e exportação CSV passam a preservar tags quando a coluna estiver presente.
+
+### Filtros
+
+- Adicionado dropdown de filtros rápidos na tela do Cofre.
+- Filtros disponíveis incluem todos, favoritos, senhas fracas, reutilizadas, antigas, vencidas, próximas do vencimento, sem TOTP, incompletas e com tags.
+- O filtro ativo aparece no próprio botão de filtros e pode ser limpo pelo menu.
+- O layout do Cofre foi ajustado para manter busca, filtros e tags mais compactos.
+
+### Observações
+
+- Esta versão não altera o formato criptográfico do cofre nem o núcleo criptográfico.
+- CSV continua sendo um formato legível e deve ser usado apenas para migração temporária. Para cópias de segurança, use backup criptografado.
+
 ## v0.9.4
 
 Release focada em confiança operacional, diagnóstico e preparação segura de publicação.
