@@ -1,0 +1,4 @@
+title,username,password,url,notes,category,favorite,totpIssuer,totpSecret
+GitHub Demo,jean@example.com,senha-de-teste-nao-usar,github.com,Item de teste para prévia de importação,Sistema,true,,
+Banco Demo,conta.demo,outra-senha-de-teste,banco.example.com,Teste de duplicidade e revisão,Banco,false,,
+Sem senha Demo,usuario.sem.senha,,https://servico.example.com,Mostra aviso de senha ausente,Trabalho,false,,

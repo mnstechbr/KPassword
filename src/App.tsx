@@ -727,18 +727,124 @@ function parseCsvLine(line: string) {
   return values;
 }
 
-function parseCsv(text: string) {
+function normalizeCsvHeader(header: string) {
+  return header
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+type ParsedCsvRow = {
+  lineNumber: number;
+  values: Record<string, string>;
+};
+
+type ParsedCsvDocument = {
+  headers: string[];
+  rows: ParsedCsvRow[];
+};
+
+type CsvImportFieldKey =
+  | "type"
+  | "title"
+  | "category"
+  | "favorite"
+  | "username"
+  | "password"
+  | "url"
+  | "notes"
+  | "totpIssuer"
+  | "totpSecret";
+
+type CsvImportMapping = Record<CsvImportFieldKey, string>;
+
+type CsvImportPreview = ParsedCsvDocument & {
+  filename: string;
+  mapping: CsvImportMapping;
+};
+
+type CsvImportPreviewItem = {
+  id: string;
+  lineNumber: number;
+  credential: CredentialRecord;
+  errors: string[];
+  warnings: string[];
+  duplicateTitle?: string;
+};
+
+type CsvImportAnalysis = {
+  items: CsvImportPreviewItem[];
+  validItems: CsvImportPreviewItem[];
+  importableItems: CsvImportPreviewItem[];
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  duplicateCount: number;
+};
+
+const CSV_IMPORT_FIELD_ALIASES: Record<CsvImportFieldKey, string[]> = {
+  type: ["type", "tipo", "itemtype", "item_type", "kind"],
+  title: ["title", "name", "nome", "titulo", "título", "site", "servico", "serviço"],
+  category: ["category", "categoria", "folder", "pasta", "grupo"],
+  favorite: ["favorite", "favorito", "starred", "favorita"],
+  username: ["username", "user", "login", "email", "e-mail", "usuario", "usuário"],
+  password: ["password", "senha", "pass", "secret"],
+  url: ["url", "site", "website", "link", "uri"],
+  notes: ["notes", "nota", "notas", "observacoes", "observações", "content", "conteudo", "conteúdo", "comments"],
+  totpIssuer: ["totpissuer", "totp_issuer", "issuer", "emissor"],
+  totpSecret: ["totpsecret", "totp_secret", "otp", "2fa", "mfa", "segredo_totp", "otpauth"],
+};
+
+const CSV_IMPORT_FIELDS: Array<{ key: CsvImportFieldKey; labelKey: string }> = [
+  { key: "title", labelKey: "import.field.title" },
+  { key: "username", labelKey: "import.field.username" },
+  { key: "password", labelKey: "import.field.password" },
+  { key: "url", labelKey: "import.field.url" },
+  { key: "notes", labelKey: "import.field.notes" },
+  { key: "category", labelKey: "import.field.category" },
+  { key: "type", labelKey: "import.field.type" },
+  { key: "favorite", labelKey: "import.field.favorite" },
+  { key: "totpIssuer", labelKey: "import.field.totpIssuer" },
+  { key: "totpSecret", labelKey: "import.field.totpSecret" },
+];
+
+function getEmptyCsvImportMapping(): CsvImportMapping {
+  return {
+    type: "",
+    title: "",
+    category: "",
+    favorite: "",
+    username: "",
+    password: "",
+    url: "",
+    notes: "",
+    totpIssuer: "",
+    totpSecret: "",
+  };
+}
+
+function parseCsvDocument(text: string): ParsedCsvDocument {
   const lines = text
     .replace(/^\uFEFF/, "")
     .split(/\r?\n/)
-    .map((line) => line.trim())
+    .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
+    .filter((entry) => entry.line.length > 0);
+
+  if (lines.length < 2) {
+    return { headers: [], rows: [] };
+  }
+
+  const headers = parseCsvLine(lines[0].line)
+    .map((header) => normalizeCsvHeader(header))
     .filter(Boolean);
 
-  if (lines.length < 2) return [];
+  if (headers.length === 0) {
+    return { headers: [], rows: [] };
+  }
 
-  const headers = parseCsvLine(lines[0]).map((header) => header.trim().toLowerCase());
-
-  return lines.slice(1).map((line) => {
+  const rows = lines.slice(1).map(({ line, lineNumber }) => {
     const values = parseCsvLine(line);
     const row: Record<string, string> = {};
 
@@ -746,18 +852,41 @@ function parseCsv(text: string) {
       row[header] = values[index] ?? "";
     });
 
-    return row;
+    return { lineNumber, values: row };
   });
+
+  return { headers, rows };
 }
 
-function getCsvValue(row: Record<string, string>, aliases: string[]) {
+
+function detectCsvImportMapping(headers: string[]): CsvImportMapping {
+  const mapping = getEmptyCsvImportMapping();
+
+  for (const field of CSV_IMPORT_FIELDS) {
+    const aliases = CSV_IMPORT_FIELD_ALIASES[field.key].map(normalizeCsvHeader);
+    mapping[field.key] = headers.find((header) => aliases.includes(header)) ?? "";
+  }
+
+  return mapping;
+}
+
+function getCsvValue(row: Record<string, string>, aliases: string[], mappingHeader = "") {
+  if (mappingHeader) {
+    const mappedValue = row[normalizeCsvHeader(mappingHeader)];
+    if (mappedValue) return mappedValue;
+  }
+
   for (const alias of aliases) {
-    const value = row[alias.toLowerCase()];
+    const value = row[normalizeCsvHeader(alias)];
 
     if (value) return value;
   }
 
   return "";
+}
+
+function getMappedCsvValue(row: Record<string, string>, field: CsvImportFieldKey, mapping: CsvImportMapping) {
+  return getCsvValue(row, CSV_IMPORT_FIELD_ALIASES[field], mapping[field]);
 }
 
 function normalizeImportedItemType(value: string): VaultItemType {
@@ -783,29 +912,31 @@ function normalizeImportedCategory(value: string): CredentialCategory {
   return "Trabalho";
 }
 
-function rowToImportedCredential(row: Record<string, string>, now: string): CredentialRecord {
-  const itemType = normalizeImportedItemType(getCsvValue(row, ["type", "tipo", "itemtype", "item_type"]));
+function rowToImportedCredential(row: Record<string, string>, now: string, mapping = getEmptyCsvImportMapping()): CredentialRecord {
+  const itemType = normalizeImportedItemType(getMappedCsvValue(row, "type", mapping));
   const title =
-    getCsvValue(row, ["title", "name", "nome", "titulo", "título", "site", "url"]) ||
+    getMappedCsvValue(row, "title", mapping) ||
+    getMappedCsvValue(row, "url", mapping) ||
+    getMappedCsvValue(row, "username", mapping) ||
     "Item importado";
 
   return {
     id: createId(),
     itemType,
     title: title.trim(),
-    category: normalizeImportedCategory(getCsvValue(row, ["category", "categoria"])),
-    favorite: ["true", "1", "sim", "yes"].includes(getCsvValue(row, ["favorite", "favorito"]).toLowerCase()),
-    username: itemType === "credential" ? getCsvValue(row, ["username", "user", "login", "email", "e-mail", "usuario", "usuário"]) : "",
-    password: itemType === "credential" ? getCsvValue(row, ["password", "senha", "pass"]) : "",
-    url: itemType === "credential" ? normalizeUrl(getCsvValue(row, ["url", "site", "website"])) : "",
-    notes: getCsvValue(row, ["notes", "nota", "notas", "observacoes", "observações", "content", "conteudo", "conteúdo"]),
+    category: normalizeImportedCategory(getMappedCsvValue(row, "category", mapping)),
+    favorite: ["true", "1", "sim", "yes"].includes(getMappedCsvValue(row, "favorite", mapping).toLowerCase()),
+    username: itemType === "credential" ? getMappedCsvValue(row, "username", mapping) : "",
+    password: itemType === "credential" ? getMappedCsvValue(row, "password", mapping) : "",
+    url: itemType === "credential" ? normalizeUrl(getMappedCsvValue(row, "url", mapping)) : "",
+    notes: getMappedCsvValue(row, "notes", mapping),
     passwordChangedAt: getCsvValue(row, ["passwordchangedat", "password_changed_at", "alterada_em"]) || now,
     passwordExpiresInDays: Number(getCsvValue(row, ["passwordexpiresindays", "password_expires_in_days", "validade_dias"])) || 0,
     passwordExpiryNoticeDays: Number(getCsvValue(row, ["passwordexpirynoticedays", "password_expiry_notice_days", "aviso_dias"])) || 15,
     passwordHistory: [],
     attachments: [],
-    totpIssuer: itemType === "credential" ? getCsvValue(row, ["totpissuer", "totp_issuer", "issuer", "emissor"]) : "",
-    totpSecret: itemType === "credential" ? getCsvValue(row, ["totpsecret", "totp_secret", "otp", "2fa", "mfa", "segredo_totp"]) : "",
+    totpIssuer: itemType === "credential" ? getMappedCsvValue(row, "totpIssuer", mapping) : "",
+    totpSecret: itemType === "credential" ? getMappedCsvValue(row, "totpSecret", mapping) : "",
     cardholderName: itemType === "card" ? getCsvValue(row, ["cardholdername", "card_holder", "nome_cartao"]) : "",
     cardNumber: itemType === "card" ? getCsvValue(row, ["cardnumber", "card_number", "numero_cartao", "número_cartão"]) : "",
     cardExpiry: itemType === "card" ? getCsvValue(row, ["cardexpiry", "card_expiry", "validade_cartao"]) : "",
@@ -822,6 +953,102 @@ function rowToImportedCredential(row: Record<string, string>, now: string): Cred
     licenseExpiresAt: itemType === "license" ? getCsvValue(row, ["licenseexpiresat", "license_expires_at", "expira_em"]) : "",
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+function normalizeDuplicateValue(value: string) {
+  return value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, "");
+}
+
+function hasImportableCredentialContent(credential: CredentialRecord) {
+  return Boolean(
+    credential.title.trim() !== "Item importado" ||
+      credential.username.trim() ||
+      credential.password.trim() ||
+      credential.url.trim() ||
+      credential.notes.trim() ||
+      credential.totpSecret?.trim(),
+  );
+}
+
+function findDuplicateCredential(candidate: CredentialRecord, existingCredentials: CredentialRecord[]) {
+  const candidateUrl = normalizeDuplicateValue(candidate.url);
+  const candidateUser = normalizeDuplicateValue(candidate.username);
+  const candidateTitle = normalizeDuplicateValue(candidate.title);
+
+  return existingCredentials.find((existing) => {
+    const existingUrl = normalizeDuplicateValue(existing.url);
+    const existingUser = normalizeDuplicateValue(existing.username);
+    const existingTitle = normalizeDuplicateValue(existing.title);
+
+    if (candidate.itemType !== (existing.itemType ?? "credential")) return false;
+    if (candidateUrl && existingUrl && candidateUser && existingUser) {
+      return candidateUrl === existingUrl && candidateUser === existingUser;
+    }
+    if (candidateTitle && existingTitle && candidateUser && existingUser) {
+      return candidateTitle === existingTitle && candidateUser === existingUser;
+    }
+    if (candidateUrl && existingUrl && candidateTitle && existingTitle) {
+      return candidateUrl === existingUrl && candidateTitle === existingTitle;
+    }
+
+    return false;
+  });
+}
+
+function analyzeCsvImport(preview: CsvImportPreview | null, vault: PlainVault | null, includeDuplicates: boolean): CsvImportAnalysis {
+  if (!preview || !vault) {
+    return {
+      items: [],
+      validItems: [],
+      importableItems: [],
+      totalRows: 0,
+      validCount: 0,
+      invalidCount: 0,
+      duplicateCount: 0,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const activeCredentials = getActiveCredentials(vault.credentials);
+  const items = preview.rows.map((row) => {
+    const credential = rowToImportedCredential(row.values, now, preview.mapping);
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const duplicate = findDuplicateCredential(credential, activeCredentials);
+
+    if (!hasImportableCredentialContent(credential)) {
+      errors.push("import.validation.emptyRow");
+    }
+
+    if (credential.itemType === "credential" && !credential.password.trim()) {
+      warnings.push("import.validation.missingPassword");
+    }
+
+    if (duplicate) {
+      warnings.push("import.validation.duplicate");
+    }
+
+    return {
+      id: `${row.lineNumber}-${credential.id}`,
+      lineNumber: row.lineNumber,
+      credential,
+      errors,
+      warnings,
+      duplicateTitle: duplicate?.title,
+    };
+  });
+  const validItems = items.filter((item) => item.errors.length === 0);
+  const importableItems = validItems.filter((item) => includeDuplicates || !item.duplicateTitle);
+
+  return {
+    items,
+    validItems,
+    importableItems,
+    totalRows: items.length,
+    validCount: validItems.length,
+    invalidCount: items.length - validItems.length,
+    duplicateCount: items.filter((item) => Boolean(item.duplicateTitle)).length,
   };
 }
 
@@ -1071,6 +1298,10 @@ export default function App() {
   const [backupVerifyPassword, setBackupVerifyPassword] = useState("");
   const [backupVerifyResult, setBackupVerifyResult] = useState<BackupVerificationReport | null>(null);
   const [exportPassword, setExportPassword] = useState("");
+  const [csvExportDialogOpen, setCsvExportDialogOpen] = useState(false);
+  const [csvExportAcknowledged, setCsvExportAcknowledged] = useState(false);
+  const [csvImportPreview, setCsvImportPreview] = useState<CsvImportPreview | null>(null);
+  const [csvImportIncludeDuplicates, setCsvImportIncludeDuplicates] = useState(false);
   const [restorePopupOpen, setRestorePopupOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState("");
   const [activeVaultName, setActiveVaultName] = useState(() =>
@@ -1097,6 +1328,11 @@ export default function App() {
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
       translate(appLanguage, key, values),
     [appLanguage],
+  );
+
+  const csvImportAnalysis = useMemo(
+    () => analyzeCsvImport(csvImportPreview, vault, csvImportIncludeDuplicates),
+    [csvImportPreview, csvImportIncludeDuplicates, vault],
   );
 
   const requestTrayProtection = useCallback((reason: "inactive" | "minimize" | "close") => {
@@ -2635,32 +2871,40 @@ export default function App() {
     }
   }
 
+  function closeCsvExportDialog() {
+    setCsvExportDialogOpen(false);
+    setCsvExportAcknowledged(false);
+    setExportPassword("");
+  }
+
+  function openCsvExportDialog() {
+    setMessage("");
+    setCsvExportDialogOpen(true);
+    setCsvExportAcknowledged(false);
+    setExportPassword("");
+  }
+
   async function handleExportPlainCsv() {
     if (!vault) return;
+
+    if (!csvExportAcknowledged) {
+      setMessage(t("export.csvAcknowledgeError"));
+      return;
+    }
 
     if (exportPassword !== masterPassword) {
       setMessage(t("export.passwordError"));
       return;
     }
 
-    const confirmed = await askConfirmation({
-      title: t("export.csvTitle"),
-      message: t("export.csvWarning"),
-      confirmText: t("export.downloadCsv"),
-      cancelText: t("dialog.cancel"),
-      tone: "danger",
-    });
-
-    if (!confirmed) return;
-
     try {
       const date = new Date().toISOString().slice(0, 10);
       downloadTextFile(
-        `kpassword-export-aberto-${date}.csv`,
+        `KPassword-export-CSV-NAO-CRIPTOGRAFADO-${date}.csv`,
         buildCsv(getActiveCredentials(vault.credentials)),
         "text/csv;charset=utf-8",
       );
-      setExportPassword("");
+      closeCsvExportDialog();
       setMessage(t("export.csvSuccess"));
     } catch (error) {
       console.error(error);
@@ -2669,31 +2913,77 @@ export default function App() {
   }
 
   async function handleImportCsvFile(file?: File) {
-    if (!vault || !file) return;
+    if (!file) return;
 
     setBusy(true);
 
     try {
       const text = await readFileAsText(file);
-      const rows = parseCsv(text);
-      const now = new Date().toISOString();
-      const importedCredentials = rows
-        .map((row) => rowToImportedCredential(row, now))
-        .filter((item) => item.title.trim().length > 0);
+      const parsed = parseCsvDocument(text);
 
-      if (importedCredentials.length === 0) {
+      if (parsed.rows.length === 0 || parsed.headers.length === 0) {
+        setCsvImportPreview(null);
         setMessage(t("import.noItems"));
         return;
       }
 
-      const confirmed = await askConfirmation({
-        title: t("import.csvTitle"),
-        message: t("import.csvMessage", { count: importedCredentials.length }),
-        confirmText: t("import.import"),
-        cancelText: t("dialog.cancel"),
+      setCsvImportIncludeDuplicates(false);
+      setCsvImportPreview({
+        ...parsed,
+        filename: file.name,
+        mapping: detectCsvImportMapping(parsed.headers),
       });
+      setMessage(t("import.previewReady", { count: parsed.rows.length }));
+    } catch (error) {
+      console.error(error);
+      setCsvImportPreview(null);
+      setMessage(t("import.csvError"));
+    } finally {
+      setBusy(false);
+    }
+  }
 
-      if (!confirmed) return;
+  function updateCsvImportMapping(field: CsvImportFieldKey, header: string) {
+    setCsvImportPreview((current) =>
+      current
+        ? {
+            ...current,
+            mapping: {
+              ...current.mapping,
+              [field]: header,
+            },
+          }
+        : current,
+    );
+  }
+
+  async function confirmCsvImportPreview() {
+    if (!vault || !csvImportPreview) return;
+
+    if (csvImportAnalysis.importableItems.length === 0) {
+      setMessage(t("import.noImportableItems"));
+      return;
+    }
+
+    const confirmed = await askConfirmation({
+      title: t("import.csvTitle"),
+      message: t("import.confirmPreview", { count: csvImportAnalysis.importableItems.length }),
+      confirmText: t("import.import"),
+      cancelText: t("dialog.cancel"),
+    });
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    try {
+      const now = new Date().toISOString();
+      const importedCredentials = csvImportAnalysis.importableItems.map((item) => ({
+        ...item.credential,
+        id: createId(),
+        createdAt: now,
+        updatedAt: now,
+      }));
 
       await persistVault({
         ...vault,
@@ -2701,6 +2991,8 @@ export default function App() {
         updatedAt: now,
       });
 
+      setCsvImportPreview(null);
+      setCsvImportIncludeDuplicates(false);
       setScreen("credentials");
       setMessage(t("import.csvSuccess", { count: importedCredentials.length }));
     } catch (error) {
@@ -2709,6 +3001,12 @@ export default function App() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function cancelCsvImportPreview() {
+    setCsvImportPreview(null);
+    setCsvImportIncludeDuplicates(false);
+    setMessage(t("import.previewCancelled"));
   }
 
   async function handleOpenVaultFolder() {
@@ -3112,6 +3410,80 @@ export default function App() {
     </div>
   ) : null;
 
+  const csvExportDialog = csvExportDialogOpen ? (
+    <div className="modalOverlay csvExportOverlay" onMouseDown={closeCsvExportDialog}>
+      <section
+        className="csvExportModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="csvExportTitle"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="modalHeader csvExportHeader">
+          <div>
+            <p className="eyebrow">{t("export.csvModalEyebrow")}</p>
+            <h2 id="csvExportTitle">{t("export.csvModalTitle")}</h2>
+            <span>{t("export.csvModalSubtitle")}</span>
+          </div>
+          <button type="button" className="iconButton" aria-label={t("dialog.cancel")} onClick={closeCsvExportDialog}>
+            ×
+          </button>
+        </div>
+
+        <div className="csvExportBody">
+          <div className="csvRiskPanel" role="alert">
+            <strong>{t("export.csvRiskTitle")}</strong>
+            <p>{t("export.csvRiskIntro")}</p>
+            <ul>
+              <li>{t("export.csvRiskSecrets")}</li>
+              <li>{t("export.csvRiskStorage")}</li>
+              <li>{t("export.csvRiskBackup")}</li>
+            </ul>
+          </div>
+
+          <div className="csvRecommendedPanel">
+            <strong>{t("export.csvRecommendedTitle")}</strong>
+            <p>{t("export.csvRecommendedBackup")}</p>
+          </div>
+
+          <label className="csvExportPasswordField">
+            {t("export.confirmPassword")}
+            <input
+              type="password"
+              value={exportPassword}
+              onChange={(event) => setExportPassword(event.target.value)}
+              placeholder={t("auth.unlockPlaceholder")}
+              autoFocus
+            />
+          </label>
+
+          <label className="csvAcknowledgeBox">
+            <input
+              type="checkbox"
+              checked={csvExportAcknowledged}
+              onChange={(event) => setCsvExportAcknowledged(event.target.checked)}
+            />
+            <span>{t("export.csvAcknowledge")}</span>
+          </label>
+        </div>
+
+        <div className="modalActions csvExportActions">
+          <button
+            className="dangerConfirmButton"
+            type="button"
+            disabled={busy || !csvExportAcknowledged || exportPassword.length === 0}
+            onClick={() => void handleExportPlainCsv()}
+          >
+            {t("export.downloadCsv")}
+          </button>
+          <button className="secondaryButton" type="button" onClick={closeCsvExportDialog}>
+            {t("dialog.cancel")}
+          </button>
+        </div>
+      </section>
+    </div>
+  ) : null;
+
   const restoreBackupDialog = restorePopupOpen ? (
     <div
       className="popupOverlay"
@@ -3161,6 +3533,116 @@ export default function App() {
             }}
           />
         </label>
+      </section>
+    </div>
+  ) : null;
+
+  const csvImportDialog = csvImportPreview ? (
+    <div className="modalOverlay csvImportOverlay" onMouseDown={cancelCsvImportPreview}>
+      <section className="csvImportModal" role="dialog" aria-modal="true" aria-labelledby="csvImportTitle" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modalHeader csvImportModalHeader">
+          <div>
+            <p className="eyebrow">{t("import.csvTitle")}</p>
+            <h2 id="csvImportTitle">{t("import.previewTitle")}</h2>
+            <span>{t("import.previewFile", { name: csvImportPreview.filename })}</span>
+          </div>
+          <button type="button" className="iconButton" aria-label={t("import.cancelPreview")} onClick={cancelCsvImportPreview}>
+            ×
+          </button>
+        </div>
+
+        <div className="csvImportPreview" role="region" aria-label={t("import.previewTitle")}>
+          <div className="csvImportStats">
+            <div>
+              <strong>{csvImportAnalysis.totalRows}</strong>
+              <span>{t("import.statRows")}</span>
+            </div>
+            <div>
+              <strong>{csvImportAnalysis.validCount}</strong>
+              <span>{t("import.statValid")}</span>
+            </div>
+            <div>
+              <strong>{csvImportAnalysis.invalidCount}</strong>
+              <span>{t("import.statInvalid")}</span>
+            </div>
+            <div>
+              <strong>{csvImportAnalysis.duplicateCount}</strong>
+              <span>{t("import.statDuplicates")}</span>
+            </div>
+          </div>
+
+          <div className="csvMappingGrid">
+            {CSV_IMPORT_FIELDS.map((field) => (
+              <label key={field.key}>
+                {t(field.labelKey)}
+                <select
+                  value={csvImportPreview.mapping[field.key]}
+                  onChange={(event) => updateCsvImportMapping(field.key, event.target.value)}
+                >
+                  <option value="">{t("import.fieldIgnore")}</option>
+                  {csvImportPreview.headers.map((header) => (
+                    <option key={header} value={header}>
+                      {header}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+
+          {csvImportAnalysis.duplicateCount > 0 && (
+            <label className="csvDuplicateToggle">
+              <input
+                type="checkbox"
+                checked={csvImportIncludeDuplicates}
+                onChange={(event) => setCsvImportIncludeDuplicates(event.target.checked)}
+              />
+              <span>{t("import.includeDuplicates")}</span>
+            </label>
+          )}
+
+          <div className="csvPreviewList">
+            {csvImportAnalysis.items.slice(0, 5).map((item) => (
+              <div
+                key={item.id}
+                className={item.errors.length > 0 ? "csvPreviewItem invalid" : item.duplicateTitle ? "csvPreviewItem duplicate" : "csvPreviewItem"}
+              >
+                <div>
+                  <strong>{item.credential.title}</strong>
+                  <span>
+                    {t("import.previewLine", { line: item.lineNumber })} · {item.credential.username || item.credential.url || t("credential.noUser")}
+                  </span>
+                </div>
+                {(item.errors.length > 0 || item.warnings.length > 0) && (
+                  <small>
+                    {[...item.errors, ...item.warnings]
+                      .map((key) =>
+                        key === "import.validation.duplicate" && item.duplicateTitle
+                          ? t(key, { title: item.duplicateTitle })
+                          : t(key),
+                      )
+                      .join(" ")}
+                  </small>
+                )}
+              </div>
+            ))}
+
+            {csvImportAnalysis.items.length > 5 && (
+              <p className="csvPreviewHint">
+                {t("import.previewMore", { count: csvImportAnalysis.items.length - 5 })}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="modalActions csvImportActions">
+          <button className="primaryButton" type="button" disabled={busy || csvImportAnalysis.importableItems.length === 0} onClick={() => void confirmCsvImportPreview()}>
+            {t("import.importPreview", { count: csvImportAnalysis.importableItems.length })}
+          </button>
+          <button className="secondaryButton" type="button" onClick={cancelCsvImportPreview}>
+            {t("dialog.cancel")}
+          </button>
+        </div>
       </section>
     </div>
   ) : null;
@@ -4059,24 +4541,17 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="exportBox dangerExportBox">
+                <div className="exportBox dangerExportBox csvMigrationExportBox">
+                  <span className="dangerBadge">{t("export.csvDangerBadge")}</span>
                   <strong>{t("export.csvTitle")}</strong>
                   <span>{t("export.csvDescription")}</span>
-                  <label>
-                    {t("export.confirmPassword")}
-                    <input
-                      type="password"
-                      value={exportPassword}
-                      onChange={(event) => setExportPassword(event.target.value)}
-                      placeholder={t("auth.unlockPlaceholder")}
-                    />
-                  </label>
-                  <button className="dangerConfirmButton" type="button" onClick={() => void handleExportPlainCsv()}>
-                    {t("export.downloadCsv")}
+                  <small>{t("export.csvFilenameHint")}</small>
+                  <button className="dangerConfirmButton" type="button" onClick={openCsvExportDialog}>
+                    {t("export.openCsvDialog")}
                   </button>
                 </div>
 
-                <div className="exportBox">
+                <div className="exportBox csvImportBox">
                   <strong>{t("import.csvTitle")}</strong>
                   <span>{t("import.csvDescription")}</span>
                   <label className="fileImportButton inlineFileButton">
@@ -4090,6 +4565,13 @@ export default function App() {
                       }}
                     />
                   </label>
+
+                  {csvImportPreview && (
+                    <div className="csvImportReadyHint" role="status">
+                      <strong>{t("import.previewTitle")}</strong>
+                      <span>{t("import.previewFile", { name: csvImportPreview.filename })}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </article>
@@ -5189,6 +5671,8 @@ export default function App() {
         </div>
       )}
 
+      {csvExportDialog}
+      {csvImportDialog}
       {confirmDialogElement}
       {restoreBackupDialog}
     </main>
