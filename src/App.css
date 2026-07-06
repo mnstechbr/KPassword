@@ -11705,3 +11705,553 @@ textarea {
 }
 /* === KPassword v0.9.5 - tags layout fix END === */
 
+
+/* === KPassword v0.9.5 - filtros rápidos do cofre START === */
+.quickFilterBar {
+  display: grid;
+  gap: 10px;
+  margin-bottom: clamp(14px, 1.5vw, 20px);
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.24);
+}
+
+.quickFilterBar > span {
+  color: var(--muted, #9ca3af);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quickFilterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quickFilterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.34);
+  color: var(--text, #e5e7eb);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 6px 9px;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
+  white-space: nowrap;
+}
+
+.quickFilterChip:hover:not(:disabled),
+.quickFilterChip.active {
+  border-color: rgba(14, 165, 233, 0.58);
+  background: rgba(14, 165, 233, 0.18);
+  color: #e0f2fe;
+  transform: translateY(-1px);
+}
+
+.quickFilterChip:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.quickFilterChip strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  color: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0 6px;
+}
+
+.quickFilterBanner {
+  border-color: rgba(14, 165, 233, 0.26);
+}
+
+:root[data-theme="light"] .quickFilterBar,
+:root[data-theme="mixed"] .quickFilterBar {
+  border-color: rgba(15, 23, 42, 0.10);
+  background: rgba(255, 255, 255, 0.70);
+}
+
+:root[data-theme="light"] .quickFilterChip,
+:root[data-theme="mixed"] .quickFilterChip {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(248, 250, 252, 0.86);
+  color: #1e293b;
+}
+
+:root[data-theme="light"] .quickFilterChip:hover:not(:disabled),
+:root[data-theme="light"] .quickFilterChip.active,
+:root[data-theme="mixed"] .quickFilterChip:hover:not(:disabled),
+:root[data-theme="mixed"] .quickFilterChip.active {
+  border-color: rgba(14, 116, 144, 0.34);
+  background: rgba(14, 165, 233, 0.12);
+  color: #075985;
+}
+
+:root[data-theme="light"] .quickFilterChip strong,
+:root[data-theme="mixed"] .quickFilterChip strong {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 720px) {
+  .quickFilterBar {
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+
+  .quickFilterChips {
+    gap: 6px;
+  }
+
+  .quickFilterChip {
+    min-height: 28px;
+    font-size: 0.72rem;
+    padding: 5px 7px;
+  }
+
+  .quickFilterChip strong {
+    min-width: 18px;
+    min-height: 18px;
+    font-size: 0.68rem;
+    padding: 0 5px;
+  }
+}
+/* === KPassword v0.9.5 - filtros rápidos do cofre END === */
+
+/* === KPassword v0.9.5 - filtros compactos do cofre START === */
+/* Reduz a densidade visual da tela do Cofre sem remover recursos. */
+.quickFilterBar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-bottom: 8px !important;
+  padding: 7px 10px !important;
+  border-radius: 14px !important;
+  background: rgba(15, 23, 42, 0.14) !important;
+  box-shadow: none !important;
+}
+
+.quickFilterBar > span {
+  flex: 0 0 auto;
+  color: var(--kp-readable-muted, var(--muted, #9ca3af)) !important;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+.quickFilterChips {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 5px !important;
+  min-width: 0 !important;
+}
+
+.quickFilterChip {
+  min-height: 24px !important;
+  gap: 5px !important;
+  padding: 3px 7px !important;
+  border-radius: 999px !important;
+  font-size: 0.68rem !important;
+  line-height: 1 !important;
+}
+
+.quickFilterChip:hover:not(:disabled),
+.quickFilterChip.active {
+  transform: none !important;
+}
+
+.quickFilterChip strong {
+  min-width: 16px !important;
+  min-height: 16px !important;
+  padding: 0 5px !important;
+  font-size: 0.64rem !important;
+}
+
+.quickFilterBanner.diagnosticFilterBanner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  margin: 0 0 8px !important;
+  padding: 8px 10px !important;
+  border-radius: 14px !important;
+  background: rgba(14, 165, 233, 0.08) !important;
+  box-shadow: none !important;
+}
+
+.quickFilterBanner.diagnosticFilterBanner div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.quickFilterBanner.diagnosticFilterBanner strong,
+.quickFilterBanner.diagnosticFilterBanner span {
+  font-size: 0.74rem !important;
+  line-height: 1.2 !important;
+}
+
+.quickFilterBanner.diagnosticFilterBanner strong::after {
+  content: ":";
+}
+
+.quickFilterBanner .secondaryButton {
+  min-height: 30px !important;
+  padding: 6px 10px !important;
+  border-radius: 12px !important;
+  font-size: 0.76rem !important;
+}
+
+.tagFilterBar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-bottom: 10px !important;
+  padding: 8px 10px !important;
+  border-radius: 14px !important;
+  background: rgba(15, 23, 42, 0.14) !important;
+  box-shadow: none !important;
+}
+
+.tagFilterBar > span {
+  flex: 0 0 auto;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.06em !important;
+  white-space: nowrap !important;
+}
+
+.tagFilterChips {
+  flex: 1 1 auto !important;
+  gap: 5px !important;
+}
+
+.tagFilterChip {
+  min-height: 24px !important;
+  padding: 4px 8px !important;
+  font-size: 0.68rem !important;
+}
+
+:root[data-theme="light"] .quickFilterBar,
+:root[data-theme="mixed"] .quickFilterBar,
+:root[data-theme="light"] .tagFilterBar,
+:root[data-theme="mixed"] .tagFilterBar {
+  background: rgba(255, 255, 255, 0.58) !important;
+}
+
+@media (max-width: 860px) {
+  .quickFilterBar,
+  .tagFilterBar {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 7px !important;
+  }
+
+  .quickFilterChips,
+  .tagFilterChips {
+    width: 100% !important;
+  }
+
+  .quickFilterBanner.diagnosticFilterBanner {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .quickFilterBanner .secondaryButton {
+    width: 100% !important;
+  }
+}
+/* === KPassword v0.9.5 - filtros compactos do cofre END === */
+
+/* === KPassword v0.9.5 - filtro dropdown no cofre START === */
+.vaultSearchToolbar {
+  align-items: stretch !important;
+  gap: 10px !important;
+  margin-bottom: 10px !important;
+}
+
+.vaultSearchToolbar > input {
+  flex: 1 1 auto !important;
+  min-height: 52px !important;
+}
+
+.quickFilterDropdown {
+  position: relative;
+  flex: 0 0 auto;
+  align-self: stretch;
+  z-index: 30;
+}
+
+.quickFilterMenuButton {
+  width: 100%;
+  min-width: 154px;
+  height: 100%;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.72), rgba(15, 23, 42, 0.60));
+  color: var(--text, #e5e7eb);
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0 16px;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+  white-space: nowrap;
+}
+
+.quickFilterMenuButton:hover,
+.quickFilterMenuButton.active,
+.quickFilterMenuButton[aria-expanded="true"] {
+  border-color: rgba(14, 165, 233, 0.58);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(99, 102, 241, 0.16));
+  box-shadow: 0 12px 28px rgba(14, 165, 233, 0.12);
+}
+
+.vaultSearchToolbar .quickFilterMenuButton span,
+.vaultSearchToolbar .quickFilterMenuButton strong,
+.vaultSearchToolbar .quickFilterMenuButton small {
+  flex: 0 0 auto !important;
+  color: inherit !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+.quickFilterMenuButton strong {
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  font-size: 0.76rem;
+  padding: 0 7px;
+}
+
+.quickFilterMenuChevron {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px !important;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: currentColor;
+  font-size: 0;
+  line-height: 0;
+  opacity: 0.94;
+  position: relative;
+  transform: none;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.quickFilterMenuChevron::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.16s ease;
+}
+
+.quickFilterMenuButton:hover .quickFilterMenuChevron,
+.quickFilterMenuButton.active .quickFilterMenuChevron,
+.quickFilterMenuButton[aria-expanded="true"] .quickFilterMenuChevron {
+  border-color: rgba(125, 211, 252, 0.42);
+  background: rgba(14, 165, 233, 0.14);
+}
+
+.quickFilterMenuButton[aria-expanded="true"] .quickFilterMenuChevron::before {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.quickFilterMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(520px, calc(100vh - 180px));
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.20);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(18px);
+}
+
+.quickFilterMenuHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 6px 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  margin-bottom: 4px;
+}
+
+.quickFilterMenuHeader span,
+.quickFilterMenuHeader small {
+  flex: 0 0 auto !important;
+  color: inherit !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+
+.quickFilterMenuHeader span {
+  color: var(--text, #e5e7eb) !important;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quickFilterMenuHeader small {
+  color: var(--muted, #9ca3af) !important;
+  font-size: 0.74rem;
+}
+
+.quickFilterMenuItem,
+.quickFilterMenuClear {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text, #e5e7eb);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.quickFilterMenuItem:hover:not(:disabled),
+.quickFilterMenuItem.active {
+  border-color: rgba(14, 165, 233, 0.42);
+  background: rgba(14, 165, 233, 0.14);
+  color: #e0f2fe;
+}
+
+.quickFilterMenuItem:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.quickFilterMenuItem span,
+.quickFilterMenuItem strong,
+.quickFilterMenuClear {
+  line-height: 1.1;
+}
+
+.quickFilterMenuItem strong {
+  min-width: 24px;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  font-size: 0.74rem;
+  padding: 0 7px;
+}
+
+.quickFilterMenuClear {
+  margin-top: 4px;
+  justify-content: center;
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.quickFilterMenuClear:hover {
+  border-color: rgba(14, 165, 233, 0.42);
+  background: rgba(14, 165, 233, 0.12);
+}
+
+:root[data-theme="light"] .quickFilterMenuButton,
+:root[data-theme="mixed"] .quickFilterMenuButton {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.76);
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .quickFilterMenu,
+:root[data-theme="mixed"] .quickFilterMenu {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+}
+
+:root[data-theme="light"] .quickFilterMenuItem,
+:root[data-theme="light"] .quickFilterMenuClear,
+:root[data-theme="mixed"] .quickFilterMenuItem,
+:root[data-theme="mixed"] .quickFilterMenuClear {
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .quickFilterMenuHeader span,
+:root[data-theme="mixed"] .quickFilterMenuHeader span {
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .quickFilterMenuHeader small,
+:root[data-theme="mixed"] .quickFilterMenuHeader small {
+  color: #475569 !important;
+}
+
+:root[data-theme="light"] .quickFilterMenuItem:hover:not(:disabled),
+:root[data-theme="light"] .quickFilterMenuItem.active,
+:root[data-theme="mixed"] .quickFilterMenuItem:hover:not(:disabled),
+:root[data-theme="mixed"] .quickFilterMenuItem.active {
+  border-color: rgba(14, 116, 144, 0.28);
+  background: rgba(14, 165, 233, 0.12);
+  color: #075985;
+}
+
+@media (max-width: 720px) {
+  .vaultSearchToolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .quickFilterDropdown,
+  .quickFilterMenuButton {
+    width: 100%;
+  }
+
+  .quickFilterMenu {
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+}
+/* === KPassword v0.9.5 - filtro dropdown no cofre END === */

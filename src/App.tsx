@@ -138,6 +138,32 @@ type DiagnosticFilter =
 
 type DiagnosticIssue = Exclude<DiagnosticFilter, "all">;
 
+type QuickVaultFilter =
+  | "all"
+  | "favorites"
+  | "weak"
+  | "reused"
+  | "old"
+  | "expired"
+  | "expiring"
+  | "missingTotp"
+  | "incomplete"
+  | "withTags";
+
+const DIAGNOSTIC_QUICK_FILTERS: DiagnosticIssue[] = [
+  "weak",
+  "reused",
+  "old",
+  "expired",
+  "expiring",
+  "missingTotp",
+  "incomplete",
+];
+
+function isDiagnosticQuickFilter(filter: QuickVaultFilter): filter is DiagnosticIssue {
+  return DIAGNOSTIC_QUICK_FILTERS.includes(filter as DiagnosticIssue);
+}
+
 const OLD_PASSWORD_DAYS = 180;
 
 type DiagnosticGuidance = {
@@ -1312,6 +1338,8 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [activeDiagnosticFilter, setActiveDiagnosticFilter] = useState<DiagnosticFilter>("all");
+  const [activeQuickFilter, setActiveQuickFilter] = useState<QuickVaultFilter>("all");
+  const [quickFilterMenuOpen, setQuickFilterMenuOpen] = useState(false);
   const [activeTagFilter, setActiveTagFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1357,6 +1385,7 @@ export default function App() {
   const [generatorAvoidAmbiguous, setGeneratorAvoidAmbiguous] = useState(true);
   const lastActivityRef = useRef(Date.now());
   const clipboardCleanupRef = useRef<number | null>(null);
+  const quickFilterMenuRef = useRef<HTMLDivElement | null>(null);
 
   const t = useCallback(
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
@@ -1403,6 +1432,32 @@ export default function App() {
     const interval = window.setInterval(() => setTotpTick(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, []);
+  useEffect(() => {
+    if (!quickFilterMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && quickFilterMenuRef.current?.contains(target)) {
+        return;
+      }
+      setQuickFilterMenuOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setQuickFilterMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [quickFilterMenuOpen]);
+
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 980px)");
@@ -3093,7 +3148,21 @@ export default function App() {
 
   const openDiagnosticFilter = useCallback((filter: DiagnosticFilter) => {
     setActiveDiagnosticFilter(filter);
+    setActiveQuickFilter("all");
     setSearch("");
+    setScreen("credentials");
+  }, []);
+
+  const openQuickVaultFilter = useCallback((filter: QuickVaultFilter) => {
+    setActiveQuickFilter(filter);
+    setActiveDiagnosticFilter("all");
+    setQuickFilterMenuOpen(false);
+
+    if (filter === "all") {
+      setActiveTagFilter("");
+      setSearch("");
+    }
+
     setScreen("credentials");
   }, []);
 
@@ -3108,6 +3177,18 @@ export default function App() {
 
     return getOrderedCredentials(getActiveCredentials(vault.credentials)).filter((credential) => {
       if (activeDiagnosticFilter !== "all" && !getDiagnosticIssuesFor(credential).includes(activeDiagnosticFilter)) {
+        return false;
+      }
+
+      if (activeQuickFilter === "favorites" && !credential.favorite) {
+        return false;
+      }
+
+      if (activeQuickFilter === "withTags" && getCredentialTags(credential).length === 0) {
+        return false;
+      }
+
+      if (isDiagnosticQuickFilter(activeQuickFilter) && !getDiagnosticIssuesFor(credential).includes(activeQuickFilter)) {
         return false;
       }
 
@@ -3148,7 +3229,7 @@ export default function App() {
 
       return terms.every((term) => searchable.includes(term));
     });
-  }, [activeDiagnosticFilter, activeTagFilter, appLanguage, getDiagnosticIssuesFor, search, vault]);
+  }, [activeDiagnosticFilter, activeQuickFilter, activeTagFilter, appLanguage, getDiagnosticIssuesFor, search, vault]);
 
   const detailCredential = useMemo(() => {
     if (!vault || !detailCredentialId) return null;
@@ -3265,6 +3346,24 @@ export default function App() {
     { filter: "incomplete", count: diagnosticIssueCounts.incomplete, tone: "neutral", description: t("diagnostic.description.incomplete"), guidance: getVaultIssueGuidance("incomplete", t) },
   ];
 
+  const quickFilterOptions: Array<{ filter: QuickVaultFilter; label: string; count: number }> = [
+    { filter: "all", label: t("quickFilters.all"), count: activeCredentials.length },
+    { filter: "favorites", label: t("quickFilters.favorites"), count: stats.favorites },
+    { filter: "weak", label: t("quickFilters.weak"), count: diagnosticIssueCounts.weak },
+    { filter: "reused", label: t("quickFilters.reused"), count: diagnosticIssueCounts.reused },
+    { filter: "expired", label: t("quickFilters.expired"), count: diagnosticIssueCounts.expired },
+    { filter: "expiring", label: t("quickFilters.expiring"), count: diagnosticIssueCounts.expiring },
+    { filter: "old", label: t("quickFilters.old"), count: diagnosticIssueCounts.old },
+    { filter: "missingTotp", label: t("quickFilters.missingTotp"), count: diagnosticIssueCounts.missingTotp },
+    { filter: "incomplete", label: t("quickFilters.incomplete"), count: diagnosticIssueCounts.incomplete },
+    { filter: "withTags", label: t("quickFilters.withTags"), count: activeCredentials.filter((credential) => getCredentialTags(credential).length > 0).length },
+  ];
+
+  const activeQuickFilterOption = quickFilterOptions.find((item) => item.filter === activeQuickFilter);
+  const activeQuickFilterLabel = activeQuickFilterOption?.label ?? t("quickFilters.all");
+  const quickFilterButtonLabel = activeQuickFilter === "all" ? t("quickFilters.button") : activeQuickFilterLabel;
+  const quickFilterButtonCount = activeQuickFilter === "all" ? filteredCredentials.length : activeQuickFilterOption?.count ?? filteredCredentials.length;
+
   const analyticSignals = diagnosticCards
     .filter((item) => item.count > 0)
     .map((item) => ({
@@ -3292,7 +3391,7 @@ export default function App() {
     .sort((first, second) => second.issues.length - first.issues.length)
     .slice(0, 6);
 
-  const canReorderCredentials = search.trim().length === 0 && activeDiagnosticFilter === "all" && !activeTagFilter;
+  const canReorderCredentials = search.trim().length === 0 && activeDiagnosticFilter === "all" && activeQuickFilter === "all" && !activeTagFilter;
   const masterIssues = validateMasterPassword(setupPassword);
   const score = getPasswordScore(credentialForm.password);
 
@@ -4014,13 +4113,60 @@ export default function App() {
 
         {screen === "credentials" && (
           <>
-            <div className="toolbar">
+            <div className="toolbar vaultSearchToolbar">
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={t("search.placeholder")}
               />
-              <span>{t("search.results", { count: filteredCredentials.length })}</span>
+
+              <div className="quickFilterDropdown" ref={quickFilterMenuRef}>
+                <button
+                  type="button"
+                  className={activeQuickFilter === "all" ? "quickFilterMenuButton" : "quickFilterMenuButton active"}
+                  onClick={() => setQuickFilterMenuOpen((current) => !current)}
+                  aria-haspopup="menu"
+                  aria-expanded={quickFilterMenuOpen}
+                >
+                  <span>{quickFilterButtonLabel}</span>
+                  <strong>{quickFilterButtonCount}</strong>
+                  <span className="quickFilterMenuChevron" aria-hidden="true">⌄</span>
+                </button>
+
+                {quickFilterMenuOpen && (
+                  <div className="quickFilterMenu" role="menu" aria-label={t("quickFilters.title")}>
+                    <div className="quickFilterMenuHeader">
+                      <span>{t("quickFilters.title")}</span>
+                      <small>{t("search.results", { count: filteredCredentials.length })}</small>
+                    </div>
+
+                    {quickFilterOptions.map((item) => (
+                      <button
+                        key={item.filter}
+                        type="button"
+                        role="menuitem"
+                        className={activeQuickFilter === item.filter ? "quickFilterMenuItem active" : "quickFilterMenuItem"}
+                        onClick={() => openQuickVaultFilter(item.filter)}
+                        disabled={item.filter !== "all" && item.count === 0}
+                      >
+                        <span>{item.label}</span>
+                        <strong>{item.count}</strong>
+                      </button>
+                    ))}
+
+                    {activeQuickFilter !== "all" && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="quickFilterMenuClear"
+                        onClick={() => openQuickVaultFilter("all")}
+                      >
+                        {t("quickFilters.clearFilter")}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {allVaultTags.length > 0 && (
