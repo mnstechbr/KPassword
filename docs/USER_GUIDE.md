@@ -29,9 +29,9 @@ A tela Cofre é onde ficam seus itens sensíveis:
 - Identidades.
 - Licenças/chaves.
 
-## Analítico
+## Assistente do Cofre
 
-A tela Analítico mostra a saúde do cofre:
+A tela Assistente do Cofre mostra a saúde do cofre e transforma alertas em ações diretas:
 
 - Total de itens.
 - Itens que precisam de atenção.
@@ -65,8 +65,17 @@ O KPassword não consegue recuperar sua senha mestra. Isso é parte do modelo de
 
 ## Diagnóstico do Cofre
 
-Na tela **Analítico**, o KPassword mostra a saúde geral do cofre.
+Na tela **Assistente do Cofre**, o KPassword mostra a saúde geral do cofre, uma próxima ação recomendada e uma fila curta de itens para revisar.
 
-Você pode clicar em cards como **Senhas fracas**, **Senhas reutilizadas** ou **Sem TOTP** para abrir o Cofre já filtrado pelos itens que precisam de revisão.
+Você pode abrir o site, ver a credencial, adicionar 2FA, filtrar problemas ou aplicar sugestões de organização com confirmação.
 
 Ao abrir uma credencial, o detalhe também mostra o diagnóstico individual daquele item.
+
+
+## 2FA/TOTP prático
+
+Ao adicionar 2FA em uma credencial, prefira importar um print/imagem com QR Code ou selecionar o QR Code exibido na tela. O KPassword lê o QR localmente e mostra uma prévia antes de salvar.
+
+O modo manual avançado continua disponível para colar `otpauth://` ou chave secreta quando a leitura por QR não for possível.
+
+Guardar 2FA no KPassword facilita o uso, mas mantém senha e código no mesmo cofre. Para maior separação entre fatores, use um autenticador separado.

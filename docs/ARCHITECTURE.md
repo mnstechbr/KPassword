@@ -82,9 +82,9 @@ O app também possui verificação de backup sem restauração: o arquivo é lid
 - Autolock e envio para bandeja.
 - Clipboard revisado com limpeza após tempo configurado.
 - Windows Hello opcional como conveniência local, sem substituir a senha mestra.
-- TOTP/autenticador 2FA armazenado no cofre quando o usuário decide guardar esse segredo junto da credencial.
+- TOTP/autenticador 2FA armazenado no cofre quando o usuário decide guardar esse segredo junto da credencial, com leitura local de QR Code por imagem/print ou seleção de tela.
 - Multi-cofres locais.
-- Diagnóstico do cofre com explicações e filtros para itens que merecem revisão.
+- Assistente do Cofre com diagnóstico local, próxima ação recomendada, fila curta e atalhos para itens que merecem revisão.
 
 ## Release e atualização
 

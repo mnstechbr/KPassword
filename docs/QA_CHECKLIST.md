@@ -47,13 +47,18 @@ Use este checklist antes de publicar qualquer versão.
 - [ ] Confirmar que botão de PIN desaparece no login.
 - [ ] Testar em mais de um cofre.
 
-## 5. TOTP
+## 5. TOTP / 2FA
 
-- [ ] Adicionar segredo TOTP.
-- [ ] Adicionar URI `otpauth://`.
+- [ ] Adicionar 2FA por print/imagem com QR Code.
+- [ ] Adicionar 2FA selecionando QR Code na tela.
+- [ ] Confirmar que o KPassword volta para frente após escolher tela/janela.
+- [ ] Confirmar prévia antes de usar o 2FA.
+- [ ] Adicionar URI `otpauth://` pelo modo manual avançado.
 - [ ] Ver código de 6 dígitos.
 - [ ] Confirmar contador regressivo.
 - [ ] Copiar código.
+- [ ] Remover 2FA de credencial existente.
+- [ ] Adicionar 2FA novamente na mesma credencial e confirmar persistência.
 - [ ] Fechar e abrir item novamente.
 
 ## 6. Anexos
@@ -109,7 +114,7 @@ Testar em Escuro, Claro e Misto:
 
 - [ ] Login.
 - [ ] Cofre.
-- [ ] Analítico.
+- [ ] Assistente do Cofre.
 - [ ] Lixeira.
 - [ ] Segurança.
 - [ ] Configurações.
@@ -155,3 +160,16 @@ Regra visual:
 - [ ] Atualizar pelo app oficial.
 - [ ] Confirmar versão exibida.
 - [ ] Confirmar que o cofre antigo abre.
+
+## 13. Assistente do Cofre
+
+- [ ] Confirmar que a tela mostra uma próxima ação, não tabela estática.
+- [ ] Clicar em item da fila curta e confirmar que vira a ação principal.
+- [ ] Testar Abrir site em uma credencial com URL.
+- [ ] Testar Ver credencial.
+- [ ] Testar Adicionar 2FA pelo Assistente.
+- [ ] Testar Pular agora e Restaurar pulados.
+- [ ] Testar sugestão de tag individual com confirmação.
+- [ ] Testar aplicação de tags em lote com confirmação.
+- [ ] Testar chips de problemas abrindo o Cofre filtrado.
+- [ ] Validar contraste nos temas Escuro, Claro e Misto.

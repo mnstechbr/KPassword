@@ -26,6 +26,9 @@ Confirmar:
 - [ ] Teste de importação CSV com prévia executado.
 - [ ] Teste de exportação CSV com aviso de não criptografado executado.
 - [ ] Teste de tags e filtros rápidos executado.
+- [ ] Teste de TOTP por print/imagem com QR Code executado.
+- [ ] Teste de seleção de QR Code na tela executado.
+- [ ] Teste do Assistente do Cofre, botões e temas executado.
 - [ ] Nenhuma chave privada foi adicionada ao projeto.
 
 ## Commit

@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.0.0
+
+Release focada em uso mais simples do 2FA/TOTP e em transformar o diagnóstico do cofre em ações diretas.
+
+### TOTP mais prático
+
+- Adicionado fluxo **Adicionar 2FA** com importação de print/imagem contendo QR Code.
+- Adicionada opção para selecionar QR Code na tela: o usuário escolhe a tela/janela, recorta a área do QR dentro do KPassword e confirma antes de salvar.
+- A leitura do QR Code é feita localmente, sem envio de imagem para nuvem e sem salvar o print.
+- Adicionada prévia obrigatória antes de preencher ou substituir o TOTP de uma credencial.
+- Opção manual continua disponível como modo avançado/fallback.
+- Corrigido fluxo de remover e adicionar novamente 2FA em credenciais existentes.
+- A senha no cadastro/edição fica mascarada por padrão.
+
+### Assistente do Cofre
+
+- A tela de análise evolui para **Assistente do Cofre**, com foco em próxima ação recomendada em vez de relatório estático.
+- Adicionada fila curta de ações priorizadas com atalhos para ver credencial, abrir site, editar, adicionar 2FA e filtrar problemas.
+- Adicionadas sugestões de tags com confirmação antes de aplicar.
+- Botões do Assistente foram validados e integrados ao padrão visual dos temas escuro, claro e misto.
+- O Assistente não altera senhas, TOTP, anexos ou dados sensíveis automaticamente.
+
+### Segurança e compatibilidade
+
+- Não houve mudança no formato criptográfico do cofre.
+- Não houve migração obrigatória do cofre.
+- Backups criptografados anteriores continuam compatíveis.
+- O KPassword continua local/offline, sem conta obrigatória e sem nuvem obrigatória.
+- Guardar 2FA no KPassword é opcional e facilita o uso, mas mantém senha e código no mesmo cofre. Para maior separação entre fatores, use um autenticador separado.
+
 ## v0.9.5
 
 Release focada em organização do cofre e importação/exportação CSV mais segura.

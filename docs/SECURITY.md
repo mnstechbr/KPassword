@@ -73,3 +73,10 @@ Arquivos proibidos:
 - Testar bloqueio por inatividade.
 - Testar clipboard após copiar senha.
 - Testar validação dos assets de release antes de publicar.
+
+
+## TOTP/2FA no cofre
+
+O TOTP/2FA é opcional. Ao salvar um segredo TOTP no KPassword, senha e código ficam protegidos pelo mesmo cofre local. Isso melhora conveniência, mas reduz a separação física entre fatores em comparação com usar um autenticador separado.
+
+A leitura de QR Code para 2FA é local. Prints/imagens usados para leitura não devem ser enviados para nuvem pelo app e não devem ser salvos após o processamento. A alteração só deve ocorrer após prévia e confirmação do usuário.

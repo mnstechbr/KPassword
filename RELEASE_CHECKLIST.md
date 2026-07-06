@@ -30,10 +30,14 @@ Antes de publicar uma release do KPassword:
 - [ ] testar exportação CSV para migração, incluindo aviso de arquivo não criptografado;
 - [ ] testar tags em criar, editar, lista, detalhe e filtro;
 - [ ] testar dropdown de filtros rápidos junto com busca e tags;
+- [ ] testar TOTP por print/imagem com QR Code;
+- [ ] testar seleção de QR Code na tela;
+- [ ] testar remoção e recadastro de 2FA em credencial existente;
+- [ ] testar Assistente do Cofre, botões principais e temas;
 
 ## Release GitHub
 
-- [ ] tag SemVer limpa, por exemplo `v0.9.1`;
+- [ ] tag SemVer limpa, por exemplo `v1.0.0`;
 - [ ] não usar tags como `fix`, `v0.8.0fix` ou similares;
 - [ ] anexar instalador `.exe`;
 - [ ] anexar `.sig` correto;
