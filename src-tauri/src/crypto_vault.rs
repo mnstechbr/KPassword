@@ -222,7 +222,13 @@ fn encrypt_vault_v2_with_params(
     let salt = random_bytes(32)?;
     let nonce = random_bytes(12)?;
     let mut password_bytes = master_password.as_bytes().to_vec();
-    let mut key = derive_argon2id_key(&password_bytes, &salt, params)?;
+    let mut key = match derive_argon2id_key(&password_bytes, &salt, params) {
+        Ok(key) => key,
+        Err(error) => {
+            password_bytes.zeroize();
+            return Err(error);
+        }
+    };
 
     let mut file = EncryptedVaultFileV2 {
         version: FILE_VERSION,
@@ -242,20 +248,24 @@ fn encrypt_vault_v2_with_params(
         payload: String::new(),
     };
 
-    let aad = aad_v2(&file);
-    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
-    let encrypted = cipher
-        .encrypt(
-            Nonce::from_slice(&nonce),
-            Payload {
-                msg: plain_vault_json.as_bytes(),
-                aad: &aad,
-            },
-        )
-        .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+    let encrypted_result = (|| {
+        let aad = aad_v2(&file);
+        let cipher =
+            Aes256Gcm::new_from_slice(&key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+        cipher
+            .encrypt(
+                Nonce::from_slice(&nonce),
+                Payload {
+                    msg: plain_vault_json.as_bytes(),
+                    aad: &aad,
+                },
+            )
+            .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())
+    })();
 
     key.zeroize();
     password_bytes.zeroize();
+    let encrypted = encrypted_result?;
     file.payload = encode_base64(&encrypted);
     Ok(file)
 }
@@ -285,21 +295,31 @@ fn decrypt_v2(file: EncryptedVaultFileV2, master_password: &str) -> Result<Strin
     }
 
     let mut password_bytes = master_password.as_bytes().to_vec();
-    let mut key = derive_argon2id_key(&password_bytes, &salt, file.kdf.params)?;
-    let aad = aad_v2(&file);
-    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
-    let decrypted = cipher
-        .decrypt(
-            Nonce::from_slice(&nonce),
-            Payload {
-                msg: payload.as_ref(),
-                aad: &aad,
-            },
-        )
-        .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+    let mut key = match derive_argon2id_key(&password_bytes, &salt, file.kdf.params) {
+        Ok(key) => key,
+        Err(error) => {
+            password_bytes.zeroize();
+            return Err(error);
+        }
+    };
+    let decrypted_result = (|| {
+        let aad = aad_v2(&file);
+        let cipher =
+            Aes256Gcm::new_from_slice(&key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+        cipher
+            .decrypt(
+                Nonce::from_slice(&nonce),
+                Payload {
+                    msg: payload.as_ref(),
+                    aad: &aad,
+                },
+            )
+            .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())
+    })();
 
     key.zeroize();
     password_bytes.zeroize();
+    let decrypted = decrypted_result?;
     String::from_utf8(decrypted).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())
 }
 
@@ -327,20 +347,30 @@ fn decrypt_legacy(file: LegacyEncryptedVaultFile, master_password: &str) -> Resu
     }
 
     let mut password_bytes = master_password.as_bytes().to_vec();
-    let mut key = derive_legacy_pbkdf2_key(&password_bytes, &salt, file.crypto.iterations)?;
-    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
-    let decrypted = cipher
-        .decrypt(
-            Nonce::from_slice(&nonce),
-            Payload {
-                msg: payload.as_ref(),
-                aad: LEGACY_AAD,
-            },
-        )
-        .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+    let mut key = match derive_legacy_pbkdf2_key(&password_bytes, &salt, file.crypto.iterations) {
+        Ok(key) => key,
+        Err(error) => {
+            password_bytes.zeroize();
+            return Err(error);
+        }
+    };
+    let decrypted_result = (|| {
+        let cipher =
+            Aes256Gcm::new_from_slice(&key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+        cipher
+            .decrypt(
+                Nonce::from_slice(&nonce),
+                Payload {
+                    msg: payload.as_ref(),
+                    aad: LEGACY_AAD,
+                },
+            )
+            .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())
+    })();
 
     key.zeroize();
     password_bytes.zeroize();
+    let decrypted = decrypted_result?;
     String::from_utf8(decrypted).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())
 }
 
@@ -579,5 +609,4 @@ mod tests {
 
         assert!(decrypt_vault_file(&value, "correct horse").is_err());
     }
-
 }

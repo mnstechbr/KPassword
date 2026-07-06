@@ -1,13 +1,13 @@
 use std::{
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde::Serialize;
-use zeroize::Zeroize;
 use tauri_plugin_notification::NotificationExt;
+use zeroize::Zeroize;
 
 mod crypto_vault;
 use tauri::{
@@ -132,7 +132,7 @@ fn storage_paths(
     ))
 }
 
-fn get_backups_from_dir(backup_dir: &PathBuf) -> Result<Vec<BackupFile>, String> {
+fn get_backups_from_dir(backup_dir: &Path) -> Result<Vec<BackupFile>, String> {
     let mut backups = Vec::new();
 
     if !backup_dir.exists() {
@@ -161,12 +161,12 @@ fn get_backups_from_dir(backup_dir: &PathBuf) -> Result<Vec<BackupFile>, String>
         }
     }
 
-    backups.sort_by(|a, b| b.modified_epoch_ms.cmp(&a.modified_epoch_ms));
+    backups.sort_by_key(|backup| std::cmp::Reverse(backup.modified_epoch_ms));
 
     Ok(backups)
 }
 
-fn should_create_backup(backup_dir: &PathBuf) -> bool {
+fn should_create_backup(backup_dir: &Path) -> bool {
     let Ok(backups) = get_backups_from_dir(backup_dir) else {
         return true;
     };
@@ -180,7 +180,7 @@ fn should_create_backup(backup_dir: &PathBuf) -> bool {
 }
 
 fn create_labeled_backup(
-    backup_dir: &PathBuf,
+    backup_dir: &Path,
     safe_vault_name: &str,
     label: Option<&str>,
     payload: &str,
@@ -202,7 +202,7 @@ fn create_labeled_backup(
     Ok(backup_path)
 }
 
-fn create_backup(backup_dir: &PathBuf, safe_vault_name: &str, payload: &str) -> Result<(), String> {
+fn create_backup(backup_dir: &Path, safe_vault_name: &str, payload: &str) -> Result<(), String> {
     create_labeled_backup(backup_dir, safe_vault_name, None, payload).map(|_| ())
 }
 
@@ -372,7 +372,7 @@ fn list_vault_files(app: AppHandle) -> Result<Vec<VaultFileInfo>, String> {
                 display_name: if safe_name == "vault" {
                     "Principal".to_string()
                 } else {
-                    safe_name.replace('_', " ").replace('-', " ")
+                    safe_name.replace(['_', '-'], " ")
                 },
                 filename,
                 name: safe_name.clone(),
@@ -467,11 +467,11 @@ mod windows_hello_native {
     use std::ffi::c_void;
     use std::{fs, path::PathBuf, ptr};
     use tauri::{AppHandle, Manager};
-    use zeroize::Zeroize;
     use windows::core::HSTRING;
     use windows::Security::Credentials::UI::{
         UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
     };
+    use zeroize::Zeroize;
 
     #[repr(C)]
     #[allow(non_snake_case)]
@@ -777,6 +777,8 @@ mod windows_hello_native {
         };
 
         if ok == 0 {
+            secret_bytes.zeroize();
+            entropy_bytes.zeroize();
             return Err("Erro ao proteger segredo com DPAPI.".to_string());
         }
 
@@ -787,6 +789,8 @@ mod windows_hello_native {
             let _ = LocalFree(output.pbData as _);
         }
 
+        secret_bytes.zeroize();
+        entropy_bytes.zeroize();
         Ok(protected)
     }
 
@@ -822,6 +826,8 @@ mod windows_hello_native {
         };
 
         if ok == 0 {
+            protected_bytes.zeroize();
+            entropy_bytes.zeroize();
             return Err("Erro ao desbloquear segredo protegido pelo dispositivo.".to_string());
         }
 
@@ -832,7 +838,17 @@ mod windows_hello_native {
             let _ = LocalFree(output.pbData as _);
         }
 
-        String::from_utf8(unprotected).map_err(|_| "Segredo local inválido.".to_string())
+        protected_bytes.zeroize();
+        entropy_bytes.zeroize();
+
+        match String::from_utf8(unprotected) {
+            Ok(secret) => Ok(secret),
+            Err(error) => {
+                let mut bytes = error.into_bytes();
+                bytes.zeroize();
+                Err("Segredo local inválido.".to_string())
+            }
+        }
     }
 
     pub fn status(
@@ -868,11 +884,26 @@ mod windows_hello_native {
             return Err("Senha mestra indisponível.".to_string());
         }
 
-        let (path, safe_vault_name) = token_path(&app, vault_name.clone())?;
+        let (path, safe_vault_name) = match token_path(&app, vault_name.clone()) {
+            Ok(value) => value,
+            Err(error) => {
+                master_password.zeroize();
+                return Err(error);
+            }
+        };
 
-        verify_user(&reason)?;
+        if let Err(error) = verify_user(&reason) {
+            master_password.zeroize();
+            return Err(error);
+        }
 
-        let protected = protect_secret(&master_password, &safe_vault_name)?;
+        let protected = match protect_secret(&master_password, &safe_vault_name) {
+            Ok(value) => value,
+            Err(error) => {
+                master_password.zeroize();
+                return Err(error);
+            }
+        };
         master_password.zeroize();
         fs::write(path, protected).map_err(|error| {
             format!("Erro ao salvar credencial local do Windows Hello: {error}")
@@ -1073,17 +1104,12 @@ fn hide_to_tray(
 
     if notify.unwrap_or(true) {
         let title = notification_title.unwrap_or_else(|| "KPassword protegido".to_string());
-        let body = notification_body.unwrap_or_else(|| "O KPassword continua protegido na bandeja.".to_string());
+        let body = notification_body
+            .unwrap_or_else(|| "O KPassword continua protegido na bandeja.".to_string());
 
-        let _ = app
-            .notification()
-            .builder()
-            .title(title)
-            .body(body)
-            .show();
+        let _ = app.notification().builder().title(title).body(body).show();
     }
 }
-
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -1130,16 +1156,16 @@ pub fn run() {
                         println!("Item de menu nao tratado: {:?}", event.id);
                     }
                 })
-                .on_tray_icon_event(|tray, event| match event {
-                    TrayIconEvent::Click {
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
                         ..
-                    } => {
+                    } = event
+                    {
                         let app = tray.app_handle();
-                        show_main_window(&app);
+                        show_main_window(app);
                     }
-                    _ => {}
                 })
                 .build(app)?;
 
