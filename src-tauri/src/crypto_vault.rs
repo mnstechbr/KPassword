@@ -24,6 +24,8 @@ const ARGON2ID_MAX_MEMORY_KIB: u32 = 262_144;
 const ARGON2ID_MAX_TIME_COST: u32 = 10;
 const ARGON2ID_MAX_PARALLELISM: u32 = 4;
 const LEGACY_PBKDF2_MAX_ITERATIONS: u32 = 2_000_000;
+const BACKUP_VERIFY_SUCCESS_MESSAGE: &str = "backup_verified";
+const BACKUP_VERIFY_FAILURE_MESSAGE: &str = "backup_verification_failed";
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Argon2idParams {
@@ -60,6 +62,17 @@ pub struct EncryptedVaultFileV2 {
     pub created_at: String,
     pub updated_at: String,
     pub payload: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupVerificationReport {
+    pub ok: bool,
+    pub message: String,
+    pub backup_version: Option<String>,
+    pub crypto_version: Option<u8>,
+    pub item_count: Option<usize>,
+    pub created_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -390,6 +403,89 @@ pub fn decrypt_vault_file(file: &Value, master_password: &str) -> Result<String,
     }
 }
 
+fn failed_backup_verification() -> BackupVerificationReport {
+    BackupVerificationReport {
+        ok: false,
+        message: BACKUP_VERIFY_FAILURE_MESSAGE.to_string(),
+        backup_version: None,
+        crypto_version: None,
+        item_count: None,
+        created_at: None,
+    }
+}
+
+fn extract_backup_version(file: &Value) -> Option<String> {
+    let version = file.get("version")?;
+
+    if let Some(number) = version.as_u64() {
+        return Some(number.to_string());
+    }
+
+    version.as_str().map(str::to_string)
+}
+
+fn validate_plain_vault_schema(plain_vault_json: &str) -> Result<usize, String> {
+    let value: Value =
+        serde_json::from_str(plain_vault_json).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+
+    if value.get("version").and_then(Value::as_u64) != Some(FILE_VERSION as u64) {
+        return Err(GENERIC_CRYPTO_ERROR.to_string());
+    }
+
+    if value.get("createdAt").and_then(Value::as_str).is_none()
+        || value.get("updatedAt").and_then(Value::as_str).is_none()
+    {
+        return Err(GENERIC_CRYPTO_ERROR.to_string());
+    }
+
+    let Some(credentials) = value.get("credentials").and_then(Value::as_array) else {
+        return Err(GENERIC_CRYPTO_ERROR.to_string());
+    };
+
+    match value.get("settings") {
+        Some(settings) if settings.is_object() => {}
+        _ => return Err(GENERIC_CRYPTO_ERROR.to_string()),
+    }
+
+    Ok(credentials.len())
+}
+
+pub fn verify_backup_payload(raw: &str, master_password: &str) -> BackupVerificationReport {
+    if raw.trim().is_empty() || master_password.is_empty() {
+        return failed_backup_verification();
+    }
+
+    let file: Value = match serde_json::from_str(raw) {
+        Ok(value) => value,
+        Err(_) => return failed_backup_verification(),
+    };
+
+    let crypto_version = crypto_version(&file);
+    let mut decrypted = match decrypt_vault_file(&file, master_password) {
+        Ok(value) => value,
+        Err(_) => return failed_backup_verification(),
+    };
+
+    let item_count = validate_plain_vault_schema(&decrypted);
+    decrypted.zeroize();
+
+    let Ok(item_count) = item_count else {
+        return failed_backup_verification();
+    };
+
+    BackupVerificationReport {
+        ok: true,
+        message: BACKUP_VERIFY_SUCCESS_MESSAGE.to_string(),
+        backup_version: extract_backup_version(&file),
+        crypto_version: Some(crypto_version),
+        item_count: Some(item_count),
+        created_at: file
+            .get("createdAt")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+    }
+}
+
 #[cfg(test)]
 fn encrypt_legacy_for_test(
     plain_vault_json: &str,
@@ -608,5 +704,81 @@ mod tests {
             Value::Number((LEGACY_PBKDF2_MAX_ITERATIONS as u64 + 1).into());
 
         assert!(decrypt_vault_file(&value, "correct horse").is_err());
+    }
+
+    #[test]
+    fn valid_backup_verification_succeeds_without_restoring() {
+        let encrypted =
+            encrypt_vault_v2_with_params(&sample_plaintext(), "correct horse", None, test_params())
+                .unwrap();
+        let raw = serde_json::to_string(&encrypted).unwrap();
+
+        let report = verify_backup_payload(&raw, "correct horse");
+
+        assert!(report.ok);
+        assert_eq!(report.message, BACKUP_VERIFY_SUCCESS_MESSAGE);
+        assert_eq!(report.backup_version.as_deref(), Some("1"));
+        assert_eq!(report.crypto_version, Some(CRYPTO_VERSION_ARGON2ID));
+        assert_eq!(report.item_count, Some(0));
+        assert_eq!(
+            report.created_at.as_deref(),
+            Some("2026-01-01T00:00:00.000Z")
+        );
+    }
+
+    #[test]
+    fn invalid_json_backup_verification_fails_safely() {
+        let report = verify_backup_payload("not json", "correct horse");
+
+        assert!(!report.ok);
+        assert_eq!(report.message, BACKUP_VERIFY_FAILURE_MESSAGE);
+        assert!(report.crypto_version.is_none());
+        assert!(report.item_count.is_none());
+    }
+
+    #[test]
+    fn wrong_password_backup_verification_fails_safely() {
+        let encrypted =
+            encrypt_vault_v2_with_params(&sample_plaintext(), "correct horse", None, test_params())
+                .unwrap();
+        let raw = serde_json::to_string(&encrypted).unwrap();
+
+        let report = verify_backup_payload(&raw, "wrong password");
+
+        assert!(!report.ok);
+        assert_eq!(report.message, BACKUP_VERIFY_FAILURE_MESSAGE);
+        assert!(report.crypto_version.is_none());
+        assert!(report.item_count.is_none());
+    }
+
+    #[test]
+    fn future_crypto_version_backup_verification_fails_safely() {
+        let encrypted =
+            encrypt_vault_v2_with_params(&sample_plaintext(), "correct horse", None, test_params())
+                .unwrap();
+        let mut value = serde_json::to_value(encrypted).unwrap();
+        value["cryptoVersion"] = Value::Number(99.into());
+        let raw = serde_json::to_string(&value).unwrap();
+
+        let report = verify_backup_payload(&raw, "correct horse");
+
+        assert!(!report.ok);
+        assert_eq!(report.message, BACKUP_VERIFY_FAILURE_MESSAGE);
+        assert!(report.crypto_version.is_none());
+        assert!(report.item_count.is_none());
+    }
+
+    #[test]
+    fn invalid_decrypted_schema_backup_verification_fails_safely() {
+        let encrypted =
+            encrypt_vault_v2_with_params("{}", "correct horse", None, test_params()).unwrap();
+        let raw = serde_json::to_string(&encrypted).unwrap();
+
+        let report = verify_backup_payload(&raw, "correct horse");
+
+        assert!(!report.ok);
+        assert_eq!(report.message, BACKUP_VERIFY_FAILURE_MESSAGE);
+        assert!(report.crypto_version.is_none());
+        assert!(report.item_count.is_none());
     }
 }

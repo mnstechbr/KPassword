@@ -2605,8 +2605,91 @@ const v080Translations: Record<AppLanguage, Record<string, string>> = {
   }
 };
 
+const v094Translations: Record<AppLanguage, Record<string, string>> = {
+  pt: {
+    "backupVerify.title": "Verificar backup",
+    "backupVerify.description": "Teste um arquivo .kpvault criptografado antes de restaurar. A verificação apenas lê e valida o backup; o cofre atual não é substituído.",
+    "backupVerify.passwordLabel": "Senha mestra usada no backup",
+    "backupVerify.passwordPlaceholder": "Digite a senha do backup",
+    "backupVerify.button": "Verificar backup",
+    "backupVerify.checking": "Verificando backup criptografado...",
+    "backupVerify.passwordRequired": "Informe a senha mestra usada no backup para verificar o arquivo.",
+    "backupVerify.successToast": "Backup verificado com sucesso.",
+    "backupVerify.failureToast": "Não foi possível verificar este backup.",
+    "backupVerify.successTitle": "Backup verificado com sucesso",
+    "backupVerify.successMessage": "O arquivo parece íntegro e compatível com esta versão do KPassword.",
+    "backupVerify.failureTitle": "Não foi possível verificar este backup",
+    "backupVerify.failureMessage": "O arquivo pode estar corrompido, protegido por outra senha ou ter sido criado por uma versão incompatível.",
+    "backupVerify.noChanges": "Nenhuma alteração foi feita no cofre atual.",
+    "backupVerify.backupVersion": "Versão do arquivo",
+    "backupVerify.cryptoVersion": "cryptoVersion",
+    "backupVerify.itemCount": "Itens no backup",
+    "backupVerify.createdAt": "Criado em"
+  },
+  en: {
+    "backupVerify.title": "Verify backup",
+    "backupVerify.description": "Test an encrypted .kpvault file before restoring. Verification only reads and validates the backup; the current vault is not replaced.",
+    "backupVerify.passwordLabel": "Master password used in the backup",
+    "backupVerify.passwordPlaceholder": "Enter the backup password",
+    "backupVerify.button": "Verify backup",
+    "backupVerify.checking": "Verifying encrypted backup...",
+    "backupVerify.passwordRequired": "Enter the master password used in the backup to verify the file.",
+    "backupVerify.successToast": "Backup verified successfully.",
+    "backupVerify.failureToast": "Could not verify this backup.",
+    "backupVerify.successTitle": "Backup verified successfully",
+    "backupVerify.successMessage": "The file appears intact and compatible with this version of KPassword.",
+    "backupVerify.failureTitle": "Could not verify this backup",
+    "backupVerify.failureMessage": "The file may be corrupted, protected by another password, or created by an incompatible version.",
+    "backupVerify.noChanges": "No changes were made to the current vault.",
+    "backupVerify.backupVersion": "File version",
+    "backupVerify.cryptoVersion": "cryptoVersion",
+    "backupVerify.itemCount": "Items in backup",
+    "backupVerify.createdAt": "Created at"
+  },
+  es: {
+    "backupVerify.title": "Verificar copia",
+    "backupVerify.description": "Prueba un archivo .kpvault cifrado antes de restaurarlo. La verificación solo lee y valida la copia; el cofre actual no se reemplaza.",
+    "backupVerify.passwordLabel": "Contraseña maestra usada en la copia",
+    "backupVerify.passwordPlaceholder": "Introduce la contraseña de la copia",
+    "backupVerify.button": "Verificar copia",
+    "backupVerify.checking": "Verificando copia cifrada...",
+    "backupVerify.passwordRequired": "Introduce la contraseña maestra usada en la copia para verificar el archivo.",
+    "backupVerify.successToast": "Copia verificada correctamente.",
+    "backupVerify.failureToast": "No fue posible verificar esta copia.",
+    "backupVerify.successTitle": "Copia verificada correctamente",
+    "backupVerify.successMessage": "El archivo parece íntegro y compatible con esta versión de KPassword.",
+    "backupVerify.failureTitle": "No fue posible verificar esta copia",
+    "backupVerify.failureMessage": "El archivo puede estar dañado, protegido por otra contraseña o creado por una versión incompatible.",
+    "backupVerify.noChanges": "No se hizo ningún cambio en el cofre actual.",
+    "backupVerify.backupVersion": "Versión del archivo",
+    "backupVerify.cryptoVersion": "cryptoVersion",
+    "backupVerify.itemCount": "Elementos en la copia",
+    "backupVerify.createdAt": "Creado el"
+  },
+  tr: {
+    "backupVerify.title": "Yedeği doğrula",
+    "backupVerify.description": "Geri yüklemeden önce şifreli bir .kpvault dosyasını test edin. Doğrulama yalnızca yedeği okur ve denetler; geçerli kasa değiştirilmez.",
+    "backupVerify.passwordLabel": "Yedekte kullanılan ana parola",
+    "backupVerify.passwordPlaceholder": "Yedek parolasını girin",
+    "backupVerify.button": "Yedeği doğrula",
+    "backupVerify.checking": "Şifreli yedek doğrulanıyor...",
+    "backupVerify.passwordRequired": "Dosyayı doğrulamak için yedekte kullanılan ana parolayı girin.",
+    "backupVerify.successToast": "Yedek başarıyla doğrulandı.",
+    "backupVerify.failureToast": "Bu yedek doğrulanamadı.",
+    "backupVerify.successTitle": "Yedek başarıyla doğrulandı",
+    "backupVerify.successMessage": "Dosya sağlam ve KPassword'ın bu sürümüyle uyumlu görünüyor.",
+    "backupVerify.failureTitle": "Bu yedek doğrulanamadı",
+    "backupVerify.failureMessage": "Dosya bozuk, başka bir parolayla korunmuş veya uyumsuz bir sürümle oluşturulmuş olabilir.",
+    "backupVerify.noChanges": "Geçerli kasada hiçbir değişiklik yapılmadı.",
+    "backupVerify.backupVersion": "Dosya sürümü",
+    "backupVerify.cryptoVersion": "cryptoVersion",
+    "backupVerify.itemCount": "Yedekteki öğeler",
+    "backupVerify.createdAt": "Oluşturulma"
+  }
+};
+
 export function translate(language: AppLanguage, key: TranslationKey, values: TranslationValues = {}) {
-  const template = v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
+  const template = v094Translations[language]?.[key] ?? v094Translations.en[key] ?? v094Translations.pt[key] ?? v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
 
   return String(template).replace(/\{(\w+)\}/g, (_, name: string) =>
     values[name] === undefined ? `{${name}}` : String(values[name]),

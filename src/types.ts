@@ -142,6 +142,15 @@ export type EncryptedVaultFileV2 = {
 
 export type EncryptedVaultFile = LegacyEncryptedVaultFile | EncryptedVaultFileV2;
 
+export type BackupVerificationReport = {
+  ok: boolean;
+  message: string;
+  backupVersion?: string;
+  cryptoVersion?: number;
+  itemCount?: number;
+  createdAt?: string;
+};
+
 export type WindowsHelloStatus = {
   available: boolean;
   enabled: boolean;

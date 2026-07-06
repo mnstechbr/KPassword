@@ -11047,3 +11047,112 @@ textarea {
   font-size: 0.82rem !important;
   line-height: 1.35 !important;
 }
+
+/* v0.9.4: verificação de backup sem restauração */
+.backupVerifyCard {
+  display: grid !important;
+  gap: 12px !important;
+}
+
+.backupVerifyPanel {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 10px !important;
+  align-items: end !important;
+}
+
+.backupVerifyPanel label:not(.fileImportButton) {
+  display: grid !important;
+  gap: 7px !important;
+  min-width: 0 !important;
+  padding: 9px 11px !important;
+  border: 1px solid var(--kp-card-border) !important;
+  border-radius: 14px !important;
+  background: var(--kp-field-bg, rgba(255, 255, 255, 0.055)) !important;
+  color: var(--kp-readable, #f7f7fb) !important;
+  font-weight: 720 !important;
+}
+
+.backupVerifyButton {
+  min-width: 150px !important;
+  justify-content: center !important;
+}
+
+.backupVerifyResult {
+  display: grid !important;
+  gap: 7px !important;
+  padding: 12px 14px !important;
+  border-radius: 15px !important;
+  border: 1px solid var(--kp-card-border) !important;
+  background: var(--kp-field-bg, rgba(255, 255, 255, 0.055)) !important;
+}
+
+.backupVerifyResult.success {
+  border-color: rgba(34, 197, 94, 0.38) !important;
+  background:
+    linear-gradient(135deg, rgba(34, 197, 94, 0.12), transparent),
+    var(--kp-field-bg, rgba(255, 255, 255, 0.055)) !important;
+}
+
+.backupVerifyResult.failure {
+  border-color: rgba(248, 113, 113, 0.42) !important;
+  background:
+    linear-gradient(135deg, rgba(248, 113, 113, 0.12), transparent),
+    var(--kp-field-bg, rgba(255, 255, 255, 0.055)) !important;
+}
+
+.backupVerifyResult strong {
+  color: var(--kp-readable, #f7f7fb) !important;
+  font-size: 0.98rem !important;
+  line-height: 1.2 !important;
+}
+
+.backupVerifyResult p {
+  margin: 0 !important;
+  color: var(--kp-readable-muted, #aab7d8) !important;
+}
+
+.backupVerifyMeta {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)) !important;
+  gap: 8px !important;
+  margin: 4px 0 0 !important;
+}
+
+.backupVerifyMeta div {
+  min-width: 0 !important;
+  padding: 9px 10px !important;
+  border: 1px solid var(--kp-card-border) !important;
+  border-radius: 12px !important;
+  background: var(--kp-panel-bg, rgba(16, 18, 27, 0.72)) !important;
+}
+
+.backupVerifyMeta dt,
+.backupVerifyMeta dd {
+  margin: 0 !important;
+}
+
+.backupVerifyMeta dt {
+  color: var(--kp-readable-muted, #aab7d8) !important;
+  font-size: 0.75rem !important;
+  line-height: 1.2 !important;
+}
+
+.backupVerifyMeta dd {
+  margin-top: 3px !important;
+  color: var(--kp-readable, #f7f7fb) !important;
+  font-size: 0.92rem !important;
+  font-weight: 740 !important;
+  line-height: 1.2 !important;
+  overflow-wrap: anywhere !important;
+}
+
+@media (max-width: 680px) {
+  .backupVerifyPanel {
+    grid-template-columns: 1fr !important;
+  }
+
+  .backupVerifyButton {
+    width: 100% !important;
+  }
+}

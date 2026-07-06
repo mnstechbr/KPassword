@@ -16,6 +16,7 @@ import {
   parseEncryptedVault,
   validateEncryptedVaultBackup,
   validateMasterPassword,
+  verifyEncryptedVaultBackup,
 } from "./crypto";
 import { generatePassword, getPasswordLabel, getPasswordScore, type PasswordGeneratorMode } from "./password";
 import {
@@ -34,6 +35,7 @@ import {
 } from "./vault-storage";
 import type {
   BackupFile,
+  BackupVerificationReport,
   CredentialCategory,
   CredentialRecord,
   PasswordHistoryEntry,
@@ -1014,6 +1016,8 @@ export default function App() {
   const [newMasterPassword, setNewMasterPassword] = useState("");
   const [newMasterConfirm, setNewMasterConfirm] = useState("");
   const [restorePassword, setRestorePassword] = useState("");
+  const [backupVerifyPassword, setBackupVerifyPassword] = useState("");
+  const [backupVerifyResult, setBackupVerifyResult] = useState<BackupVerificationReport | null>(null);
   const [exportPassword, setExportPassword] = useState("");
   const [restorePopupOpen, setRestorePopupOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState("");
@@ -1840,6 +1844,44 @@ export default function App() {
       await restoreBackupFromText(raw, password);
     } catch {
       setMessage(t("errors.restoreBackup"));
+    }
+  }
+
+  function showBackupVerifyFailure(messageKey = "backupVerify.failureToast") {
+    setBackupVerifyResult({
+      ok: false,
+      message: "backup_verification_failed",
+    });
+    setMessage(t(messageKey));
+  }
+
+  async function handleVerifyBackupFile(file: File | undefined | null, password: string) {
+    if (!file) return;
+
+    setBackupVerifyResult(null);
+
+    if (!password.trim()) {
+      showBackupVerifyFailure("backupVerify.passwordRequired");
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith(".kpvault")) {
+      showBackupVerifyFailure("backupVerify.failureToast");
+      setBackupVerifyPassword("");
+      return;
+    }
+
+    try {
+      setMessage(t("backupVerify.checking"));
+      const raw = await readFileAsText(file);
+      const report = await verifyEncryptedVaultBackup(raw, password);
+
+      setBackupVerifyResult(report);
+      setMessage(report.ok ? t("backupVerify.successToast") : t("backupVerify.failureToast"));
+    } catch {
+      showBackupVerifyFailure("backupVerify.failureToast");
+    } finally {
+      setBackupVerifyPassword("");
     }
   }
 
@@ -3846,6 +3888,83 @@ export default function App() {
               </form>
             </article>
 
+            <article className="wideCard securityActionCard backupVerifyCard">
+              <h2>{t("backupVerify.title")}</h2>
+              <p>{t("backupVerify.description")}</p>
+
+              <div className="backupVerifyPanel">
+                <label>
+                  {t("backupVerify.passwordLabel")}
+                  <input
+                    type="password"
+                    value={backupVerifyPassword}
+                    onChange={(event) => setBackupVerifyPassword(event.target.value)}
+                    placeholder={t("backupVerify.passwordPlaceholder")}
+                  />
+                </label>
+
+                <label className="fileImportButton inlineFileButton backupVerifyButton">
+                  {t("backupVerify.button")}
+                  <input
+                    type="file"
+                    accept=".kpvault,application/json"
+                    onChange={(event) => {
+                      void handleVerifyBackupFile(event.target.files?.[0], backupVerifyPassword);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+
+              {backupVerifyResult && (
+                <div
+                  className={backupVerifyResult.ok ? "backupVerifyResult success" : "backupVerifyResult failure"}
+                  role="status"
+                >
+                  <strong>
+                    {backupVerifyResult.ok
+                      ? t("backupVerify.successTitle")
+                      : t("backupVerify.failureTitle")}
+                  </strong>
+                  <p>
+                    {backupVerifyResult.ok
+                      ? t("backupVerify.successMessage")
+                      : t("backupVerify.failureMessage")}
+                  </p>
+                  <p>{t("backupVerify.noChanges")}</p>
+
+                  {backupVerifyResult.ok && (
+                    <dl className="backupVerifyMeta">
+                      {backupVerifyResult.backupVersion && (
+                        <div>
+                          <dt>{t("backupVerify.backupVersion")}</dt>
+                          <dd>{backupVerifyResult.backupVersion}</dd>
+                        </div>
+                      )}
+                      {backupVerifyResult.cryptoVersion !== undefined && (
+                        <div>
+                          <dt>{t("backupVerify.cryptoVersion")}</dt>
+                          <dd>{backupVerifyResult.cryptoVersion}</dd>
+                        </div>
+                      )}
+                      {backupVerifyResult.itemCount !== undefined && (
+                        <div>
+                          <dt>{t("backupVerify.itemCount")}</dt>
+                          <dd>{backupVerifyResult.itemCount}</dd>
+                        </div>
+                      )}
+                      {backupVerifyResult.createdAt && (
+                        <div>
+                          <dt>{t("backupVerify.createdAt")}</dt>
+                          <dd>{formatDate(backupVerifyResult.createdAt, appLanguage)}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
+                </div>
+              )}
+            </article>
+
             <article className="wideCard securityActionCard">
               <h2>{t("settings.importBackup")}</h2>
               <p>
@@ -5014,7 +5133,3 @@ export default function App() {
     </main>
   );
 }
-
-
-
-

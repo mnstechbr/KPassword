@@ -461,6 +461,16 @@ fn decrypt_vault_payload(
     master_password.zeroize();
     result
 }
+
+#[tauri::command]
+fn verify_backup_payload(
+    raw: String,
+    mut master_password: String,
+) -> crypto_vault::BackupVerificationReport {
+    let result = crypto_vault::verify_backup_payload(&raw, &master_password);
+    master_password.zeroize();
+    result
+}
 #[cfg(windows)]
 mod windows_hello_native {
     use super::{sanitize_vault_name, WindowsHelloStatus};
@@ -1182,6 +1192,7 @@ pub fn run() {
             create_pre_argon2_backup,
             encrypt_vault_argon2id,
             decrypt_vault_payload,
+            verify_backup_payload,
             open_vault_folder,
             open_backup_folder,
             windows_hello_status,

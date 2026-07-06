@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { EncryptedVaultFile, EncryptedVaultFileV2, PlainVault } from "./types";
+import type { BackupVerificationReport, EncryptedVaultFile, EncryptedVaultFileV2, PlainVault } from "./types";
 
 const ARGON2ID_MAX_MEMORY_KIB = 262_144;
 const ARGON2ID_MAX_TIME_COST = 10;
@@ -101,6 +101,10 @@ export async function validateEncryptedVaultBackup(raw: string, masterPassword: 
   const plainVault = await decryptVault(file, masterPassword);
 
   return { file, plainVault };
+}
+
+export async function verifyEncryptedVaultBackup(raw: string, masterPassword: string) {
+  return invoke<BackupVerificationReport>("verify_backup_payload", { raw, masterPassword });
 }
 
 export function parseEncryptedVault(raw: string): EncryptedVaultFile {
