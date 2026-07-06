@@ -154,8 +154,15 @@ type QuickVaultFilter =
   | "withTags";
 
 
-type TotpSetupMode = "choice" | "manual" | "preview";
-type TotpSetupSource = "image" | "manual";
+type TotpSetupMode = "choice" | "manual" | "preview" | "screenIntro" | "screenCrop";
+type TotpSetupSource = "image" | "manual" | "screen";
+
+type TotpScreenSelection = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 
 type TotpPreview = {
   secret: string;
@@ -1458,6 +1465,9 @@ export default function App() {
   const [totpPreview, setTotpPreview] = useState<TotpPreview | null>(null);
   const [totpSetupError, setTotpSetupError] = useState("");
   const [totpQrBusy, setTotpQrBusy] = useState(false);
+  const [totpScreenImage, setTotpScreenImage] = useState("");
+  const [totpScreenSelection, setTotpScreenSelection] = useState<TotpScreenSelection | null>(null);
+  const [totpScreenDragStart, setTotpScreenDragStart] = useState<{ x: number; y: number } | null>(null);
   const [appLanguage, setAppLanguage] = useState<AppLanguage>(getInitialLanguage);
   const [generatorMode, setGeneratorMode] = useState<PasswordGeneratorMode>("random");
   const [generatorLength, setGeneratorLength] = useState(24);
@@ -1470,6 +1480,7 @@ export default function App() {
   const clipboardCleanupRef = useRef<number | null>(null);
   const quickFilterMenuRef = useRef<HTMLDivElement | null>(null);
   const totpImageInputRef = useRef<HTMLInputElement | null>(null);
+  const totpScreenImageRef = useRef<HTMLImageElement | null>(null);
 
   const t = useCallback(
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
@@ -2489,6 +2500,9 @@ export default function App() {
     setTotpPreview(null);
     setTotpSetupError("");
     setTotpQrBusy(false);
+    setTotpScreenImage("");
+    setTotpScreenSelection(null);
+    setTotpScreenDragStart(null);
   }
 
   function openTotpSetup(mode: TotpSetupMode = "choice") {
@@ -2497,6 +2511,9 @@ export default function App() {
     setTotpManualIssuer(credentialForm.totpIssuer ?? credentialForm.title ?? "");
     setTotpPreview(null);
     setTotpSetupError("");
+    setTotpScreenImage("");
+    setTotpScreenSelection(null);
+    setTotpScreenDragStart(null);
     setTotpSetupOpen(true);
   }
 
@@ -2512,7 +2529,7 @@ export default function App() {
       if (!isStandardTotp(candidate)) {
         setTotpSetupError(t("totp.easy.errorUnsupported"));
         setTotpPreview(null);
-        setTotpSetupMode(source === "manual" ? "manual" : "choice");
+        setTotpSetupMode(source === "manual" ? "manual" : source === "screen" ? "screenCrop" : "choice");
         return;
       }
 
@@ -2526,7 +2543,7 @@ export default function App() {
         : "totp.easy.errorInvalid";
       setTotpSetupError(t(key as Parameters<typeof translate>[1]));
       setTotpPreview(null);
-      setTotpSetupMode(source === "manual" ? "manual" : "choice");
+      setTotpSetupMode(source === "manual" ? "manual" : source === "screen" ? "screenCrop" : "choice");
     }
   }
 
@@ -2568,15 +2585,273 @@ export default function App() {
     }
   }
 
-  function applyTotpPreview() {
+  async function bringTotpWindowToFront(delayMs = 0, useTopBump = false) {
+    if (delayMs > 0) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, delayMs));
+    }
+
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.unminimize();
+      await appWindow.show();
+
+      if (useTopBump) {
+        try {
+          await appWindow.setAlwaysOnTop(true);
+        } catch {
+          // Se o sistema negar o topo temporário, ainda tentamos foco normal.
+        }
+      }
+
+      await appWindow.setFocus();
+
+      if (useTopBump) {
+        window.setTimeout(() => {
+          void getCurrentWindow().setAlwaysOnTop(false).catch(() => undefined);
+        }, 450);
+      }
+    } catch {
+      // Conveniência de UX. A captura continua válida mesmo se o Windows bloquear o foco imediato.
+    }
+  }
+
+  async function restoreTotpWindowAfterScreenSelection() {
+    // Não deixamos a janela como always-on-top antes do seletor do Windows, porque isso pode causar
+    // o retorno para a tela compartilhada em alguns ambientes. O "top bump" acontece só depois
+    // que o frame já foi capturado e o stream encerrado.
+    await bringTotpWindowToFront(120, true);
+    window.setTimeout(() => void bringTotpWindowToFront(0, true), 450);
+    window.setTimeout(() => void bringTotpWindowToFront(0, false), 1000);
+    window.setTimeout(() => void bringTotpWindowToFront(0, false), 1800);
+  }
+
+  function getTotpScreenPoint(event: MouseEvent<HTMLDivElement>) {
+    const image = totpScreenImageRef.current;
+    if (!image) return null;
+
+    const rect = image.getBoundingClientRect();
+    const x = Math.min(Math.max(event.clientX - rect.left, 0), rect.width);
+    const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
+
+    return { x, y };
+  }
+
+  function normalizeTotpScreenSelection(start: { x: number; y: number }, end: { x: number; y: number }): TotpScreenSelection {
+    const x = Math.min(start.x, end.x);
+    const y = Math.min(start.y, end.y);
+    const width = Math.abs(end.x - start.x);
+    const height = Math.abs(end.y - start.y);
+
+    return { x, y, width, height };
+  }
+
+  function isTotpScreenSelectionReady(selection: TotpScreenSelection | null) {
+    return Boolean(selection && selection.width >= 24 && selection.height >= 24);
+  }
+
+  function handleTotpScreenMouseDown(event: MouseEvent<HTMLDivElement>) {
+    const point = getTotpScreenPoint(event);
+    if (!point) return;
+
+    setTotpScreenDragStart(point);
+    setTotpScreenSelection({ ...point, width: 0, height: 0 });
+    setTotpSetupError("");
+  }
+
+  function handleTotpScreenMouseMove(event: MouseEvent<HTMLDivElement>) {
+    if (!totpScreenDragStart) return;
+
+    const point = getTotpScreenPoint(event);
+    if (!point) return;
+
+    setTotpScreenSelection(normalizeTotpScreenSelection(totpScreenDragStart, point));
+  }
+
+  function handleTotpScreenMouseUp(event: MouseEvent<HTMLDivElement>) {
+    if (!totpScreenDragStart) return;
+
+    const point = getTotpScreenPoint(event);
+    if (point) {
+      setTotpScreenSelection(normalizeTotpScreenSelection(totpScreenDragStart, point));
+    }
+    setTotpScreenDragStart(null);
+  }
+
+  async function captureTotpScreenFrame() {
+    const mediaDevices = navigator.mediaDevices as MediaDevices & {
+      getDisplayMedia?: (constraints?: DisplayMediaStreamOptions) => Promise<MediaStream>;
+    };
+
+    if (!mediaDevices?.getDisplayMedia) {
+      setTotpSetupError(t("totp.easy.errorScreenUnsupported"));
+      setTotpSetupMode("choice");
+      return;
+    }
+
+    setTotpQrBusy(true);
+    setTotpSetupError("");
+    setTotpScreenImage("");
+    setTotpScreenSelection(null);
+    setTotpScreenDragStart(null);
+
+    let stream: MediaStream | null = null;
+    let shouldRestoreWindow = false;
+
+    try {
+      // O seletor nativo do Windows/WebView pode focar a tela ou janela escolhida.
+      // Não prendemos o KPassword no topo antes do seletor para evitar o comportamento
+      // em que ele volta a minimizar ou fica atrás da origem compartilhada.
+      stream = await mediaDevices.getDisplayMedia({ video: true, audio: false });
+      shouldRestoreWindow = true;
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+
+      await video.play();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+      const track = stream.getVideoTracks()[0];
+      const settings = track?.getSettings?.() ?? {};
+      const width = video.videoWidth || settings.width || 0;
+      const height = video.videoHeight || settings.height || 0;
+
+      if (!width || !height) {
+        throw new Error("Screen frame unavailable.");
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        throw new Error("Canvas unavailable.");
+      }
+
+      context.drawImage(video, 0, 0, width, height);
+      setTotpScreenImage(canvas.toDataURL("image/png"));
+      setTotpSetupMode("screenCrop");
+    } catch {
+      setTotpSetupError(t("totp.easy.errorScreenCapture"));
+      setTotpSetupMode("choice");
+    } finally {
+      stream?.getTracks().forEach((track) => track.stop());
+      setTotpQrBusy(false);
+
+      if (shouldRestoreWindow) {
+        await restoreTotpWindowAfterScreenSelection();
+      }
+    }
+  }
+
+  async function decodeTotpScreenSelection() {
+    const image = totpScreenImageRef.current;
+
+    if (!image || !totpScreenImage || !isTotpScreenSelectionReady(totpScreenSelection)) {
+      setTotpSetupError(t("totp.easy.errorScreenSelection"));
+      return;
+    }
+
+    const displayWidth = image.clientWidth;
+    const displayHeight = image.clientHeight;
+
+    if (!displayWidth || !displayHeight || !image.naturalWidth || !image.naturalHeight) {
+      setTotpSetupError(t("totp.easy.errorScreenSelection"));
+      return;
+    }
+
+    const scaleX = image.naturalWidth / displayWidth;
+    const scaleY = image.naturalHeight / displayHeight;
+    const sourceX = Math.max(0, Math.round(totpScreenSelection.x * scaleX));
+    const sourceY = Math.max(0, Math.round(totpScreenSelection.y * scaleY));
+    const sourceWidth = Math.max(1, Math.round(totpScreenSelection.width * scaleX));
+    const sourceHeight = Math.max(1, Math.round(totpScreenSelection.height * scaleY));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = sourceWidth;
+    canvas.height = sourceHeight;
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      setTotpSetupError(t("totp.easy.errorQrNotFound"));
+      return;
+    }
+
+    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight);
+
+    setTotpQrBusy(true);
+    setTotpSetupError("");
+
+    try {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+
+      if (!blob) {
+        throw new Error("Crop unavailable.");
+      }
+
+      let content = "";
+      const file = new File([blob], "kpassword-qr-selection.png", { type: "image/png" });
+
+      try {
+        content = await decodeQrFromImageFile(file);
+      } catch {
+        content = await invoke<string>("decode_qr_from_image_data_url", { dataUrl: canvas.toDataURL("image/png") });
+      }
+
+      await prepareTotpPreview(content, "screen", credentialForm.totpIssuer || credentialForm.title);
+    } catch {
+      setTotpSetupError(t("totp.easy.errorQrNotFound"));
+      setTotpPreview(null);
+      setTotpSetupMode("screenCrop");
+    } finally {
+      setTotpQrBusy(false);
+    }
+  }
+
+  async function applyTotpPreview() {
     if (!totpPreview) return;
+
+    const nextTotpSecret = totpPreview.secret;
+    const nextTotpIssuer = totpPreview.issuer || credentialForm.title;
 
     setCredentialForm((current) => ({
       ...current,
-      totpSecret: totpPreview.secret,
-      totpIssuer: totpPreview.issuer || current.title,
+      totpSecret: nextTotpSecret,
+      totpIssuer: nextTotpIssuer || current.title,
     }));
-    closeTotpSetup();
+
+    if (!vault || !editingId) {
+      closeTotpSetup();
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const now = new Date().toISOString();
+      await persistVault({
+        ...vault,
+        credentials: vault.credentials.map((credential) =>
+          credential.id === editingId
+            ? {
+                ...credential,
+                totpSecret: nextTotpSecret,
+                totpIssuer: nextTotpIssuer || credential.title,
+                updatedAt: now,
+              }
+            : credential,
+        ),
+        updatedAt: now,
+      });
+      setMessage(t("totp.easy.saveSuccess"));
+      closeTotpSetup();
+    } catch (error) {
+      console.error(error);
+      setMessage(t("totp.easy.saveError"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function clearTotpFromForm() {
@@ -2591,6 +2866,36 @@ export default function App() {
     if (!confirmed) return;
 
     setCredentialForm((current) => ({ ...current, totpSecret: "", totpIssuer: "" }));
+
+    if (!vault || !editingId) {
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const now = new Date().toISOString();
+      await persistVault({
+        ...vault,
+        credentials: vault.credentials.map((credential) =>
+          credential.id === editingId
+            ? {
+                ...credential,
+                totpSecret: "",
+                totpIssuer: "",
+                updatedAt: now,
+              }
+            : credential,
+        ),
+        updatedAt: now,
+      });
+      setMessage(t("totp.easy.removeSuccess"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("totp.easy.removeError"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   function openCredentialTotpSetup(credential: CredentialRecord) {
@@ -3766,7 +4071,7 @@ export default function App() {
 
   const totpSetupDialog = totpSetupOpen ? (
     <div className="modalOverlay totpEasyOverlay" onMouseDown={closeTotpSetup}>
-      <section className="credentialModal totpEasyModal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+      <section className={`credentialModal totpEasyModal totpEasyModal--${totpSetupMode}`} role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modalHeader">
           <div>
             <p className="eyebrow">{t("totp.easy.eyebrow")}</p>
@@ -3794,6 +4099,16 @@ export default function App() {
               type="button"
               className="totpEasyChoice primary"
               disabled={totpQrBusy}
+              onClick={() => setTotpSetupMode("screenIntro")}
+            >
+              <span>{t("totp.easy.selectScreen")}</span>
+              <small>{t("totp.easy.selectScreenHint")}</small>
+            </button>
+
+            <button
+              type="button"
+              className="totpEasyChoice"
+              disabled={totpQrBusy}
               onClick={() => totpImageInputRef.current?.click()}
             >
               <span>{totpQrBusy ? t("totp.easy.reading") : t("totp.easy.importImage")}</span>
@@ -3804,6 +4119,47 @@ export default function App() {
               <span>{t("totp.easy.manual")}</span>
               <small>{t("totp.easy.manualHint")}</small>
             </button>
+          </div>
+        )}
+
+        {totpSetupMode === "screenIntro" && (
+          <div className="totpScreenIntroPanel">
+            <strong>{t("totp.easy.screenIntroTitle")}</strong>
+            <p>{t("totp.easy.screenIntroText")}</p>
+            <ul>
+              <li>{t("totp.easy.screenIntroStep1")}</li>
+              <li>{t("totp.easy.screenIntroStep2")}</li>
+              <li>{t("totp.easy.screenIntroStep3")}</li>
+            </ul>
+          </div>
+        )}
+
+        {totpSetupMode === "screenCrop" && totpScreenImage && (
+          <div className="totpScreenCropPanel">
+            <div className="totpScreenCropHint">
+              <strong>{t("totp.easy.screenCropTitle")}</strong>
+              <p>{t("totp.easy.screenCropText")}</p>
+            </div>
+            <div
+              className="totpScreenCropCanvas"
+              onMouseDown={handleTotpScreenMouseDown}
+              onMouseMove={handleTotpScreenMouseMove}
+              onMouseUp={handleTotpScreenMouseUp}
+              onMouseLeave={handleTotpScreenMouseUp}
+            >
+              <img ref={totpScreenImageRef} src={totpScreenImage} alt={t("totp.easy.screenImageAlt")} draggable={false} />
+              {totpScreenSelection && (
+                <span
+                  className="totpScreenSelection"
+                  style={{
+                    left: `${totpScreenSelection.x}px`,
+                    top: `${totpScreenSelection.y}px`,
+                    width: `${totpScreenSelection.width}px`,
+                    height: `${totpScreenSelection.height}px`,
+                  }}
+                />
+              )}
+            </div>
           </div>
         )}
 
@@ -3843,7 +4199,7 @@ export default function App() {
               <div><span>{t("totp.easy.service")}</span><strong>{totpPreview.issuer || t("totp.easy.genericIssuer")}</strong></div>
               <div><span>{t("totp.easy.account")}</span><strong>{totpPreview.account || credentialForm.username || "—"}</strong></div>
               <div><span>{t("totp.easy.type")}</span><strong>TOTP · {totpPreview.digits} · {totpPreview.period}s</strong></div>
-              <div><span>{t("totp.easy.source")}</span><strong>{t(totpPreview.source === "image" ? "totp.easy.sourceImage" : "totp.easy.sourceManual")}</strong></div>
+              <div><span>{t("totp.easy.source")}</span><strong>{t(totpPreview.source === "screen" ? "totp.easy.sourceScreen" : totpPreview.source === "image" ? "totp.easy.sourceImage" : "totp.easy.sourceManual")}</strong></div>
             </div>
           </div>
         )}
@@ -3851,18 +4207,33 @@ export default function App() {
         {totpSetupError && <p className="totpEasyError">{totpSetupError}</p>}
 
         <div className="modalActions">
+          {totpSetupMode === "screenIntro" && (
+            <button type="button" className="primaryButton" disabled={totpQrBusy} onClick={() => void captureTotpScreenFrame()}>
+              {totpQrBusy ? t("totp.easy.reading") : t("totp.easy.startScreenSelection")}
+            </button>
+          )}
+          {totpSetupMode === "screenCrop" && (
+            <button type="button" className="primaryButton" disabled={totpQrBusy || !isTotpScreenSelectionReady(totpScreenSelection)} onClick={() => void decodeTotpScreenSelection()}>
+              {totpQrBusy ? t("totp.easy.reading") : t("totp.easy.readSelection")}
+            </button>
+          )}
+          {totpSetupMode === "screenCrop" && (
+            <button type="button" className="secondaryButton" disabled={totpQrBusy} onClick={() => void captureTotpScreenFrame()}>
+              {t("totp.easy.captureAgain")}
+            </button>
+          )}
           {totpSetupMode === "manual" && (
             <button type="button" className="primaryButton" onClick={() => void handleTotpManualVerify()}>
               {t("totp.easy.verify")}
             </button>
           )}
           {totpSetupMode === "preview" && (
-            <button type="button" className="primaryButton" onClick={applyTotpPreview}>
+            <button type="button" className="primaryButton" disabled={busy} onClick={() => void applyTotpPreview()}>
               {credentialForm.totpSecret ? t("totp.easy.replaceConfirm") : t("totp.easy.saveConfirm")}
             </button>
           )}
           {totpSetupMode !== "choice" && (
-            <button type="button" className="secondaryButton" onClick={() => { setTotpSetupMode("choice"); setTotpSetupError(""); setTotpPreview(null); }}>
+            <button type="button" className="secondaryButton" onClick={() => { setTotpSetupMode("choice"); setTotpSetupError(""); setTotpPreview(null); setTotpScreenSelection(null); }}>
               {t("totp.easy.back")}
             </button>
           )}

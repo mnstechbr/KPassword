@@ -12517,3 +12517,191 @@ textarea {
   }
 }
 /* === KPassword v1.0 - refinamento modal 2FA e senha mascarada END === */
+
+/* === KPassword v1.0 - selecionar QR na tela START === */
+.totpEasyChoiceGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.totpScreenIntroPanel,
+.totpScreenCropPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.totpScreenIntroPanel {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+}
+
+.totpScreenIntroPanel strong,
+.totpScreenIntroPanel p {
+  margin: 0;
+}
+
+.totpScreenIntroPanel p,
+.totpScreenIntroPanel li {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.totpScreenIntroPanel ul {
+  margin: 2px 0 0;
+  padding-left: 22px;
+}
+
+.totpScreenCropHint {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+}
+
+.totpScreenCropHint strong,
+.totpScreenCropHint p {
+  margin: 0;
+}
+
+.totpScreenCropHint p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.totpScreenCropCanvas {
+  position: relative;
+  display: inline-block;
+  justify-self: center;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #05070d;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.totpScreenCropCanvas img {
+  display: block;
+  max-width: min(100%, 900px);
+  max-height: 48vh;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.totpScreenSelection {
+  position: absolute;
+  z-index: 5;
+  display: block;
+  border: 3px solid #ffffff;
+  border-radius: 10px;
+  background: rgba(72, 148, 255, 0.2);
+  outline: 2px solid color-mix(in srgb, var(--accent) 86%, #60a5fa);
+  outline-offset: -5px;
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.5),
+    0 0 0 2px rgba(0, 0, 0, 0.58) inset,
+    0 0 28px rgba(255, 255, 255, 0.34);
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .totpEasyChoiceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .totpScreenCropCanvas img {
+    max-height: 42vh;
+  }
+}
+/* === KPassword v1.0 - selecionar QR na tela END === */
+
+
+/* === KPassword v1.0 - ajuste tela grande para seleção de QR START === */
+.totpEasyModal.totpEasyModal--screenIntro {
+  max-width: min(94vw, 820px) !important;
+}
+
+.totpEasyModal.totpEasyModal--screenCrop {
+  width: min(96vw, 1280px) !important;
+  max-width: min(96vw, 1280px) !important;
+  max-height: 94vh;
+  overflow-y: auto;
+}
+
+.totpEasyModal--screenCrop .modalHeader {
+  padding-bottom: 2px;
+}
+
+.totpEasyModal--screenCrop .totpEasyNotice {
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.totpEasyModal--screenCrop .totpEasyNotice p {
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.totpEasyModal--screenCrop .totpScreenCropPanel {
+  gap: 12px;
+}
+
+.totpEasyModal--screenCrop .totpScreenCropHint {
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.totpEasyModal--screenCrop .totpScreenCropHint p {
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.totpEasyModal--screenCrop .totpScreenCropCanvas {
+  max-width: 100%;
+  border-radius: 20px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.26);
+}
+
+.totpEasyModal--screenCrop .totpScreenCropCanvas img {
+  max-width: min(100%, 1180px);
+  max-height: 68vh;
+}
+
+.totpEasyModal--screenCrop .totpScreenSelection {
+  z-index: 6;
+  border-width: 4px;
+  border-color: #ffffff;
+  border-radius: 12px;
+  background: rgba(72, 148, 255, 0.24);
+  outline: 2px solid color-mix(in srgb, var(--accent) 86%, #60a5fa);
+  outline-offset: -7px;
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.54),
+    0 0 0 2px rgba(0, 0, 0, 0.62) inset,
+    0 0 34px rgba(255, 255, 255, 0.38);
+}
+
+.totpEasyModal--screenCrop .modalActions {
+  position: sticky;
+  bottom: -1px;
+  z-index: 2;
+  padding-top: 12px;
+  margin-top: 0;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--card) 92%, transparent) 22%, var(--card) 100%);
+}
+
+@media (max-width: 900px) {
+  .totpEasyModal.totpEasyModal--screenCrop {
+    width: min(100%, 96vw) !important;
+    max-width: min(100%, 96vw) !important;
+  }
+
+  .totpEasyModal--screenCrop .totpScreenCropCanvas img {
+    max-height: 62vh;
+  }
+}
+/* === KPassword v1.0 - ajuste tela grande para seleção de QR END === */
