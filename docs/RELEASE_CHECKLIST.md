@@ -11,6 +11,7 @@ git status --short
 Confirmar:
 
 - [ ] `npm run build` passou.
+- [ ] `npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"` passou antes de publicar os assets.
 - [ ] Versão em `package.json` está correta.
 - [ ] Versão em `package-lock.json` está correta.
 - [ ] Versão em `src-tauri/tauri.conf.json` está correta.
@@ -53,6 +54,12 @@ Anexar:
 C:\Projetos\KPassword\dist-release\v<versao>\KPassword-Setup-v<versao>.exe
 C:\Projetos\KPassword\dist-release\v<versao>\KPassword-Setup-v<versao>.exe.sig
 C:\Projetos\KPassword\dist-release\v<versao>\latest.json
+```
+
+Validar antes de anexar:
+
+```powershell
+npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 ```
 
 ## Depois de publicar

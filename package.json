@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "release:validate": "powershell -ExecutionPolicy Bypass -File ./tools/validate-release-assets.ps1",
     "security:audit": "powershell -ExecutionPolicy Bypass -File ./tools/security-audit.ps1"
   },
   "dependencies": {

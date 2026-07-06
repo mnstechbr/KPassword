@@ -5,6 +5,7 @@ Antes de publicar uma release do KPassword:
 ## Validação local
 
 - [ ] `npm run build`
+- [ ] `npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"`
 - [ ] `cargo check` em `src-tauri`
 - [ ] `cargo test` em `src-tauri`
 - [ ] `npm run security:audit`
@@ -30,6 +31,7 @@ Antes de publicar uma release do KPassword:
 - [ ] anexar instalador `.exe`;
 - [ ] anexar `.sig` correto;
 - [ ] anexar `latest.json`;
+- [ ] validar assets locais com `tools\validate-release-assets.ps1`;
 - [ ] conferir se `latest.json` aponta para a tag correta;
 - [ ] marcar como latest release quando apropriado.
 
