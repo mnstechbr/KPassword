@@ -21,11 +21,13 @@ O objetivo do projeto é manter dados sensíveis em um cofre criptografado no pr
 - Exportação JSON criptografada.
 - Exportação CSV aberta com confirmação da senha mestra.
 - Backups criptografados.
+- Verificação de backup sem restaurar o cofre atual.
 - Analítico com Diagnóstico do Cofre.
 - Temas Escuro, Claro e Misto.
 - Idiomas: Português, Inglês, Espanhol e Turco.
 - Bandeja do sistema com modo completo, modo compacto e sair.
 - Atualização automática via GitHub Releases.
+- Validação local de assets de release e geração de `SHA256SUMS.txt`.
 
 ## Princípios do projeto
 
@@ -81,6 +83,14 @@ Anexe estes arquivos na release do GitHub:
 KPassword-Setup-v<versao>.exe
 KPassword-Setup-v<versao>.exe.sig
 latest.json
+SHA256SUMS.txt
+```
+
+Antes de anexar, gere os hashes e valide a pasta local:
+
+```powershell
+npm run release:hash -- -ReleaseDir ".\dist-release\v<versao>"
+npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 ```
 
 ## Segurança
@@ -88,6 +98,8 @@ latest.json
 A senha mestra não possui recuperação. Isso é intencional. Se a senha mestra for perdida, o cofre e os backups criptografados não poderão ser descriptografados.
 
 A chave privada de assinatura do updater não deve ser colocada no repositório.
+
+A criptografia principal do cofre atual é executada no backend Rust via Tauri, com Argon2id, AES-256-GCM, `cryptoVersion 2` e AAD.
 
 ## Documentação útil
 

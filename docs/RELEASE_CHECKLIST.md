@@ -1,6 +1,6 @@
 # Checklist de Release
 
-## Antes do build
+## Validação local
 
 ```powershell
 cd C:\Projetos\KPassword
@@ -11,8 +11,6 @@ git status --short
 Confirmar:
 
 - [ ] `npm run build` passou.
-- [ ] `npm run release:hash -- -ReleaseDir ".\dist-release\v<versao>"` gerou `SHA256SUMS.txt`.
-- [ ] `npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"` passou antes de publicar os assets.
 - [ ] Versão em `package.json` está correta.
 - [ ] Versão em `package-lock.json` está correta.
 - [ ] Versão em `src-tauri/tauri.conf.json` está correta.
@@ -23,16 +21,25 @@ Confirmar:
 ## Commit
 
 ```powershell
-git add .
+git add -- .gitignore .github docs tools package.json package-lock.json README.md SECURITY.md TERMS.md CRYPTOGRAPHY.md RELEASE_CHECKLIST.md VULNERABILITY_POLICY.md index.html tsconfig.json vite.config.ts src src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json src-tauri/build.rs src-tauri/capabilities src-tauri/src
 git commit -m "Mensagem da versão"
 git push
 ```
+
+Não use `git add .` no fluxo de release. O staging deve ser explícito para reduzir risco de incluir cofres, backups, chaves ou arquivos locais por engano.
 
 ## Gerar instalador/updater
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "<versao>"
+npm run release:hash -- -ReleaseDir ".\dist-release\v<versao>"
+npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 ```
+
+Confirmar:
+
+- [ ] `SHA256SUMS.txt` foi gerado.
+- [ ] Validação de assets passou antes de publicar.
 
 ## Publicar release
 

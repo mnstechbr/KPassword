@@ -19,9 +19,12 @@ Não envie cofres reais, senhas, chaves, TOTP secrets, anexos privados ou dados 
 Estão no escopo:
 
 - criptografia do cofre local;
-- migração PBKDF2 legado para Argon2id;
+- `cryptoVersion 2` com Argon2id, AES-256-GCM e AAD no backend Rust;
+- migração de cofres legados para o formato atual;
 - backups criptografados;
+- verificação de backup sem restauração;
 - atualizador assinado;
+- validação local de assets de release e `SHA256SUMS.txt`;
 - permissões Tauri;
 - Windows Hello como conveniência local;
 - tratamento de arquivo corrompido ou adulterado.

@@ -68,6 +68,7 @@ Use este checklist antes de publicar qualquer versão.
 
 - [ ] Criar backup manual.
 - [ ] Abrir pasta de backups.
+- [ ] Verificar backup sem restaurar e confirmar que o cofre atual não muda.
 - [ ] Restaurar backup correto.
 - [ ] Tentar restaurar com senha errada.
 - [ ] Tentar restaurar arquivo inválido.
@@ -129,7 +130,9 @@ Regra visual:
 ## 11. Updater
 
 - [ ] Gerar release.
-- [ ] Publicar `exe`, `sig` e `latest.json`.
+- [ ] Gerar `SHA256SUMS.txt`.
+- [ ] Rodar `npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"`.
+- [ ] Publicar `.exe`, `.exe.sig`, `latest.json` e `SHA256SUMS.txt`.
 - [ ] Atualizar pelo app oficial.
 - [ ] Confirmar versão exibida.
 - [ ] Confirmar que o cofre antigo abre.

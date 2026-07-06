@@ -16,6 +16,8 @@ Scripts essenciais:
 ```text
 tools/fix-updater-v030-build.ps1
 tools/fix-updater-v030-build.cjs
+tools/generate-release-checksums.ps1
+tools/validate-release-assets.ps1
 ```
 
 Scripts auxiliares:
@@ -55,9 +57,12 @@ Depois de atualizar:
 - Testar build.
 - Testar instalador.
 - Testar updater.
+- Gerar `SHA256SUMS.txt` e validar assets antes de publicar release.
 - Testar Windows Hello/PIN/biometria.
 - Testar bandeja.
 
 ## Chaves
 
 Nunca versionar chave privada do updater.
+
+Também não versionar `.env`, `*.key`, `*.pem`, cofres `.kpvault`, arquivos `.kphello` ou backups reais.

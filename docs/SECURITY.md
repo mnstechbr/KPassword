@@ -4,6 +4,8 @@
 
 O KPassword é local/offline. O cofre fica salvo no computador do usuário e é protegido pela senha mestra.
 
+O núcleo criptográfico principal fica no backend Rust via Tauri. Cofres atuais usam `cryptoVersion 2` com Argon2id, AES-256-GCM e AAD. Cofres legados são mantidos apenas para compatibilidade e migração controlada.
+
 ## Senha mestra
 
 A senha mestra não possui recuperação.
@@ -19,6 +21,8 @@ A senha mestra continua sendo o fallback principal.
 ## Backups
 
 Backups são criptografados e continuam exigindo a senha mestra usada quando foram criados.
+
+O app possui verificação de backup sem restauração. Essa verificação lê o arquivo informado e tenta validar o conteúdo com a senha fornecida, mas não substitui o cofre atual.
 
 ## Exportação CSV
 
@@ -39,11 +43,24 @@ Arquivos permitidos em release:
 - `.exe`
 - `.exe.sig`
 - `latest.json`
+- `SHA256SUMS.txt`
+
+Antes de publicar assets, gere hashes e valide a pasta local:
+
+```powershell
+npm run release:hash -- -ReleaseDir ".\dist-release\v<versao>"
+npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
+```
 
 Arquivos proibidos:
 
 - `*.key`
 - `*.key.pub`
+- `.env`
+- `*.pem`
+- `*.kpvault`
+- `*.kphello`
+- backups reais
 - qualquer chave privada local
 
 ## Recomendações de QA de segurança
@@ -51,6 +68,8 @@ Arquivos proibidos:
 - Testar senha errada.
 - Testar troca de senha mestra.
 - Testar backup com senha errada.
+- Testar verificação de backup sem restauração.
 - Testar PIN/biometria cancelado.
 - Testar bloqueio por inatividade.
 - Testar clipboard após copiar senha.
+- Testar validação dos assets de release antes de publicar.

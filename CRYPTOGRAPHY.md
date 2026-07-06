@@ -6,6 +6,8 @@ Este documento descreve o desenho criptográfico do cofre local do KPassword.
 
 O KPassword usa criptografia autenticada para proteger o cofre em repouso. A senha mestra deriva uma chave local, que é usada para criptografar e autenticar o payload do cofre.
 
+A implementação criptográfica principal do cofre atual fica no backend Rust via Tauri, em `src-tauri/src/crypto_vault.rs`.
+
 ## cryptoVersion 1, legado
 
 Cofres antigos usam:
