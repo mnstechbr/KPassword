@@ -106,7 +106,10 @@ const CATEGORIES: CredentialCategory[] = [
 const CLIPBOARD_CLEAR_SECONDS = 60;
 const DEFAULT_VAULT_NAME = "vault";
 const TOTP_PERIOD_SECONDS = 30;
-const APP_VERSION = "1.1.0";
+const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
+const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
+const APP_VERSION = "1.1.1";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -911,38 +914,6 @@ function buildCsv(items: CredentialRecord[]) {
   return [headers.join(","), ...rows].join("\r\n");
 }
 
-function parseCsvLine(line: string) {
-  const values: string[] = [];
-  let current = "";
-  let quoted = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-
-    if (character === '"') {
-      if (quoted && line[index + 1] === '"') {
-        current += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-      continue;
-    }
-
-    if ((character === "," || character === ";") && !quoted) {
-      values.push(current.trim());
-      current = "";
-      continue;
-    }
-
-    current += character;
-  }
-
-  values.push(current.trim());
-
-  return values;
-}
-
 function normalizeCsvHeader(header: string) {
   return header
     .normalize("NFD")
@@ -1045,18 +1016,88 @@ function getEmptyCsvImportMapping(): CsvImportMapping {
   };
 }
 
-function parseCsvDocument(text: string): ParsedCsvDocument {
-  const lines = text
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
-    .filter((entry) => entry.line.length > 0);
+function parseCsvRecords(text: string) {
+  const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const records: Array<{ lineNumber: number; values: string[] }> = [];
+  let values: string[] = [];
+  let current = "";
+  let quoted = false;
+  let lineNumber = 1;
+  let recordLineNumber = 1;
+  let hasContent = false;
 
-  if (lines.length < 2) {
+  function pushRecord() {
+    const nextValues = [...values, current.trim()];
+    const isBlank = nextValues.every((value) => value.trim().length === 0);
+
+    if (!isBlank || hasContent) {
+      records.push({ lineNumber: recordLineNumber, values: nextValues });
+    }
+
+    values = [];
+    current = "";
+    hasContent = false;
+    recordLineNumber = lineNumber + 1;
+  }
+
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index];
+
+    if (character === '"') {
+      if (quoted && normalized[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+      hasContent = true;
+      continue;
+    }
+
+    if ((character === "," || character === ";") && !quoted) {
+      values.push(current.trim());
+      current = "";
+      hasContent = true;
+      continue;
+    }
+
+    if (character === "\n" && !quoted) {
+      pushRecord();
+      lineNumber += 1;
+      continue;
+    }
+
+    if (character === "\n") {
+      lineNumber += 1;
+    }
+
+    current += character;
+    if (character.trim().length > 0) {
+      hasContent = true;
+    }
+  }
+
+  if (quoted) {
+    values.push(current.trim());
+    records.push({ lineNumber: recordLineNumber, values });
+    return records;
+  }
+
+  if (current.length > 0 || values.length > 0 || hasContent) {
+    pushRecord();
+  }
+
+  return records;
+}
+
+function parseCsvDocument(text: string): ParsedCsvDocument {
+  const records = parseCsvRecords(text);
+
+  if (records.length < 2) {
     return { headers: [], rows: [] };
   }
 
-  const headers = parseCsvLine(lines[0].line)
+  const headers = records[0].values
     .map((header) => normalizeCsvHeader(header))
     .filter(Boolean);
 
@@ -1064,8 +1105,7 @@ function parseCsvDocument(text: string): ParsedCsvDocument {
     return { headers: [], rows: [] };
   }
 
-  const rows = lines.slice(1).map(({ line, lineNumber }) => {
-    const values = parseCsvLine(line);
+  const rows = records.slice(1).map(({ values, lineNumber }) => {
     const row: Record<string, string> = {};
 
     headers.forEach((header, index) => {
@@ -1132,6 +1172,44 @@ function normalizeImportedCategory(value: string): CredentialCategory {
   return "Trabalho";
 }
 
+function parseImportedTotpFields(row: Record<string, string>, mapping: CsvImportMapping, fallbackIssuer: string) {
+  const rawSecret = getMappedCsvValue(row, "totpSecret", mapping);
+  const rawIssuer = getMappedCsvValue(row, "totpIssuer", mapping) || fallbackIssuer;
+
+  if (!rawSecret.trim()) {
+    return { secret: "", issuer: rawIssuer };
+  }
+
+  try {
+    const parsed = parseTotpCandidate(rawSecret, rawIssuer, "manual");
+
+    if (!isStandardTotp(parsed)) {
+      return { secret: "", issuer: parsed.issuer || rawIssuer };
+    }
+
+    return { secret: parsed.secret, issuer: parsed.issuer || rawIssuer };
+  } catch {
+    if (/^otpauth:\/\//i.test(rawSecret.trim())) {
+      return { secret: "", issuer: rawIssuer };
+    }
+
+    return { secret: normalizeTotpSecret(rawSecret), issuer: rawIssuer };
+  }
+}
+
+function importedTotpLooksUnsupported(row: Record<string, string>, mapping: CsvImportMapping) {
+  const rawSecret = getMappedCsvValue(row, "totpSecret", mapping);
+
+  if (!/^otpauth:\/\//i.test(rawSecret.trim())) return false;
+
+  try {
+    const parsed = parseTotpCandidate(rawSecret, getMappedCsvValue(row, "totpIssuer", mapping), "manual");
+    return !isStandardTotp(parsed);
+  } catch {
+    return true;
+  }
+}
+
 function rowToImportedCredential(row: Record<string, string>, now: string, mapping = getEmptyCsvImportMapping()): CredentialRecord {
   const itemType = normalizeImportedItemType(getMappedCsvValue(row, "type", mapping));
   const title =
@@ -1139,6 +1217,9 @@ function rowToImportedCredential(row: Record<string, string>, now: string, mappi
     getMappedCsvValue(row, "url", mapping) ||
     getMappedCsvValue(row, "username", mapping) ||
     "Item importado";
+  const importedTotp = itemType === "credential"
+    ? parseImportedTotpFields(row, mapping, title)
+    : { secret: "", issuer: "" };
 
   return {
     id: createId(),
@@ -1156,8 +1237,8 @@ function rowToImportedCredential(row: Record<string, string>, now: string, mappi
     passwordExpiryNoticeDays: Number(getCsvValue(row, ["passwordexpirynoticedays", "password_expiry_notice_days", "aviso_dias"])) || 15,
     passwordHistory: [],
     attachments: [],
-    totpIssuer: itemType === "credential" ? getMappedCsvValue(row, "totpIssuer", mapping) : "",
-    totpSecret: itemType === "credential" ? getMappedCsvValue(row, "totpSecret", mapping) : "",
+    totpIssuer: importedTotp.issuer,
+    totpSecret: importedTotp.secret,
     cardholderName: itemType === "card" ? getCsvValue(row, ["cardholdername", "card_holder", "nome_cartao"]) : "",
     cardNumber: itemType === "card" ? getCsvValue(row, ["cardnumber", "card_number", "numero_cartao", "número_cartão"]) : "",
     cardExpiry: itemType === "card" ? getCsvValue(row, ["cardexpiry", "card_expiry", "validade_cartao"]) : "",
@@ -1244,6 +1325,10 @@ function analyzeCsvImport(preview: CsvImportPreview | null, vault: PlainVault | 
 
     if (credential.itemType === "credential" && !credential.password.trim()) {
       warnings.push("import.validation.missingPassword");
+    }
+
+    if (credential.itemType === "credential" && importedTotpLooksUnsupported(row.values, preview.mapping)) {
+      warnings.push("import.validation.totpSkipped");
     }
 
     if (duplicate) {
@@ -2647,7 +2732,25 @@ export default function App() {
     resetTotpSetup();
   }
 
-  async function prepareTotpPreview(rawValue: string, source: TotpSetupSource, fallbackIssuer = credentialForm.totpIssuer || credentialForm.title) {
+  async function validateTotpQrImageFile(file: File) {
+    if (file.size > MAX_TOTP_QR_IMAGE_BYTES) {
+      throw new Error("totp.easy.errorImageTooLarge");
+    }
+
+    const bitmap = await createImageBitmap(file);
+
+    try {
+      const pixels = bitmap.width * bitmap.height;
+
+      if (bitmap.width > MAX_TOTP_QR_IMAGE_SIDE || bitmap.height > MAX_TOTP_QR_IMAGE_SIDE || pixels > MAX_TOTP_QR_IMAGE_PIXELS) {
+        throw new Error("totp.easy.errorImageTooLarge");
+      }
+    } finally {
+      bitmap.close();
+    }
+  }
+
+  async function prepareTotpPreview(rawValue: string, source: TotpSetupSource, fallbackIssuer = credentialForm.totpIssuer || credentialForm.title): Promise<boolean> {
     try {
       const candidate = parseTotpCandidate(rawValue, fallbackIssuer, source);
 
@@ -2655,13 +2758,14 @@ export default function App() {
         setTotpSetupError(t("totp.easy.errorUnsupported"));
         setTotpPreview(null);
         setTotpSetupMode(source === "manual" ? "manual" : source === "screen" ? "screenCrop" : "choice");
-        return;
+        return false;
       }
 
       const currentCode = await generateTotp(candidate.secret);
       setTotpPreview({ ...candidate, currentCode });
       setTotpSetupMode("preview");
       setTotpSetupError("");
+      return true;
     } catch (error) {
       const key = error instanceof Error && error.message.startsWith("totp.error.")
         ? error.message
@@ -2669,6 +2773,7 @@ export default function App() {
       setTotpSetupError(t(key as Parameters<typeof translate>[1]));
       setTotpPreview(null);
       setTotpSetupMode(source === "manual" ? "manual" : source === "screen" ? "screenCrop" : "choice");
+      return false;
     }
   }
 
@@ -2684,6 +2789,16 @@ export default function App() {
 
     if (!file.type.startsWith("image/")) {
       setTotpSetupError(t("totp.easy.errorImageOnly"));
+      return;
+    }
+
+    try {
+      await validateTotpQrImageFile(file);
+    } catch (error) {
+      const key = error instanceof Error && error.message === "totp.easy.errorImageTooLarge"
+        ? "totp.easy.errorImageTooLarge"
+        : "totp.easy.errorQrNotFound";
+      setTotpSetupError(t(key));
       return;
     }
 
@@ -2926,7 +3041,13 @@ export default function App() {
         content = await invoke<string>("decode_qr_from_image_data_url", { dataUrl: canvas.toDataURL("image/png") });
       }
 
-      await prepareTotpPreview(content, "screen", credentialForm.totpIssuer || credentialForm.title);
+      const previewReady = await prepareTotpPreview(content, "screen", credentialForm.totpIssuer || credentialForm.title);
+
+      if (previewReady) {
+        setTotpScreenImage("");
+        setTotpScreenSelection(null);
+        setTotpScreenDragStart(null);
+      }
     } catch {
       setTotpSetupError(t("totp.easy.errorQrNotFound"));
       setTotpPreview(null);
@@ -4458,7 +4579,7 @@ export default function App() {
             </button>
           )}
           {totpSetupMode !== "choice" && (
-            <button type="button" className="secondaryButton" onClick={() => { setTotpSetupMode("choice"); setTotpSetupError(""); setTotpPreview(null); setTotpScreenSelection(null); }}>
+            <button type="button" className="secondaryButton" onClick={() => { setTotpSetupMode("choice"); setTotpSetupError(""); setTotpPreview(null); setTotpScreenImage(""); setTotpScreenSelection(null); setTotpScreenDragStart(null); }}>
               {t("totp.easy.back")}
             </button>
           )}

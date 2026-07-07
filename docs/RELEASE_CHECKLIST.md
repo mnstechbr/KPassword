@@ -97,3 +97,12 @@ npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 - [ ] Validar login.
 - [ ] Validar site oficial após a release.
 - [ ] Validar página "Verificar download" com a nova release.
+
+## Validações específicas v1.1.1
+
+- [ ] CSV com notas multilinha importado corretamente.
+- [ ] CSV com TOTP `otpauth://` importado corretamente.
+- [ ] Imagem de QR grande recusada antes do processamento.
+- [ ] Seleção de QR na tela funcionando e descartando captura completa após prévia.
+- [ ] Leitor QR validado offline.
+- [ ] Windows Hello descrito como conveniência local/DPAPI.

@@ -14,9 +14,11 @@ Se a senha mestra for perdida, o cofre e os backups criptografados não poderão
 
 ## PIN/biometria do computador
 
-O desbloqueio com PIN/biometria é opcional e serve como conveniência local.
+O desbloqueio com PIN/biometria/Windows Hello é opcional e serve como conveniência local.
 
-A senha mestra continua sendo o fallback principal.
+No Windows, esse recurso depende do contexto do usuário local e do DPAPI. Ele facilita o desbloqueio no mesmo dispositivo, mas não substitui a senha mestra e não deve ser tratado como segundo fator separado.
+
+A senha mestra continua sendo o método principal e o fallback necessário.
 
 ## Backups
 

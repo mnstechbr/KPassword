@@ -372,8 +372,18 @@ fn save_vault_file(
     fs::rename(&temp_path, &vault_path)
         .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))?;
 
-    if force_backup.unwrap_or(false) || should_create_backup(&backup_dir) {
-        create_backup(&backup_dir, &safe_vault_name, &payload)?;
+    let force_backup_requested = force_backup.unwrap_or(false);
+
+    if force_backup_requested || should_create_backup(&backup_dir) {
+        if let Err(error) = create_backup(&backup_dir, &safe_vault_name, &payload) {
+            if force_backup_requested {
+                return Err(format!(
+                    "Cofre salvo, mas não foi possível criar o backup solicitado: {error}"
+                ));
+            }
+
+            eprintln!("Aviso: cofre salvo, mas backup automático falhou: {error}");
+        }
     }
 
     build_storage_info(&app, Some(safe_vault_name))

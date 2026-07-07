@@ -50,3 +50,13 @@ O projeto ainda não promete SLA formal. Relatórios críticos devem ser tratado
 ## Limites importantes
 
 Nenhum gerenciador local consegue proteger totalmente dados enquanto o computador está infectado. Malware pode capturar tela, teclado, clipboard, arquivos e memória de processos em execução. O KPassword protege dados em repouso, mas o ambiente do usuário continua sendo parte essencial da segurança.
+
+## Observações sobre Windows Hello
+
+Windows Hello/PIN/biometria no KPassword é desbloqueio rápido opcional no dispositivo, protegido pelo contexto local do Windows/DPAPI do usuário. Não substitui a senha mestra e não deve ser tratado como segundo fator separado.
+
+## Observações sobre QR, TOTP e CSV
+
+A leitura de QR Code/TOTP é feita localmente pelo app. Não envie senhas, QR Codes, TOTP secrets ou cofres reais em relatórios de bug.
+
+CSV exportado não é criptografado e deve ser usado apenas para migração temporária.

@@ -79,3 +79,11 @@ Ao adicionar 2FA em uma credencial, prefira importar um print/imagem com QR Code
 O modo manual avançado continua disponível para colar `otpauth://` ou chave secreta quando a leitura por QR não for possível.
 
 Guardar 2FA no KPassword facilita o uso, mas mantém senha e código no mesmo cofre. Para maior separação entre fatores, use um autenticador separado.
+
+## Correções v1.1.1
+
+- A importação CSV entende URLs `otpauth://` nas colunas de TOTP e salva apenas o segredo compatível.
+- Notas multilinha entre aspas no CSV são preservadas durante a importação.
+- Imagens muito grandes de QR Code são recusadas antes do processamento.
+- A captura completa usada na seleção de QR é descartada após a leitura bem-sucedida do recorte.
+- Windows Hello/PIN/biometria é desbloqueio rápido local, não substituto da senha mestra nem segundo fator separado.

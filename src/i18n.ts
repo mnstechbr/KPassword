@@ -1909,6 +1909,7 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
     "totp.easy.errorUnsupported": "Este TOTP usa um padrão que o KPassword ainda não gera. Use TOTP de 6 dígitos, SHA-1 e 30 segundos.",
     "totp.easy.errorInvalid": "Não consegui validar esse 2FA.",
     "totp.easy.errorImageOnly": "Selecione uma imagem ou print com o QR Code.",
+    "totp.easy.errorImageTooLarge": "Imagem muito grande para leitura segura. Use um recorte menor do QR Code.",
     "totp.easy.errorQrNotFound": "Não consegui ler um QR Code nessa imagem. Tente um print mais nítido, com o QR completo.",
     "totp.easy.errorScreenUnsupported": "Seu WebView não liberou captura de tela. Use Importar print com QR Code.",
     "totp.easy.errorScreenCapture": "Não consegui capturar a tela. Escolha a tela ou janela do QR Code, ou use Importar print.",
@@ -1997,6 +1998,7 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
     "totp.easy.errorUnsupported": "This TOTP uses a format KPassword does not generate yet. Use 6 digits, SHA-1 and 30 seconds.",
     "totp.easy.errorInvalid": "I could not validate this 2FA.",
     "totp.easy.errorImageOnly": "Select an image or screenshot with the QR code.",
+    "totp.easy.errorImageTooLarge": "Image is too large for safe reading. Use a smaller crop of the QR code.",
     "totp.easy.errorQrNotFound": "I could not read a QR code in this image. Try a clearer screenshot with the full QR code.",
     "totp.easy.errorScreenUnsupported": "Your WebView did not allow screen capture. Use Import screenshot with QR code.",
     "totp.easy.errorScreenCapture": "I could not capture the screen. Choose the QR-code screen or window, or import a screenshot.",
@@ -2085,6 +2087,7 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
     "totp.easy.errorUnsupported": "Este TOTP usa un formato que KPassword aún no genera. Usa 6 dígitos, SHA-1 y 30 segundos.",
     "totp.easy.errorInvalid": "No pude validar este 2FA.",
     "totp.easy.errorImageOnly": "Selecciona una imagen o captura con el QR.",
+    "totp.easy.errorImageTooLarge": "La imagen es demasiado grande para una lectura segura. Usa un recorte menor del QR.",
     "totp.easy.errorQrNotFound": "No pude leer un QR en esta imagen. Prueba una captura más nítida con el QR completo.",
     "totp.easy.errorScreenUnsupported": "Tu WebView no permitió capturar pantalla. Usa Importar captura con QR.",
     "totp.easy.errorScreenCapture": "No pude capturar la pantalla. Elige la pantalla o ventana del QR, o importa una captura.",
@@ -2173,6 +2176,7 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
     "totp.easy.errorUnsupported": "Bu TOTP, KPassword'ın henüz üretmediği bir biçim kullanıyor. 6 basamak, SHA-1 ve 30 saniye kullanın.",
     "totp.easy.errorInvalid": "Bu 2FA doğrulanamadı.",
     "totp.easy.errorImageOnly": "QR kod içeren bir resim veya ekran görüntüsü seçin.",
+    "totp.easy.errorImageTooLarge": "Görüntü güvenli okuma için çok büyük. QR kodunun daha küçük bir kesitini kullanın.",
     "totp.easy.errorQrNotFound": "Bu görüntüde QR kod okunamadı. QR kodun tamamını içeren daha net bir ekran görüntüsü deneyin.",
     "totp.easy.errorScreenUnsupported": "WebView ekran yakalamaya izin vermedi. QR kodlu ekran görüntüsü içe aktar seçeneğini kullanın.",
     "totp.easy.errorScreenCapture": "Ekran yakalanamadı. QR kodun olduğu ekranı veya pencereyi seçin ya da ekran görüntüsü içe aktarın.",
@@ -2188,7 +2192,7 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
 const v051Translations: Record<AppLanguage, Record<string, string>> = {
   pt: {
     "windowsHello.title": "Windows Hello",
-    "windowsHello.description": "Desbloqueio rápido opcional neste dispositivo. A senha mestra continua sendo o método principal e permanece como fallback.",
+    "windowsHello.description": "Desbloqueio rápido opcional neste dispositivo, protegido pelo Windows/DPAPI do usuário local. Não substitui a senha mestra nem funciona como segundo fator separado.",
     "windowsHello.unlock": "Desbloquear com Windows Hello",
     "windowsHello.enable": "Ativar Windows Hello",
     "windowsHello.disable": "Desativar Windows Hello",
@@ -2211,7 +2215,7 @@ const v051Translations: Record<AppLanguage, Record<string, string>> = {
   },
   en: {
     "windowsHello.title": "Windows Hello",
-    "windowsHello.description": "Optional quick unlock on this device. The master password remains the primary method and stays available as fallback.",
+    "windowsHello.description": "Optional quick unlock on this device, protected by the local user Windows/DPAPI context. It does not replace the master password or act as a separate second factor.",
     "windowsHello.unlock": "Unlock with Windows Hello",
     "windowsHello.enable": "Enable Windows Hello",
     "windowsHello.disable": "Disable Windows Hello",
@@ -2234,7 +2238,7 @@ const v051Translations: Record<AppLanguage, Record<string, string>> = {
   },
   es: {
     "windowsHello.title": "Windows Hello",
-    "windowsHello.description": "Desbloqueo rápido opcional en este dispositivo. La contraseña maestra sigue siendo el método principal y permanece como alternativa.",
+    "windowsHello.description": "Desbloqueo rápido opcional en este dispositivo, protegido por el contexto local de Windows/DPAPI del usuario. No sustituye la contraseña maestra ni funciona como segundo factor separado.",
     "windowsHello.unlock": "Desbloquear con Windows Hello",
     "windowsHello.enable": "Activar Windows Hello",
     "windowsHello.disable": "Desactivar Windows Hello",
@@ -2257,7 +2261,7 @@ const v051Translations: Record<AppLanguage, Record<string, string>> = {
   },
   tr: {
     "windowsHello.title": "Windows Hello",
-    "windowsHello.description": "Bu cihazda isteğe bağlı hızlı kilit açma. Ana parola birincil yöntem olarak kalır ve yedek seçenek olmaya devam eder.",
+    "windowsHello.description": "Bu cihazda isteğe bağlı hızlı kilit açma, yerel kullanıcı Windows/DPAPI bağlamıyla korunur. Ana parolanın yerini almaz ve ayrı bir ikinci faktör değildir.",
     "windowsHello.unlock": "Windows Hello ile kilidi aç",
     "windowsHello.enable": "Windows Hello'yu etkinleştir",
     "windowsHello.disable": "Windows Hello'yu devre dışı bırak",
@@ -2539,7 +2543,7 @@ const v070RefinedTranslations: Record<AppLanguage, Record<string, string>> = {
     "dashboard.hideMore": "Ocultar detalhes",
     "onboarding.step3": "Cadastre seus itens aos poucos e revise riscos no Analítico.",
     "windowsHello.title": "PIN ou biometria do computador",
-    "windowsHello.description": "Desbloqueio rápido opcional neste computador. A senha mestra continua sendo o método principal e sempre fica disponível.",
+    "windowsHello.description": "Desbloqueio rápido opcional neste computador, protegido pelo Windows/DPAPI do usuário local. A senha mestra continua sendo o método principal e sempre fica disponível.",
     "windowsHello.unlock": "Desbloquear com PIN/biometria do computador",
     "windowsHello.enable": "Ativar PIN/biometria do computador",
     "windowsHello.disable": "Desativar PIN/biometria do computador",
@@ -2581,7 +2585,7 @@ const v070RefinedTranslations: Record<AppLanguage, Record<string, string>> = {
     "dashboard.hideMore": "Hide details",
     "onboarding.step3": "Add items gradually and review risks in Analytics.",
     "windowsHello.title": "Computer PIN or biometrics",
-    "windowsHello.description": "Optional quick unlock on this computer. The master password remains the main method and is always available.",
+    "windowsHello.description": "Optional quick unlock on this computer, protected by the local user Windows/DPAPI context. The master password remains the main method and is always available.",
     "windowsHello.unlock": "Unlock with computer PIN/biometrics",
     "windowsHello.enable": "Enable computer PIN/biometrics",
     "windowsHello.disable": "Disable computer PIN/biometrics",
@@ -2623,7 +2627,7 @@ const v070RefinedTranslations: Record<AppLanguage, Record<string, string>> = {
     "dashboard.hideMore": "Ocultar detalles",
     "onboarding.step3": "Agrega elementos poco a poco y revisa riesgos en Analítico.",
     "windowsHello.title": "PIN o biometría del equipo",
-    "windowsHello.description": "Desbloqueo rápido opcional en este equipo. La contraseña maestra sigue siendo el método principal y siempre queda disponible.",
+    "windowsHello.description": "Desbloqueo rápido opcional en este equipo, protegido por el contexto local de Windows/DPAPI del usuario. La contraseña maestra sigue siendo el método principal y siempre queda disponible.",
     "windowsHello.unlock": "Desbloquear con PIN/biometría del equipo",
     "windowsHello.enable": "Activar PIN/biometría del equipo",
     "windowsHello.disable": "Desactivar PIN/biometría del equipo",
@@ -2665,7 +2669,7 @@ const v070RefinedTranslations: Record<AppLanguage, Record<string, string>> = {
     "dashboard.hideMore": "Ayrıntıları gizle",
     "onboarding.step3": "Ögeleri yavaş yavaş ekleyin ve riskleri Analitik bölümünde inceleyin.",
     "windowsHello.title": "Bilgisayar PIN'i veya biyometri",
-    "windowsHello.description": "Bu bilgisayarda isteğe bağlı hızlı kilit açma. Ana parola ana yöntem olarak kalır ve her zaman kullanılabilir.",
+    "windowsHello.description": "Bu bilgisayarda isteğe bağlı hızlı kilit açma, yerel kullanıcı Windows/DPAPI bağlamıyla korunur. Ana parola ana yöntem olarak kalır ve her zaman kullanılabilir.",
     "windowsHello.unlock": "Bilgisayar PIN'i/biyometri ile aç",
     "windowsHello.enable": "Bilgisayar PIN'i/biyometriyi etkinleştir",
     "windowsHello.disable": "Bilgisayar PIN'i/biyometriyi devre dışı bırak",
@@ -3128,7 +3132,8 @@ const v095Translations: Record<AppLanguage, Record<string, string>> = {
     "import.noImportableItems": "Nenhum item importável nesta prévia.",
     "import.validation.emptyRow": "Linha sem dados suficientes para importar.",
     "import.validation.missingPassword": "Senha ausente; revise depois de importar.",
-    "import.validation.duplicate": "Possível duplicado de “{title}”."
+    "import.validation.duplicate": "Possível duplicado de “{title}”.",
+    "import.validation.totpSkipped": "TOTP não importado porque a URL otpauth usa parâmetros não suportados."
   },
   en: {
     "search.placeholder": "Search by name, user, password, site, category, tags, favorite or note...",
@@ -3184,7 +3189,8 @@ const v095Translations: Record<AppLanguage, Record<string, string>> = {
     "import.noImportableItems": "No importable item in this preview.",
     "import.validation.emptyRow": "Row does not have enough data to import.",
     "import.validation.missingPassword": "Password missing; review it after importing.",
-    "import.validation.duplicate": "Possible duplicate of “{title}”."
+    "import.validation.duplicate": "Possible duplicate of “{title}”.",
+    "import.validation.totpSkipped": "TOTP was not imported because the otpauth URL uses unsupported parameters."
   },
   es: {
     "search.placeholder": "Buscar por nombre, usuario, contraseña, sitio, categoría, etiquetas, favorito o nota...",
@@ -3240,7 +3246,8 @@ const v095Translations: Record<AppLanguage, Record<string, string>> = {
     "import.noImportableItems": "No hay ningún elemento importable en esta vista previa.",
     "import.validation.emptyRow": "La fila no tiene datos suficientes para importar.",
     "import.validation.missingPassword": "Falta la contraseña; revísala después de importar.",
-    "import.validation.duplicate": "Posible duplicado de “{title}”."
+    "import.validation.duplicate": "Posible duplicado de “{title}”.",
+    "import.validation.totpSkipped": "No se importó el TOTP porque la URL otpauth usa parámetros no admitidos."
   },
   tr: {
     "search.placeholder": "Ad, kullanıcı, parola, site, kategori, etiket, favori veya not ara...",
@@ -3296,7 +3303,8 @@ const v095Translations: Record<AppLanguage, Record<string, string>> = {
     "import.noImportableItems": "Bu önizlemede içe aktarılabilir öğe yok.",
     "import.validation.emptyRow": "Satır içe aktarmak için yeterli veri içermiyor.",
     "import.validation.missingPassword": "Parola eksik; içe aktardıktan sonra gözden geçirin.",
-    "import.validation.duplicate": "“{title}” için olası yinelenen kayıt."
+    "import.validation.duplicate": "“{title}” için olası yinelenen kayıt.",
+    "import.validation.totpSkipped": "otpauth URL desteklenmeyen parametreler kullandığı için TOTP içe aktarılmadı."
   },
 };
 

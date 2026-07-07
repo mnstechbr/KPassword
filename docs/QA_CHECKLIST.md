@@ -173,3 +173,13 @@ Regra visual:
 - [ ] Testar aplicação de tags em lote com confirmação.
 - [ ] Testar chips de problemas abrindo o Cofre filtrado.
 - [ ] Validar contraste nos temas Escuro, Claro e Misto.
+
+## 11. Pós-v1.1.1
+
+- [ ] Importar CSV com campo `totpSecret` contendo URL `otpauth://` padrão e confirmar código TOTP correto.
+- [ ] Importar CSV com nota multilinha entre aspas e confirmar que a nota não quebrou em múltiplos itens.
+- [ ] Tentar importar imagem de QR muito grande e confirmar mensagem de bloqueio.
+- [ ] Selecionar QR na tela, confirmar prévia e salvar.
+- [ ] Validar leitor QR sem internet ativa.
+- [ ] Confirmar texto de Windows Hello/DPAPI em Segurança.
+- [ ] Confirmar backup automático não bloqueia salvamento principal quando o backup falha.

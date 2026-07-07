@@ -1,6 +1,18 @@
 # Changelog
 
-## v1.0.0
+## v1.1.1
+
+Release de correções pós-v1.1.0, focada em importação CSV, QR/TOTP e comportamento de backup.
+
+- Corrigida importação CSV de TOTP quando a coluna contém URL `otpauth://`, evitando salvar a URL inteira como segredo inválido.
+- Melhorado parser CSV para preservar campos entre aspas com quebra de linha, incluindo notas multilinha exportadas pelo próprio app.
+- Adicionado limite de tamanho/dimensões antes de processar imagens de QR Code.
+- A captura completa de tela usada para selecionar QR Code é descartada após leitura bem-sucedida do recorte.
+- Ajustado salvamento do cofre para que falha de backup automático não faça a UI tratar uma gravação principal bem-sucedida como falha total.
+- Texto do Windows Hello/DPAPI ficou mais explícito: é conveniência local, não substituto da senha mestra nem segundo fator separado.
+- Removido fallback externo do arquivo vendorizado do leitor QR para reforçar funcionamento offline.
+
+## v1.1.0
 
 Release focada em uso mais simples do 2FA/TOTP e em transformar o diagnóstico do cofre em ações diretas.
 

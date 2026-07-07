@@ -582,10 +582,7 @@ function V(e = B) {
 }
 //#endregion
 //#region src/share.ts
-var H = "3.1.0", U = "f5adf68706afd54e8e20ade3406d832e7ce72413", W = { locateFile: (e, t) => {
-	let n = e.match(/_(.+?)\.wasm$/);
-	return n ? `https://fastly.jsdelivr.net/npm/zxing-wasm@3.1.0/dist/${n[1]}/${e}` : t + e;
-} }, G = /* @__PURE__ */ new WeakMap();
+var H = "3.1.0", U = "f5adf68706afd54e8e20ade3406d832e7ce72413", W = { locateFile: (e, t) => t + e }, G = /* @__PURE__ */ new WeakMap();
 function K(e, t) {
 	return Object.is(e, t) || Object.keys(e).length === Object.keys(t).length && Object.keys(e).every((n) => Object.hasOwn(t, n) && e[n] === t[n]);
 }

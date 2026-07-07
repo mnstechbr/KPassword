@@ -56,3 +56,12 @@ Antes de publicar uma release do KPassword:
 - [ ] revisar `git status --short`;
 - [ ] revisar `git diff --stat`;
 - [ ] confirmar que não há mojibake em arquivos com acentos.
+
+## Validações específicas v1.1.1
+
+- [ ] CSV com notas multilinha importado corretamente.
+- [ ] CSV com TOTP `otpauth://` importado corretamente.
+- [ ] Imagem de QR grande recusada antes do processamento.
+- [ ] Seleção de QR na tela funcionando e descartando captura completa após prévia.
+- [ ] Leitor QR validado offline.
+- [ ] Windows Hello descrito como conveniência local/DPAPI.
