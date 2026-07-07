@@ -80,6 +80,14 @@ O modo manual avançado continua disponível para colar `otpauth://` ou chave se
 
 Guardar 2FA no KPassword facilita o uso, mas mantém senha e código no mesmo cofre. Para maior separação entre fatores, use um autenticador separado.
 
+## Interface mais simples v1.2.0
+
+A v1.2.0 reduz ruído visual sem remover recursos. Ações usadas com frequência continuam visíveis e as opções avançadas ficam agrupadas atrás de um único controle onde isso realmente reduz complexidade.
+
+Na lista do Cofre, copiar usuário, copiar senha e editar continuam como ações diretas. A simplificação evita menus extras quando eles só adicionariam mais cliques.
+
+Em Segurança & backup, o uso diário fica visível. As áreas sensíveis e avançadas aparecem juntas ao usar o controle Mostrar opções avançadas, sem exigir um botão separado para cada função.
+
 ## Correções v1.1.1
 
 - A importação CSV entende URLs `otpauth://` nas colunas de TOTP e salva apenas o segredo compatível.

@@ -109,7 +109,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.1.1";
+const APP_VERSION = "1.2.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -1599,6 +1599,7 @@ export default function App() {
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [showStoragePaths, setShowStoragePaths] = useState(false);
+  const [securityAdvancedOpen, setSecurityAdvancedOpen] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
   const [visibleHistoryPasswords, setVisibleHistoryPasswords] = useState<Record<string, boolean>>({});
   const [copiedField, setCopiedField] = useState("");
@@ -5694,61 +5695,91 @@ export default function App() {
               </button>
             </article>
 
-            <article className="wideCard securityActionCard">
-              <h2>{t("settings.masterPasswordTitle")}</h2>
-              <p>
-                Não existe recuperação da senha mestra atual. Se ela for perdida, o cofre e os backups criptografados não podem ser descriptografados. Troque a senha periodicamente e guarde-a em local seguro.
-              </p>
-
-              <form className="changePasswordForm" onSubmit={handleChangeMasterPassword}>
-                <label>
-                  Senha atual
-                  <input
-                    type="password"
-                    value={currentMasterPassword}
-                    onChange={(event) => setCurrentMasterPassword(event.target.value)}
-                    placeholder="Digite a senha atual"
-                  />
-                </label>
-                <label>
-                  Nova senha mestra
-                  <input
-                    type="password"
-                    value={newMasterPassword}
-                    onChange={(event) => setNewMasterPassword(event.target.value)}
-                    placeholder={t("auth.masterPlaceholder")}
-                  />
-                </label>
-                <label>
-                  Confirmar nova senha
-                  <input
-                    type="password"
-                    value={newMasterConfirm}
-                    onChange={(event) => setNewMasterConfirm(event.target.value)}
-                    placeholder="Repita a nova senha"
-                  />
-                </label>
-
-                {newMasterPassword && (
-                  <div className="securityNotes inlineNotes">
-                    {validateMasterPassword(newMasterPassword).length === 0 ? (
-                      <span>{t("settings.newPasswordValid")}</span>
-                    ) : (
-                      validateMasterPassword(newMasterPassword).map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
-                    )}
-                  </div>
-                )}
-
-                <button className="primaryButton" disabled={busy}>
-                  Alterar senha mestra
-                </button>
-              </form>
+            <article className="wideCard securityActionCard settingsAdvancedToggleCard">
+              <div>
+                <h2>{t("settings.advancedOptionsTitle")}</h2>
+                <p>{t("settings.advancedOptionsDescription")}</p>
+              </div>
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={() => setSecurityAdvancedOpen((open) => !open)}
+                aria-expanded={securityAdvancedOpen}
+              >
+                {securityAdvancedOpen ? t("settings.hideAdvancedOptions") : t("settings.showAdvancedOptions")}
+              </button>
             </article>
 
-            <article className="wideCard securityActionCard backupVerifyCard">
-              <h2>{t("backupVerify.title")}</h2>
-              <p>{t("backupVerify.description")}</p>
+            {securityAdvancedOpen && (
+              <div className="settingsAdvancedStack">
+            <article className="wideCard securityActionCard settingsAdvancedCard">
+              <div className="settingsSectionHeader">
+                <span>
+                  <strong>{t("settings.masterPasswordTitle")}</strong>
+                  <small>{t("settings.masterPasswordDescription")}</small>
+                </span>
+              </div>
 
+              <div className="settingsAccordionBody">
+                <p>
+                  Não existe recuperação da senha mestra atual. Se ela for perdida, o cofre e os backups criptografados não podem ser descriptografados. Troque a senha periodicamente e guarde-a em local seguro.
+                </p>
+
+                <form className="changePasswordForm" onSubmit={handleChangeMasterPassword}>
+                  <label>
+                    Senha atual
+                    <input
+                      type="password"
+                      value={currentMasterPassword}
+                      onChange={(event) => setCurrentMasterPassword(event.target.value)}
+                      placeholder="Digite a senha atual"
+                    />
+                  </label>
+                  <label>
+                    Nova senha mestra
+                    <input
+                      type="password"
+                      value={newMasterPassword}
+                      onChange={(event) => setNewMasterPassword(event.target.value)}
+                      placeholder={t("auth.masterPlaceholder")}
+                    />
+                  </label>
+                  <label>
+                    Confirmar nova senha
+                    <input
+                      type="password"
+                      value={newMasterConfirm}
+                      onChange={(event) => setNewMasterConfirm(event.target.value)}
+                      placeholder="Repita a nova senha"
+                    />
+                  </label>
+
+                  {newMasterPassword && (
+                    <div className="securityNotes inlineNotes">
+                      {validateMasterPassword(newMasterPassword).length === 0 ? (
+                        <span>{t("settings.newPasswordValid")}</span>
+                      ) : (
+                        validateMasterPassword(newMasterPassword).map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
+                      )}
+                    </div>
+                  )}
+
+                  <button className="primaryButton" disabled={busy}>
+                    Alterar senha mestra
+                  </button>
+                </form>
+              </div>
+            </article>
+
+            <article className="wideCard securityActionCard backupVerifyCard settingsAdvancedCard">
+              <div className="settingsSectionHeader">
+                <span>
+                  <strong>{t("backupVerify.title")}</strong>
+                  <small>{t("backupVerify.description")}</small>
+                </span>
+              </div>
+
+              <div className="settingsAccordionBody">
               <div className="backupVerifyPanel">
                 <label>
                   {t("backupVerify.passwordLabel")}
@@ -5820,14 +5851,18 @@ export default function App() {
                   )}
                 </div>
               )}
+              </div>
             </article>
 
-            <article className="wideCard securityActionCard">
-              <h2>{t("settings.importBackup")}</h2>
-              <p>
-                Importe um arquivo .kpvault para restaurar o cofre. O arquivo continua exigindo a senha mestra usada quando o backup foi criado.
-              </p>
+            <article className="wideCard securityActionCard settingsAdvancedCard">
+              <div className="settingsSectionHeader">
+                <span>
+                  <strong>{t("settings.importBackup")}</strong>
+                  <small>{t("settings.importBackupDescription")}</small>
+                </span>
+              </div>
 
+              <div className="settingsAccordionBody">
               <label className="fileImportButton inlineFileButton">
                 {t("settings.selectBackup")}
                 <input
@@ -5839,13 +5874,19 @@ export default function App() {
                   }}
                 />
               </label>
+              </div>
             </article>
 
 
-            <article className="wideCard securityActionCard">
-              <h2>{t("export.title")}</h2>
-              <p>{t("export.description")}</p>
+            <article className="wideCard securityActionCard settingsAdvancedCard">
+              <div className="settingsSectionHeader">
+                <span>
+                  <strong>{t("export.title")}</strong>
+                  <small>{t("export.description")}</small>
+                </span>
+              </div>
 
+              <div className="settingsAccordionBody">
               <div className="exportActionGrid">
                 <div className="exportBox">
                   <strong>{t("export.encryptedTitle")}</strong>
@@ -5888,12 +5929,20 @@ export default function App() {
                   )}
                 </div>
               </div>
+              </div>
             </article>
 
-            <article className="wideCard securityActionCard">
-              <h2>{t("settings.securitySettings")}</h2>
-              <p>{t("settings.securitySettingsDescription")}</p>
-              <p>{t("security.localThreatModel")}</p>
+
+            <article className="wideCard securityActionCard settingsAdvancedCard">
+              <div className="settingsSectionHeader">
+                <span>
+                  <strong>{t("settings.securitySettings")}</strong>
+                  <small>{t("settings.securitySettingsDescription")}</small>
+                </span>
+              </div>
+
+              <div className="settingsAccordionBody">
+                <p>{t("security.localThreatModel")}</p>
 
               <div className={windowsHelloStatus.enabled ? "windowsHelloPanel enabled" : "windowsHelloPanel"}>
                 <div className="windowsHelloPanelText">
@@ -6032,7 +6081,10 @@ export default function App() {
                 <span>{t("settings.tray")}</span>
                 <span>{t("settings.singleInstance")}</span>
               </div>
+              </div>
             </article>
+              </div>
+            )}
           </div>
         )}
 

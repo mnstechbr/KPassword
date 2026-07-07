@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.2.0
+
+Release focada em simplificar a interface sem adicionar telas novas nem alterar o formato do cofre.
+
+- A lista do Cofre mantém as ações diretas visíveis, sem trocar botões úteis por menus extras.
+- O detalhe da credencial preserva os botões já conhecidos e recebe apenas ajustes de hierarquia visual.
+- A área **Segurança & backup** ficou mais leve: o uso diário fica visível e as opções sensíveis/raras ficam atrás de um único controle de opções avançadas.
+- Senha mestra, verificação/restauração de backup, importação/exportação e ajustes finos aparecem juntos quando o usuário escolhe mostrar opções avançadas.
+- O fluxo principal continua preservado: copiar, abrir site, criar backup e consultar backups seguem rápidos.
+- O Assistente do Cofre recebeu ajuste de densidade visual: cards menores, menos altura vazia e destaque proporcional ao conteúdo.
+- Configurações mantém um único controle para opções avançadas, com espaçamento mais compacto sem esconder ações frequentes.
+- Não houve mudança no formato criptográfico, no updater, no armazenamento do cofre ou na compatibilidade de backups.
+
 ## v1.1.1
 
 Release de correções pós-v1.1.0, focada em importação CSV, QR/TOTP e comportamento de backup.

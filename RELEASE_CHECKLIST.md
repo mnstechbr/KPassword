@@ -57,11 +57,12 @@ Antes de publicar uma release do KPassword:
 - [ ] revisar `git diff --stat`;
 - [ ] confirmar que não há mojibake em arquivos com acentos.
 
-## Validações específicas v1.1.1
+## Validações específicas v1.2.0
 
-- [ ] CSV com notas multilinha importado corretamente.
-- [ ] CSV com TOTP `otpauth://` importado corretamente.
-- [ ] Imagem de QR grande recusada antes do processamento.
-- [ ] Seleção de QR na tela funcionando e descartando captura completa após prévia.
-- [ ] Leitor QR validado offline.
-- [ ] Windows Hello descrito como conveniência local/DPAPI.
+- [ ] Cofre mostra ações principais sem poluição visual excessiva.
+- [ ] A lista do Cofre mantém copiar usuário, copiar senha e editar como ações diretas.
+- [ ] O detalhe da credencial mantém ações diretas sem menu extra desnecessário.
+- [ ] Ações sensíveis continuam acessíveis ao abrir Mostrar opções avançadas em Segurança & backup.
+- [ ] Seções expansíveis de senha mestra, backup, importação/exportação e segurança funcionam em temas escuro, claro e misto.
+- [ ] App continua utilizável em janela menor e maximizada.
+- [ ] Build oficial valida com Erros: 0 e Avisos: 0.

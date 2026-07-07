@@ -19,6 +19,7 @@ O foco do projeto é manter o cofre no computador do usuário, sem conta obrigat
 - Exportação CSV para migração, com aviso de risco.
 - Windows Hello/PIN/biometria como desbloqueio rápido opcional no dispositivo.
 - Atualização via GitHub Releases com assets assinados.
+- Interface com ações principais em destaque e opções avançadas agrupadas atrás de um único controle quando não são necessárias.
 
 ## Segurança e privacidade
 
@@ -41,9 +42,9 @@ npm run build
 Build oficial de release:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "1.1.1"
-npm run release:hash -- -ReleaseDir ".\dist-release\v1.1.1"
-npm run release:validate -- -ReleaseDir ".\dist-release\v1.1.1"
+powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "1.2.0"
+npm run release:hash -- -ReleaseDir ".\dist-release\v1.2.0"
+npm run release:validate -- -ReleaseDir ".\dist-release\v1.2.0"
 ```
 
 ## Assets de release
