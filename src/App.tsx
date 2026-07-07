@@ -37,6 +37,8 @@ import {
   unlockWithWindowsHello,
 } from "./vault-storage";
 import type {
+  ActionHistoryEntry,
+  ActionHistoryType,
   BackupFile,
   BackupVerificationReport,
   CredentialCategory,
@@ -109,10 +111,11 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.3.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
+const ACTION_HISTORY_LIMIT = 200;
 const DEFAULT_WINDOWS_HELLO_STATUS: WindowsHelloStatus = {
   available: false,
   enabled: false,
@@ -155,6 +158,8 @@ type QuickVaultFilter =
   | "missingTotp"
   | "incomplete"
   | "withTags";
+
+type ActionHistoryFilter = "all" | "credentials" | "security" | "system";
 
 
 type TotpSetupMode = "choice" | "manual" | "preview" | "screenIntro" | "screenCrop";
@@ -336,6 +341,145 @@ function formatDate(value?: string | number, language: AppLanguage = "pt") {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatActionHistoryTime(value: string, language: AppLanguage) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat(getDateLocale(language), {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getDateKey(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown";
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getActionHistoryDateLabel(
+  value: string,
+  language: AppLanguage,
+  translateText: (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) => string,
+) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const key = getDateKey(value);
+  if (key === getDateKey(today.toISOString())) return translateText("actionHistory.today");
+  if (key === getDateKey(yesterday.toISOString())) return translateText("actionHistory.yesterday");
+
+  return new Intl.DateTimeFormat(getDateLocale(language), { dateStyle: "medium" }).format(date);
+}
+
+function normalizeActionHistory(entries: PlainVault["actionHistory"]): ActionHistoryEntry[] {
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((entry): entry is ActionHistoryEntry =>
+      Boolean(
+        entry &&
+        typeof entry.id === "string" &&
+        typeof entry.type === "string" &&
+        typeof entry.createdAt === "string",
+      ),
+    )
+    .map((entry) => ({
+      id: entry.id,
+      type: entry.type,
+      targetName: typeof entry.targetName === "string" ? entry.targetName : undefined,
+      createdAt: entry.createdAt,
+    }))
+    .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())
+    .slice(0, ACTION_HISTORY_LIMIT);
+}
+
+function createActionHistoryEntry(type: ActionHistoryType, targetName?: string): ActionHistoryEntry {
+  return {
+    id: createId(),
+    type,
+    targetName: targetName?.trim() || undefined,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function addActionHistoryEntries(
+  vault: PlainVault,
+  entries: ActionHistoryEntry | ActionHistoryEntry[] | null | undefined,
+): PlainVault {
+  const safeEntries = Array.isArray(entries) ? entries : entries ? [entries] : [];
+  if (safeEntries.length === 0) {
+    return {
+      ...vault,
+      actionHistory: normalizeActionHistory(vault.actionHistory),
+    };
+  }
+
+  return {
+    ...vault,
+    actionHistory: normalizeActionHistory([
+      ...safeEntries,
+      ...normalizeActionHistory(vault.actionHistory),
+    ]).slice(0, ACTION_HISTORY_LIMIT),
+  };
+}
+
+function getActionHistoryCategory(type: ActionHistoryType): ActionHistoryFilter {
+  if (
+    type === "credential_created" ||
+    type === "credential_updated" ||
+    type === "credential_moved_to_trash" ||
+    type === "credential_restored" ||
+    type === "credential_deleted_forever" ||
+    type === "trash_emptied" ||
+    type === "password_copied" ||
+    type === "username_copied" ||
+    type === "totp_updated" ||
+    type === "totp_removed" ||
+    type === "attachment_added" ||
+    type === "attachment_removed"
+  ) {
+    return "credentials";
+  }
+
+  if (
+    type === "master_password_changed" ||
+    type === "windows_hello_enabled" ||
+    type === "windows_hello_disabled" ||
+    type === "vault_unlocked" ||
+    type === "vault_unlocked_windows_hello"
+  ) {
+    return "security";
+  }
+
+  return "system";
+}
+
+function getFilteredActionHistory(entries: ActionHistoryEntry[], filter: ActionHistoryFilter) {
+  if (filter === "all") return entries;
+  return entries.filter((entry) => getActionHistoryCategory(entry.type) === filter);
+}
+
+function groupActionHistoryEntries(entries: ActionHistoryEntry[]) {
+  return entries.reduce<Array<{ key: string; createdAt: string; items: ActionHistoryEntry[] }>>((groups, entry) => {
+    const key = getDateKey(entry.createdAt);
+    const existing = groups.find((group) => group.key === key);
+
+    if (existing) {
+      existing.items.push(entry);
+      return groups;
+    }
+
+    groups.push({ key, createdAt: entry.createdAt, items: [entry] });
+    return groups;
+  }, []);
 }
 
 function getEmptyCredential(): Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> {
@@ -1542,6 +1686,7 @@ function normalizeVault(vault: PlainVault): PlainVault {
         licenseExpiresAt: credential.licenseExpiresAt ?? "",
       };
     }),
+    actionHistory: normalizeActionHistory(vault.actionHistory),
     settings: {
       autoLockMinutes: vault.settings?.autoLockMinutes ?? 10,
       backupIntervalHours: vault.settings?.backupIntervalHours ?? 4,
@@ -1603,6 +1748,8 @@ export default function App() {
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
   const [visibleHistoryPasswords, setVisibleHistoryPasswords] = useState<Record<string, boolean>>({});
   const [copiedField, setCopiedField] = useState("");
+  const [actionHistoryOpen, setActionHistoryOpen] = useState(false);
+  const [actionHistoryFilter, setActionHistoryFilter] = useState<ActionHistoryFilter>("all");
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [currentMasterPassword, setCurrentMasterPassword] = useState("");
   const [newMasterPassword, setNewMasterPassword] = useState("");
@@ -1659,6 +1806,21 @@ export default function App() {
   const csvImportAnalysis = useMemo(
     () => analyzeCsvImport(csvImportPreview, vault, csvImportIncludeDuplicates),
     [csvImportPreview, csvImportIncludeDuplicates, vault],
+  );
+
+  const actionHistoryEntries = useMemo(
+    () => normalizeActionHistory(vault?.actionHistory),
+    [vault?.actionHistory],
+  );
+
+  const filteredActionHistoryEntries = useMemo(
+    () => getFilteredActionHistory(actionHistoryEntries, actionHistoryFilter),
+    [actionHistoryEntries, actionHistoryFilter],
+  );
+
+  const groupedActionHistoryEntries = useMemo(
+    () => groupActionHistoryEntries(filteredActionHistoryEntries),
+    [filteredActionHistoryEntries],
   );
 
   const requestTrayProtection = useCallback((reason: "inactive" | "minimize" | "close") => {
@@ -1983,6 +2145,36 @@ export default function App() {
     [activeVaultName, encryptedVault, masterPassword],
   );
 
+  const persistVaultWithHistory = useCallback(
+    async (
+      nextVault: PlainVault,
+      historyEntry?: ActionHistoryEntry | ActionHistoryEntry[],
+      passwordOverride?: string,
+      forceBackup = false,
+    ) => persistVault(addActionHistoryEntries(nextVault, historyEntry), passwordOverride, forceBackup),
+    [persistVault],
+  );
+
+  const recordActionHistoryOnly = useCallback(
+    async (type: ActionHistoryType, targetName?: string) => {
+      if (!vault) return;
+
+      try {
+        const now = new Date().toISOString();
+        await persistVaultWithHistory(
+          {
+            ...vault,
+            updatedAt: now,
+          },
+          createActionHistoryEntry(type, targetName),
+        );
+      } catch (error) {
+        console.error("Erro ao registrar histórico de ações:", error);
+      }
+    },
+    [persistVaultWithHistory, vault],
+  );
+
   async function migrateLegacyVaultIfNeeded(
     file: EncryptedVaultFile,
     plainVault: PlainVault,
@@ -2043,7 +2235,10 @@ export default function App() {
     setBusy(true);
 
     try {
-      const newVault = normalizeVault(createEmptyVault());
+      const newVault = addActionHistoryEntries(
+        normalizeVault(createEmptyVault()),
+        createActionHistoryEntry("vault_created"),
+      );
       const file = await encryptVault(newVault, setupPassword);
       const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false);
 
@@ -2083,7 +2278,25 @@ export default function App() {
       const plainVault = normalizeVault(await decryptVault(encryptedVault, unlockPassword));
       await migrateLegacyVaultIfNeeded(encryptedVault, plainVault, unlockPassword);
 
-      setVault(plainVault);
+      let unlockedVault = plainVault;
+
+      try {
+        const vaultWithHistory = addActionHistoryEntries(
+          plainVault,
+          createActionHistoryEntry("vault_unlocked"),
+        );
+        const historyFile = await encryptVault(vaultWithHistory, unlockPassword, encryptedVault);
+        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false);
+
+        setEncryptedVault(historyFile);
+        setStorageInfo(historyInfo);
+        setBackups(historyInfo.backups);
+        unlockedVault = { ...vaultWithHistory, updatedAt: historyFile.updatedAt };
+      } catch (historyError) {
+        console.error("Erro ao registrar desbloqueio no histórico:", historyError);
+      }
+
+      setVault(unlockedVault);
       setMasterPassword(unlockPassword);
       setUnlockGateOpen(true);
       await new Promise((resolve) => window.setTimeout(resolve, 340));
@@ -2148,7 +2361,25 @@ export default function App() {
       const plainVault = normalizeVault(await decryptVault(encryptedVault, password));
       await migrateLegacyVaultIfNeeded(encryptedVault, plainVault, password);
 
-      setVault(plainVault);
+      let unlockedVault = plainVault;
+
+      try {
+        const vaultWithHistory = addActionHistoryEntries(
+          plainVault,
+          createActionHistoryEntry("vault_unlocked_windows_hello"),
+        );
+        const historyFile = await encryptVault(vaultWithHistory, password, encryptedVault);
+        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false);
+
+        setEncryptedVault(historyFile);
+        setStorageInfo(historyInfo);
+        setBackups(historyInfo.backups);
+        unlockedVault = { ...vaultWithHistory, updatedAt: historyFile.updatedAt };
+      } catch (historyError) {
+        console.error("Erro ao registrar desbloqueio com Windows Hello no histórico:", historyError);
+      }
+
+      setVault(unlockedVault);
       setMasterPassword(password);
       setUnlockGateOpen(true);
       await new Promise((resolve) => window.setTimeout(resolve, 340));
@@ -2204,6 +2435,7 @@ export default function App() {
       await prepareWindowsHelloPrompt();
       const status = await enableWindowsHello(activeVaultName, masterPassword, t("windowsHello.promptEnable"));
       setWindowsHelloStatus(status);
+      await recordActionHistoryOnly("windows_hello_enabled");
       setMessage(t("windowsHello.enabledSuccess"));
     } catch (error) {
       console.error(error);
@@ -2235,6 +2467,7 @@ export default function App() {
     try {
       const status = await disableWindowsHello(activeVaultName);
       setWindowsHelloStatus(status);
+      await recordActionHistoryOnly("windows_hello_disabled");
       setMessage(t("windowsHello.disabledSuccess"));
     } catch (error) {
       console.error(error);
@@ -2406,15 +2639,18 @@ export default function App() {
       await decryptVault(encryptedVault, currentMasterPassword);
 
       const now = new Date().toISOString();
-      const nextVault = normalizeVault({
-        ...vault,
-        updatedAt: now,
-        settings: {
-          ...vault.settings,
-          masterPasswordChangedAt: now,
-          lastPasswordRotationReminderAt: now,
-        },
-      });
+      const nextVault = addActionHistoryEntries(
+        normalizeVault({
+          ...vault,
+          updatedAt: now,
+          settings: {
+            ...vault.settings,
+            masterPasswordChangedAt: now,
+            lastPasswordRotationReminderAt: now,
+          },
+        }),
+        createActionHistoryEntry("master_password_changed"),
+      );
       const file = await encryptVault(nextVault, newMasterPassword, null);
       const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName);
 
@@ -2629,6 +2865,34 @@ export default function App() {
       setMessage(t("success.settingsUpdated"));
     } catch {
       setMessage(t("errors.saveSettings"));
+    }
+  }
+
+  async function handleClearActionHistory() {
+    if (!vault || normalizeActionHistory(vault.actionHistory).length === 0) return;
+
+    const confirmed = await askConfirmation({
+      title: t("actionHistory.clearTitle"),
+      message: t("actionHistory.clearMessage"),
+      confirmText: t("actionHistory.clear"),
+      cancelText: t("dialog.cancel"),
+      tone: "danger",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const now = new Date().toISOString();
+      await persistVault({
+        ...vault,
+        actionHistory: [],
+        updatedAt: now,
+      });
+      setActionHistoryFilter("all");
+      setMessage(t("actionHistory.clearSuccess"));
+    } catch (error) {
+      console.error(error);
+      setMessage(t("actionHistory.clearError"));
     }
   }
 
@@ -3079,20 +3343,23 @@ export default function App() {
 
     try {
       const now = new Date().toISOString();
-      await persistVault({
-        ...vault,
-        credentials: vault.credentials.map((credential) =>
-          credential.id === editingId
-            ? {
-                ...credential,
-                totpSecret: nextTotpSecret,
-                totpIssuer: nextTotpIssuer || credential.title,
-                updatedAt: now,
-              }
-            : credential,
-        ),
-        updatedAt: now,
-      });
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: vault.credentials.map((credential) =>
+            credential.id === editingId
+              ? {
+                  ...credential,
+                  totpSecret: nextTotpSecret,
+                  totpIssuer: nextTotpIssuer || credential.title,
+                  updatedAt: now,
+                }
+              : credential,
+          ),
+          updatedAt: now,
+        },
+        createActionHistoryEntry("totp_updated", credentialForm.title),
+      );
       setMessage(t("totp.easy.saveSuccess"));
       closeTotpSetup();
     } catch (error) {
@@ -3124,20 +3391,23 @@ export default function App() {
 
     try {
       const now = new Date().toISOString();
-      await persistVault({
-        ...vault,
-        credentials: vault.credentials.map((credential) =>
-          credential.id === editingId
-            ? {
-                ...credential,
-                totpSecret: "",
-                totpIssuer: "",
-                updatedAt: now,
-              }
-            : credential,
-        ),
-        updatedAt: now,
-      });
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: vault.credentials.map((credential) =>
+            credential.id === editingId
+              ? {
+                  ...credential,
+                  totpSecret: "",
+                  totpIssuer: "",
+                  updatedAt: now,
+                }
+              : credential,
+          ),
+          updatedAt: now,
+        },
+        createActionHistoryEntry("totp_removed", credentialForm.title),
+      );
       setMessage(t("totp.easy.removeSuccess"));
     } catch (error) {
       console.error(error);
@@ -3365,11 +3635,17 @@ export default function App() {
     setBusy(true);
 
     try {
-      await persistVault({
-        ...vault,
-        credentials: nextCredentials,
-        updatedAt: now,
-      });
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: nextCredentials,
+          updatedAt: now,
+        },
+        createActionHistoryEntry(
+          editingId ? "credential_updated" : "credential_created",
+          cleanForm.title,
+        ),
+      );
 
       setFormOpen(false);
       setEditingId(null);
@@ -3405,20 +3681,23 @@ export default function App() {
     try {
       const now = new Date().toISOString();
 
-      await persistVault({
-        ...vault,
-        credentials: vault.credentials.map((credential) =>
-          credential.id === id
-            ? {
-                ...credential,
-                deletedAt: now,
-                favorite: false,
-                updatedAt: now,
-              }
-            : credential,
-        ),
-        updatedAt: now,
-      });
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: vault.credentials.map((credential) =>
+            credential.id === id
+              ? {
+                  ...credential,
+                  deletedAt: now,
+                  favorite: false,
+                  updatedAt: now,
+                }
+              : credential,
+          ),
+          updatedAt: now,
+        },
+        createActionHistoryEntry("credential_moved_to_trash", target?.title),
+      );
 
       if (detailCredentialId === id) {
         setDetailCredentialId(null);
@@ -3440,19 +3719,24 @@ export default function App() {
     const now = new Date().toISOString();
 
     try {
-      await persistVault({
-        ...vault,
-        credentials: vault.credentials.map((credential) =>
-          credential.id === id
-            ? {
-                ...credential,
-                deletedAt: undefined,
-                updatedAt: now,
-              }
-            : credential,
-        ),
-        updatedAt: now,
-      });
+      const target = vault.credentials.find((credential) => credential.id === id);
+
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: vault.credentials.map((credential) =>
+            credential.id === id
+              ? {
+                  ...credential,
+                  deletedAt: undefined,
+                  updatedAt: now,
+                }
+              : credential,
+          ),
+          updatedAt: now,
+        },
+        createActionHistoryEntry("credential_restored", target?.title),
+      );
 
       setMessage(t("trash.restored"));
     } catch (error) {
@@ -3477,11 +3761,14 @@ export default function App() {
     if (!confirmed) return;
 
     try {
-      await persistVault({
-        ...vault,
-        credentials: vault.credentials.filter((credential) => credential.id !== id),
-        updatedAt: new Date().toISOString(),
-      });
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: vault.credentials.filter((credential) => credential.id !== id),
+          updatedAt: new Date().toISOString(),
+        },
+        createActionHistoryEntry("credential_deleted_forever", target?.title),
+      );
 
       setMessage(t("trash.deletedForever"));
     } catch (error) {
@@ -3508,11 +3795,14 @@ export default function App() {
     if (!confirmed) return;
 
     try {
-      await persistVault({
-        ...vault,
-        credentials: getActiveCredentials(vault.credentials),
-        updatedAt: new Date().toISOString(),
-      });
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: getActiveCredentials(vault.credentials),
+          updatedAt: new Date().toISOString(),
+        },
+        createActionHistoryEntry("trash_emptied", String(deletedCredentials.length)),
+      );
 
       setMessage(t("trash.emptySuccess"));
     } catch (error) {
@@ -3668,7 +3958,7 @@ export default function App() {
     });
   }
 
-  async function copySecure(value: string, label: string) {
+  async function copySecure(value: string, label: string, historyEntry?: ActionHistoryEntry) {
     if (!value) return;
 
     if (clipboardCleanupRef.current) {
@@ -3678,6 +3968,10 @@ export default function App() {
 
     await navigator.clipboard.writeText(value);
     setCopiedField(label);
+
+    if (historyEntry && vault) {
+      void recordActionHistoryOnly(historyEntry.type, historyEntry.targetName);
+    }
 
     const copiedValue = value;
 
@@ -3720,19 +4014,24 @@ export default function App() {
         createdAt: now,
       };
 
-      await persistVault({
-        ...vault,
-        credentials: vault.credentials.map((credential) =>
-          credential.id === credentialId
-            ? {
-                ...credential,
-                attachments: [attachment, ...getAttachments(credential)],
-                updatedAt: now,
-              }
-            : credential,
-        ),
-        updatedAt: now,
-      });
+      const target = vault.credentials.find((credential) => credential.id === credentialId);
+
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: vault.credentials.map((credential) =>
+            credential.id === credentialId
+              ? {
+                  ...credential,
+                  attachments: [attachment, ...getAttachments(credential)],
+                  updatedAt: now,
+                }
+              : credential,
+          ),
+          updatedAt: now,
+        },
+        createActionHistoryEntry("attachment_added", target?.title),
+      );
 
       setMessage(t("attachments.added"));
     } catch (error) {
@@ -3762,19 +4061,22 @@ export default function App() {
     const now = new Date().toISOString();
 
     try {
-      await persistVault({
-        ...vault,
-        credentials: vault.credentials.map((credential) =>
-          credential.id === credentialId
-            ? {
-                ...credential,
-                attachments: getAttachments(credential).filter((item) => item.id !== attachmentId),
-                updatedAt: now,
-              }
-            : credential,
-        ),
-        updatedAt: now,
-      });
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: vault.credentials.map((credential) =>
+            credential.id === credentialId
+              ? {
+                  ...credential,
+                  attachments: getAttachments(credential).filter((item) => item.id !== attachmentId),
+                  updatedAt: now,
+                }
+              : credential,
+          ),
+          updatedAt: now,
+        },
+        createActionHistoryEntry("attachment_removed", target?.title),
+      );
 
       setMessage(t("attachments.removed"));
     } catch (error) {
@@ -3805,6 +4107,7 @@ export default function App() {
         JSON.stringify(file, null, 2),
       );
       setEncryptedVault(file);
+      await recordActionHistoryOnly("encrypted_exported");
       setMessage(t("export.encryptedSuccess"));
     } catch (error) {
       console.error(error);
@@ -3847,6 +4150,7 @@ export default function App() {
         buildCsv(getActiveCredentials(vault.credentials)),
         "text/csv;charset=utf-8",
       );
+      await recordActionHistoryOnly("csv_exported");
       closeCsvExportDialog();
       setMessage(t("export.csvSuccess"));
     } catch (error) {
@@ -3928,11 +4232,14 @@ export default function App() {
         updatedAt: now,
       }));
 
-      await persistVault({
-        ...vault,
-        credentials: [...importedCredentials, ...vault.credentials],
-        updatedAt: now,
-      });
+      await persistVaultWithHistory(
+        {
+          ...vault,
+          credentials: [...importedCredentials, ...vault.credentials],
+          updatedAt: now,
+        },
+        createActionHistoryEntry("csv_imported", String(importedCredentials.length)),
+      );
 
       setCsvImportPreview(null);
       setCsvImportIncludeDuplicates(false);
@@ -4827,6 +5134,73 @@ export default function App() {
     </div>
   ) : null;
 
+  const actionHistoryDialog = actionHistoryOpen ? (
+    <div className="modalOverlay actionHistoryOverlay" onMouseDown={() => setActionHistoryOpen(false)}>
+      <section className="credentialModal actionHistoryModal" role="dialog" aria-modal="true" aria-labelledby="actionHistoryTitle" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modalHeader actionHistoryHeader">
+          <div>
+            <p className="eyebrow">{t("actionHistory.eyebrow")}</p>
+            <h2 id="actionHistoryTitle">{t("actionHistory.title")}</h2>
+            <span>{t("actionHistory.subtitle")}</span>
+          </div>
+          <button type="button" className="iconButton" aria-label={t("dialog.cancel")} onClick={() => setActionHistoryOpen(false)}>
+            ×
+          </button>
+        </div>
+
+        <div className="actionHistoryFilters" role="tablist" aria-label={t("actionHistory.filterLabel")}>
+          {(["all", "credentials", "security", "system"] as ActionHistoryFilter[]).map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              className={actionHistoryFilter === filter ? "active" : ""}
+              onClick={() => setActionHistoryFilter(filter)}
+            >
+              {t(`actionHistory.filter.${filter}`)}
+            </button>
+          ))}
+        </div>
+
+        <div className="actionHistoryList" role="list">
+          {groupedActionHistoryEntries.length === 0 ? (
+            <div className="actionHistoryEmpty">
+              <strong>{t("actionHistory.emptyTitle")}</strong>
+              <span>{t(actionHistoryEntries.length === 0 ? "actionHistory.emptyDescription" : "actionHistory.emptyFilterDescription")}</span>
+            </div>
+          ) : (
+            groupedActionHistoryEntries.map((group) => (
+              <section key={group.key} className="actionHistoryDay" aria-label={getActionHistoryDateLabel(group.createdAt, appLanguage, t)}>
+                <h3>{getActionHistoryDateLabel(group.createdAt, appLanguage, t)}</h3>
+                <div>
+                  {group.items.map((entry) => (
+                    <article key={entry.id} className="actionHistoryItem" role="listitem">
+                      <time dateTime={entry.createdAt}>{formatActionHistoryTime(entry.createdAt, appLanguage)}</time>
+                      <span className={`actionHistoryDot ${getActionHistoryCategory(entry.type)}`} aria-hidden="true" />
+                      <div>
+                        <strong>{t(`actionHistory.type.${entry.type}`)}</strong>
+                        {entry.targetName && <span>{entry.targetName}</span>}
+                      </div>
+                      <small>{t(`actionHistory.category.${getActionHistoryCategory(entry.type)}`)}</small>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))
+          )}
+        </div>
+
+        <div className="modalActions actionHistoryActions">
+          <button type="button" className="secondaryButton" onClick={() => setActionHistoryOpen(false)}>
+            {t("dialog.cancel")}
+          </button>
+          <button type="button" className="dangerConfirmButton" disabled={actionHistoryEntries.length === 0} onClick={() => void handleClearActionHistory()}>
+            {t("actionHistory.clear")}
+          </button>
+        </div>
+      </section>
+    </div>
+  ) : null;
+
   if (mode === "loading") {
     return (
       <>
@@ -5353,7 +5727,11 @@ export default function App() {
                           type="button"
                           onClick={(event) => {
                             stopAction(event);
-                            void copySecure(credential.username, `user-${credential.id}`);
+                            void copySecure(
+                              credential.username,
+                              `user-${credential.id}`,
+                              createActionHistoryEntry("username_copied", credential.title),
+                            );
                           }}
                         >
                           {copiedField === `user-${credential.id}` ? t("credential.copied") : t("credential.copyUser")}
@@ -5365,7 +5743,11 @@ export default function App() {
                           type="button"
                           onClick={(event) => {
                             stopAction(event);
-                            void copySecure(primarySecret, `secret-${credential.id}`);
+                            void copySecure(
+                              primarySecret,
+                              `secret-${credential.id}`,
+                              createActionHistoryEntry("password_copied", credential.title),
+                            );
                           }}
                         >
                           {copiedField === `secret-${credential.id}` ? t("credential.copiedFemale") : t(isCredentialItem(credential) ? "credential.copyPassword" : "item.copySecret")}
@@ -6085,6 +6467,23 @@ export default function App() {
             </article>
               </div>
             )}
+
+            <article className="wideCard securityActionCard actionHistorySettingsCard">
+              <div className="settingsSectionHeader actionHistorySettingsHeader">
+                <span>
+                  <strong>{t("actionHistory.settingsTitle")}</strong>
+                  <small>{t("actionHistory.settingsDescription")}</small>
+                </span>
+                <button type="button" className="secondaryButton" onClick={() => setActionHistoryOpen(true)}>
+                  {t("actionHistory.open")}
+                </button>
+              </div>
+
+              <div className="actionHistorySettingsSummary">
+                <span>{t("actionHistory.recentCount", { count: actionHistoryEntries.length })}</span>
+                <small>{t("actionHistory.safeNotice")}</small>
+              </div>
+            </article>
           </div>
         )}
 
@@ -6399,7 +6798,11 @@ export default function App() {
                           type="button"
                           className="secondaryButton"
                           disabled={!detailTotpCode}
-                          onClick={() => void copySecure(detailTotpCode, `totp-${detailCredential.id}`)}
+                          onClick={() => void copySecure(
+                            detailTotpCode,
+                            `totp-${detailCredential.id}`,
+                            createActionHistoryEntry("password_copied", detailCredential.title),
+                          )}
                         >
                           {copiedField === `totp-${detailCredential.id}` ? t("credential.copied") : t("totp.copy")}
                         </button>
@@ -6624,13 +7027,21 @@ export default function App() {
 
               <div className="detailActions">
                 {itemType === "credential" && detailCredential.username && (
-                  <button onClick={() => void copySecure(detailCredential.username, `user-${detailCredential.id}`)}>
+                  <button onClick={() => void copySecure(
+                    detailCredential.username,
+                    `user-${detailCredential.id}`,
+                    createActionHistoryEntry("username_copied", detailCredential.title),
+                  )}>
                     {copiedField === `user-${detailCredential.id}` ? t("credential.userCopied") : t("credential.copyUser")}
                   </button>
                 )}
 
                 {primarySecret && (
-                  <button onClick={() => void copySecure(primarySecret, `secret-${detailCredential.id}`)}>
+                  <button onClick={() => void copySecure(
+                    primarySecret,
+                    `secret-${detailCredential.id}`,
+                    createActionHistoryEntry("password_copied", detailCredential.title),
+                  )}>
                     {copiedField === `secret-${detailCredential.id}` ? t("credential.copiedFemale") : t(itemType === "credential" ? "credential.copyPassword" : "item.copySecret")}
                   </button>
                 )}
@@ -7102,6 +7513,7 @@ export default function App() {
       {totpSetupDialog}
       {csvExportDialog}
       {csvImportDialog}
+      {actionHistoryDialog}
       {confirmDialogElement}
       {restoreBackupDialog}
     </main>

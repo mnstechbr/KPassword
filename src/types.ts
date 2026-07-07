@@ -20,6 +20,36 @@ export type PasswordHistoryEntry = {
   savedAt: string;
 };
 
+export type ActionHistoryType =
+  | "vault_created"
+  | "vault_unlocked"
+  | "vault_unlocked_windows_hello"
+  | "credential_created"
+  | "credential_updated"
+  | "credential_moved_to_trash"
+  | "credential_restored"
+  | "credential_deleted_forever"
+  | "trash_emptied"
+  | "password_copied"
+  | "username_copied"
+  | "master_password_changed"
+  | "windows_hello_enabled"
+  | "windows_hello_disabled"
+  | "totp_updated"
+  | "totp_removed"
+  | "attachment_added"
+  | "attachment_removed"
+  | "encrypted_exported"
+  | "csv_exported"
+  | "csv_imported";
+
+export type ActionHistoryEntry = {
+  id: string;
+  type: ActionHistoryType;
+  targetName?: string;
+  createdAt: string;
+};
+
 export type VaultAttachment = {
   id: string;
   name: string;
@@ -97,6 +127,7 @@ export type PlainVault = {
   createdAt: string;
   updatedAt: string;
   credentials: CredentialRecord[];
+  actionHistory?: ActionHistoryEntry[];
   settings: VaultSettings;
 };
 

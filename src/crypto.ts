@@ -130,6 +130,7 @@ export function createEmptyVault(): PlainVault {
     createdAt: now,
     updatedAt: now,
     credentials: [],
+    actionHistory: [],
     settings: {
       autoLockMinutes: 10,
       backupIntervalHours: 4,
