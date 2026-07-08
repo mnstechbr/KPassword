@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.3.0
+
+Release focada em rastreabilidade local e organização das ações recentes do cofre, sem registrar dados sensíveis.
+
+### Adicionado
+
+- Adicionado Histórico de Ações em Configurações, dentro da área Segurança & backup.
+- Adicionado popup/modal para visualizar eventos recentes do app.
+- Histórico agrupado por data.
+- Filtros por tipo de ação: Todos, Credenciais, Segurança e Sistema.
+- Opção para limpar o histórico com confirmação.
+- Registro de eventos importantes, como credencial criada, credencial editada, credencial enviada para lixeira, credencial restaurada, senha copiada, login/desbloqueio, bloqueio do cofre e alteração relevante em configurações.
+
+### Segurança
+
+- O histórico não armazena senhas, códigos TOTP, anexos, valores antigos, valores novos ou conteúdo sensível.
+- Os eventos ficam salvos junto ao cofre criptografado.
+- Não houve mudança no núcleo criptográfico nem quebra intencional de compatibilidade com cofres existentes.
+
+### Experiência
+
+- Configurações continuam limpas, com acesso ao histórico por botão.
+- Modal compatível com janela menor e maximizada.
+- Compatível com temas escuro, claro e misto.
+
 ## v1.2.0
 
 Release focada em simplificar a interface sem adicionar telas novas nem alterar o formato do cofre.
