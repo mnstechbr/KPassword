@@ -118,7 +118,7 @@ npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 - [ ] Confirmar aviso reforçado da exportação CSV.
 - [ ] Confirmar `cargo tree`/`cargo audit` para advisories transitivos como quick-xml.
 
-## Validações específicas v1.3.3
+## Validações específicas v1.3.4
 
 - [ ] QR novo em credencial sem 2FA salva automaticamente e mantém a tela do código aberta.
 - [ ] QR novo em credencial com 2FA existente mostra aviso e exige Substituir 2FA antes de trocar.

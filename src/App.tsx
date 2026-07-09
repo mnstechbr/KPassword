@@ -111,7 +111,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.3.3";
+const APP_VERSION = "1.3.4";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -121,6 +121,22 @@ const DEFAULT_WINDOWS_HELLO_STATUS: WindowsHelloStatus = {
   enabled: false,
   reason: "",
   vault_name: DEFAULT_VAULT_NAME,
+};
+
+type StartupStatus = {
+  enabled: boolean;
+  registry_key: string;
+  value_name: string;
+  command_line: string;
+  startup_argument: string;
+};
+
+const DEFAULT_STARTUP_STATUS: StartupStatus = {
+  enabled: false,
+  registry_key: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+  value_name: "KPassword",
+  command_line: "",
+  startup_argument: "--startup",
 };
 
 type Screen = "credentials" | "dashboard" | "trash" | "settings" | "preferences";
@@ -1848,7 +1864,9 @@ export default function App() {
   const [windowsHelloStatus, setWindowsHelloStatus] = useState<WindowsHelloStatus>(DEFAULT_WINDOWS_HELLO_STATUS);
   const [windowsHelloBusy, setWindowsHelloBusy] = useState(false);
   const [startupEnabled, setStartupEnabled] = useState(false);
+  const [startupStatus, setStartupStatus] = useState<StartupStatus>(DEFAULT_STARTUP_STATUS);
   const [startupBusy, setStartupBusy] = useState(false);
+  const [appDiagnosticsOpen, setAppDiagnosticsOpen] = useState(false);
   const [vaultFiles, setVaultFiles] = useState<VaultFileInfo[]>([]);
   const [newVaultName, setNewVaultName] = useState("");
   const [totpTick, setTotpTick] = useState(Date.now());
@@ -1899,18 +1917,45 @@ export default function App() {
     [filteredActionHistoryEntries],
   );
 
+
+  const appDiagnosticsItems = useMemo(
+    () => [
+      { label: t("appDiagnostics.version"), value: `v${APP_VERSION}` },
+      { label: t("appDiagnostics.vault"), value: activeVaultName },
+      { label: t("appDiagnostics.mode"), value: t(`appDiagnostics.mode.${mode}`) },
+      { label: t("appDiagnostics.windowsHello"), value: windowsHelloStatus.enabled ? t("appDiagnostics.enabled") : windowsHelloStatus.available ? t("appDiagnostics.available") : t("appDiagnostics.unavailable") },
+      { label: t("appDiagnostics.startup"), value: startupEnabled ? t("appDiagnostics.enabled") : t("appDiagnostics.disabled") },
+      { label: t("appDiagnostics.startupName"), value: startupStatus.value_name || "KPassword" },
+      { label: t("appDiagnostics.backups"), value: t("appDiagnostics.backupsValue", { count: backups.length }) },
+      { label: t("appDiagnostics.updater"), value: t("appDiagnostics.updaterValue") },
+      { label: t("appDiagnostics.tray"), value: t("appDiagnostics.trayValue") },
+      { label: t("appDiagnostics.memory"), value: t("appDiagnostics.memoryValue") },
+      { label: t("appDiagnostics.webview"), value: t("appDiagnostics.webviewValue") },
+    ],
+    [activeVaultName, backups.length, mode, startupEnabled, startupStatus.value_name, t, windowsHelloStatus.available, windowsHelloStatus.enabled],
+  );
+
   useEffect(() => {
     document.title = "KPassword";
   }, []);
 
-  useEffect(() => {
-    void invoke<boolean>("is_startup_enabled")
-      .then(setStartupEnabled)
-      .catch((error) => {
-        secureLogError("consultar inicialização com Windows", error);
-        setStartupEnabled(false);
-      });
+  const refreshStartupStatus = useCallback(async () => {
+    try {
+      const status = await invoke<StartupStatus>("get_startup_status");
+      setStartupStatus(status);
+      setStartupEnabled(status.enabled);
+      return status;
+    } catch (error) {
+      secureLogError("consultar inicialização com Windows", error);
+      setStartupStatus(DEFAULT_STARTUP_STATUS);
+      setStartupEnabled(false);
+      return DEFAULT_STARTUP_STATUS;
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshStartupStatus();
+  }, [refreshStartupStatus]);
 
   const requestTrayProtection = useCallback((reason: "inactive" | "minimize" | "close") => {
     window.dispatchEvent(new CustomEvent("kpassword:protect-to-tray", { detail: { reason } }));
@@ -1947,8 +1992,9 @@ export default function App() {
 
     try {
       const nextEnabled = await invoke<boolean>("set_startup_enabled", { enabled });
-      setStartupEnabled(nextEnabled);
-      setMessage(nextEnabled ? t("settings.startupEnabled") : t("settings.startupDisabled"));
+      const status = await refreshStartupStatus();
+      setStartupEnabled(status.enabled || nextEnabled);
+      setMessage((status.enabled || nextEnabled) ? t("settings.startupEnabled") : t("settings.startupDisabled"));
     } catch (error) {
       secureLogError("alterar inicialização com Windows", error);
       setMessage(t("settings.startupError"));
@@ -2156,6 +2202,20 @@ export default function App() {
     setVisiblePasswords({});
     setVisibleHistoryPasswords({});
     setDetailCredentialId(null);
+    setFormOpen(false);
+    setEditingId(null);
+    setCredentialForm(getEmptyCredential());
+    setCredentialTagsInput("");
+    setActionHistoryOpen(false);
+    setAppDiagnosticsOpen(false);
+    setCsvExportDialogOpen(false);
+    setCsvImportPreview(null);
+    setRestorePopupOpen(false);
+    setConfirmDialog(null);
+    setTotpSetupOpen(false);
+    setTotpPreview(null);
+    setTotpSetupError("");
+    setTotpQrBusy(false);
     setUnlockGateOpen(false);
     setMessage("");
     setMode((current) => (current === "setup" ? "setup" : "locked"));
@@ -5194,6 +5254,43 @@ export default function App() {
     </div>
   ) : null;
 
+  const appDiagnosticsDialog = appDiagnosticsOpen ? (
+    <div className="modalOverlay actionHistoryOverlay" onMouseDown={() => setAppDiagnosticsOpen(false)}>
+      <section className="credentialModal actionHistoryModal appDiagnosticsModal" role="dialog" aria-modal="true" aria-labelledby="appDiagnosticsTitle" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modalHeader actionHistoryHeader">
+          <div>
+            <p className="eyebrow">{t("appDiagnostics.eyebrow")}</p>
+            <h2 id="appDiagnosticsTitle">{t("appDiagnostics.title")}</h2>
+            <span>{t("appDiagnostics.subtitle")}</span>
+          </div>
+          <button type="button" className="iconButton" aria-label={t("dialog.cancel")} onClick={() => setAppDiagnosticsOpen(false)}>
+            ×
+          </button>
+        </div>
+
+        <div className="appDiagnosticsList">
+          {appDiagnosticsItems.map((item) => (
+            <div key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
+        </div>
+
+        <div className="appDiagnosticsNote">
+          <strong>{t("appDiagnostics.windowsProcessNoteTitle")}</strong>
+          <span>{t("appDiagnostics.windowsProcessNote")}</span>
+        </div>
+
+        <div className="modalActions actionHistoryActions">
+          <button type="button" className="secondaryButton" onClick={() => setAppDiagnosticsOpen(false)}>
+            {t("dialog.cancel")}
+          </button>
+        </div>
+      </section>
+    </div>
+  ) : null;
+
   if (mode === "loading") {
     return (
       <>
@@ -6463,6 +6560,23 @@ export default function App() {
                 </label>
               </div>
 
+              <div className="startupStatusBox">
+                <div>
+                  <strong>{startupEnabled ? t("settings.startupStatusOn") : t("settings.startupStatusOff")}</strong>
+                  <span>{t("settings.startupStatusDescription")}</span>
+                </div>
+                <dl>
+                  <div>
+                    <dt>{t("settings.startupRegistry")}</dt>
+                    <dd>{startupStatus.registry_key} / {startupStatus.value_name || "KPassword"}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("settings.startupCommand")}</dt>
+                    <dd>{startupStatus.command_line || t("settings.startupCommandUnavailable")}</dd>
+                  </div>
+                </dl>
+              </div>
+
               <div className="securityGrid">
                 <span>{t("settings.winV")}</span>
                 <span>{startupEnabled ? t("settings.autostartEnabledStatus") : t("settings.autostartDisabledStatus")}</span>
@@ -6488,6 +6602,24 @@ export default function App() {
               <div className="actionHistorySettingsSummary">
                 <span>{t("actionHistory.recentCount", { count: actionHistoryEntries.length })}</span>
                 <small>{t("actionHistory.safeNotice")}</small>
+              </div>
+            </article>
+
+
+            <article className="wideCard securityActionCard appDiagnosticsSettingsCard">
+              <div className="settingsSectionHeader actionHistorySettingsHeader">
+                <span>
+                  <strong>{t("appDiagnostics.settingsTitle")}</strong>
+                  <small>{t("appDiagnostics.settingsDescription")}</small>
+                </span>
+                <button type="button" className="secondaryButton" onClick={() => setAppDiagnosticsOpen(true)}>
+                  {t("appDiagnostics.open")}
+                </button>
+              </div>
+
+              <div className="actionHistorySettingsSummary">
+                <span>{t("appDiagnostics.summary")}</span>
+                <small>{t("appDiagnostics.safeNotice")}</small>
               </div>
             </article>
           </div>
@@ -7520,6 +7652,7 @@ export default function App() {
       {csvExportDialog}
       {csvImportDialog}
       {actionHistoryDialog}
+      {appDiagnosticsDialog}
       {confirmDialogElement}
       {restoreBackupDialog}
     </main>

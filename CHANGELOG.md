@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.3.4
+
+Versão de polimento da integração com Windows e da experiência de bandeja.
+
+### Novidades
+
+- Diagnóstico simples do app em Configurações com versão, cofre atual, Windows Hello, inicialização, backups, updater, bandeja e WebView2.
+- Tela de inicialização com Windows mais clara, exibindo status, nome usado no Startup e comando registrado.
+- App reforça que o KPassword inicia protegido direto na bandeja quando iniciado pelo Windows.
+
+### Melhorias
+
+- Ao bloquear/enviar para a bandeja, modais e estados visuais temporários são fechados para reduzir ruído e exposição visual.
+- Documentação reforçada sobre a limitação do Windows ao agrupar subprocessos como Gerenciador WebView2.
+- Versão atualizada para v1.3.4.
+
+### Segurança
+
+- Nenhuma alteração no formato do cofre, criptografia, backups ou compatibilidade com dados existentes.
+- O diagnóstico do app não exibe senhas, códigos TOTP, anexos ou segredos.
+
 ## v1.3.3
 
 Release de correção focada na substituição segura de 2FA e em ajustes de integração com o Windows.

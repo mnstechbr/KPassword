@@ -14471,3 +14471,121 @@ textarea {
   }
 }
 /* === KPassword ajuste seletor de idioma com globo END === */
+
+/* === KPassword v1.3.4 Windows polish START === */
+.startupStatusBox {
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--kp-card-border, rgba(255, 255, 255, 0.11));
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(124, 58, 237, 0.08));
+}
+
+.startupStatusBox > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.startupStatusBox strong {
+  color: var(--kp-text, #f8fafc);
+  font-weight: 900;
+}
+
+.startupStatusBox span,
+.startupStatusBox dd {
+  color: var(--kp-muted, #cbd5e1);
+  line-height: 1.45;
+}
+
+.startupStatusBox dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.startupStatusBox dl div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.startupStatusBox dt {
+  color: var(--kp-accent, #7dd3fc);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.startupStatusBox dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.appDiagnosticsSettingsCard {
+  display: grid;
+  gap: 12px;
+}
+
+.appDiagnosticsModal {
+  max-width: min(760px, calc(100vw - 28px));
+}
+
+.appDiagnosticsList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.appDiagnosticsList div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--kp-card-border, rgba(255, 255, 255, 0.11));
+  border-radius: 14px;
+  background: var(--kp-field-bg, rgba(255, 255, 255, 0.055));
+  min-width: 0;
+}
+
+.appDiagnosticsList dt {
+  color: var(--kp-muted, #94a3b8);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.appDiagnosticsList dd {
+  margin: 0;
+  color: var(--kp-text, #f8fafc);
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.appDiagnosticsNote {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 16px;
+  background: rgba(14, 165, 233, 0.1);
+}
+
+.appDiagnosticsNote strong {
+  color: var(--kp-text, #f8fafc);
+}
+
+.appDiagnosticsNote span {
+  color: var(--kp-muted, #cbd5e1);
+  line-height: 1.48;
+}
+
+@media (max-width: 720px) {
+  .appDiagnosticsList {
+    grid-template-columns: 1fr;
+  }
+}
+/* === KPassword v1.3.4 Windows polish END === */

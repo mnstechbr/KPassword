@@ -11,13 +11,13 @@ Baixe a versão mais recente pela página de Releases do GitHub.
 Arquivo recomendado:
 
 ```text
-KPassword-Setup-v1.3.3.exe
+KPassword-Setup-v1.3.4.exe
 ```
 
 Também são publicados junto ao release:
 
 ```text
-KPassword-Setup-v1.3.3.exe.sig
+KPassword-Setup-v1.3.4.exe.sig
 latest.json
 SHA256SUMS.txt
 ```
@@ -27,7 +27,7 @@ O arquivo `latest.json` é usado pelo atualizador automático do app. O arquivo 
 ## Como instalar
 
 1. Baixe o instalador da versão mais recente em Releases.
-2. Execute `KPassword-Setup-v1.3.3.exe`.
+2. Execute `KPassword-Setup-v1.3.4.exe`.
 3. Abra o KPassword.
 4. Crie sua senha mestra.
 5. Guarde a senha mestra com segurança, pois ela não pode ser recuperada.
@@ -88,9 +88,9 @@ npm run build
 Build oficial de release:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "1.3.3"
-npm run release:hash -- --ReleaseDir ".\dist-release\v1.3.3"
-npm run release:validate -- --ReleaseDir ".\dist-release\v1.3.3"
+powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "1.3.4"
+npm run release:hash -- --ReleaseDir ".\dist-release\v1.3.4"
+npm run release:validate -- --ReleaseDir ".\dist-release\v1.3.4"
 ```
 
 O script de build assinado não faz `git add`, `git commit`, `git push` nem instala dependências automaticamente. Antes da release, confira o estado do Git, rode `npm install` manualmente quando necessário e use uma chave privada do updater protegida por senha forte.
@@ -121,3 +121,9 @@ Arquivos úteis:
 - `docs/VAULT_DIAGNOSTIC.md`: diagnóstico do cofre.
 
 Arquivos antigos de patch/hotfix podem ficar arquivados em `docs/archive/` e `tools/archive/` para manter a raiz do repositório limpa.
+
+## Integração Windows
+
+- O KPassword pode iniciar com o Windows e abrir protegido direto na bandeja.
+- O diagnóstico do app em Configurações mostra status local sem exibir senhas, TOTP, anexos ou segredos.
+- Em alguns pontos do Gerenciador de Tarefas, o Windows pode agrupar subprocessos como Gerenciador WebView2 porque o app usa o runtime Microsoft WebView2 via Tauri. O processo principal e o subprocesso da janela devem aparecer como KPassword quando possível.

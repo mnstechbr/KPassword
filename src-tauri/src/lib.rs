@@ -57,6 +57,15 @@ struct WindowsHelloStatus {
     vault_name: String,
 }
 
+#[derive(Serialize)]
+struct StartupStatus {
+    enabled: bool,
+    registry_key: String,
+    value_name: String,
+    command_line: String,
+    startup_argument: String,
+}
+
 fn now_epoch_seconds() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -1252,6 +1261,33 @@ fn is_startup_enabled() -> bool {
     is_startup_enabled_impl()
 }
 
+#[cfg(windows)]
+fn get_startup_status_impl() -> StartupStatus {
+    StartupStatus {
+        enabled: is_startup_enabled_impl(),
+        registry_key: STARTUP_REGISTRY_KEY.to_string(),
+        value_name: STARTUP_VALUE_NAME.to_string(),
+        command_line: startup_command_line().unwrap_or_default(),
+        startup_argument: "--startup".to_string(),
+    }
+}
+
+#[cfg(not(windows))]
+fn get_startup_status_impl() -> StartupStatus {
+    StartupStatus {
+        enabled: false,
+        registry_key: "Disponível apenas no Windows".to_string(),
+        value_name: "KPassword".to_string(),
+        command_line: String::new(),
+        startup_argument: "--startup".to_string(),
+    }
+}
+
+#[tauri::command]
+fn get_startup_status() -> StartupStatus {
+    get_startup_status_impl()
+}
+
 #[tauri::command]
 fn set_startup_enabled(enabled: bool) -> Result<bool, String> {
     set_startup_enabled_impl(enabled)?;
@@ -2014,6 +2050,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             hide_to_tray,
             is_startup_enabled,
+            get_startup_status,
             set_startup_enabled,
             load_vault_file,
             save_vault_file,

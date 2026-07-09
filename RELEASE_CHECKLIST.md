@@ -78,7 +78,7 @@ Antes de publicar uma release do KPassword:
 - [ ] `tools\fix-updater-v030-build.ps1` exige senha da chave e não faz commit/push.
 - [ ] `npm run security:audit` mostra dependências que usam quick-xml e executa cargo audit quando instalado.
 
-## Validações específicas v1.3.3
+## Validações específicas v1.3.4
 
 - [ ] QR novo em credencial sem 2FA salva automaticamente e mantém a tela do código aberta.
 - [ ] QR novo em credencial com 2FA existente mostra aviso e exige Substituir 2FA antes de trocar.

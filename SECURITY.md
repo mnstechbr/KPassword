@@ -79,3 +79,9 @@ Dependências Rust transitivas devem ser acompanhadas com `cargo audit` quando d
 ## Bandeja, inicialização e memória
 
 A inicialização com Windows é opcional e usa registro do usuário atual em HKCU. Ao iniciar com `--startup`, o app abre na bandeja. Ao ir para a bandeja, o cofre é bloqueado conforme configuração e o app solicita ao Windows redução do working set do processo principal. Processos filhos do WebView2 continuam sob controle do runtime do Windows.
+
+## Diagnóstico do app
+
+O diagnóstico local do KPassword mostra apenas informações operacionais como versão, status de inicialização, bandeja, Windows Hello, backups e updater. Ele não deve exibir senhas, códigos TOTP, anexos, chave do cofre ou conteúdo sensível.
+
+O Windows pode agrupar subprocessos do Microsoft WebView2 como Gerenciador WebView2. Isso é uma característica do runtime usado por apps Tauri e não significa que existam duas cópias completas do KPassword abertas.
