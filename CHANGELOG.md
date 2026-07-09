@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.3.3
+
+Release de correção focada na substituição segura de 2FA e em ajustes de integração com o Windows.
+
+### Segurança
+
+- QR Code por imagem ou recorte do Windows continua salvando automaticamente quando a credencial ainda não tem 2FA.
+- Quando a credencial já tem 2FA, um QR novo não substitui o segredo automaticamente. O app mostra a prévia do código e exige confirmação em Substituir 2FA.
+- Mantido o processamento local do recorte do Windows, sem gravar screenshot em disco.
+
+### Melhorias
+
+- Adicionada opção em Configurações para registrar ou remover o KPassword dos Aplicativos de inicialização do Windows.
+- Quando iniciado pelo Windows com `--startup`, o app abre direto na bandeja.
+- Atualizado o título HTML para KPassword, reduzindo aparições de "Tauri + React + Typescript" em processos WebView2.
+- Ao enviar para a bandeja, o app pede ao Windows para reduzir o working set do processo principal.
+
+### Observação
+
+- Processos filhos do WebView2 ainda podem aparecer como WebView2/Gerenciador WebView2 no Windows, pois pertencem ao runtime do WebView2.
+
 ## v1.3.2
 
 Release de hardening preventivo após auditoria de segurança.
@@ -16,7 +37,7 @@ Release de hardening preventivo após auditoria de segurança.
 ### Melhorias
 
 - Exportação CSV reforça que o arquivo não é criptografado e deve ser apagado após a migração.
-- Substituída a captura de QR estilo compartilhamento de tela por detecção nativa de QR visível na tela, com minimização temporária e retorno automático do app.
+- Substituída a captura de QR estilo compartilhamento de tela por recorte do Windows, com minimização temporária, leitura local do clipboard e retorno automático do app.
 - Auditoria local passa a mostrar dependências Rust que usam quick-xml para acompanhamento de advisories transitivos.
 - Documentação de release e segurança reforçada para chave do updater, Windows Hello/DPAPI e ameaça local.
 

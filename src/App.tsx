@@ -111,7 +111,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.3.2";
+const APP_VERSION = "1.3.3";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -1847,6 +1847,8 @@ export default function App() {
   );
   const [windowsHelloStatus, setWindowsHelloStatus] = useState<WindowsHelloStatus>(DEFAULT_WINDOWS_HELLO_STATUS);
   const [windowsHelloBusy, setWindowsHelloBusy] = useState(false);
+  const [startupEnabled, setStartupEnabled] = useState(false);
+  const [startupBusy, setStartupBusy] = useState(false);
   const [vaultFiles, setVaultFiles] = useState<VaultFileInfo[]>([]);
   const [newVaultName, setNewVaultName] = useState("");
   const [totpTick, setTotpTick] = useState(Date.now());
@@ -1897,6 +1899,18 @@ export default function App() {
     [filteredActionHistoryEntries],
   );
 
+  useEffect(() => {
+    document.title = "KPassword";
+  }, []);
+
+  useEffect(() => {
+    void invoke<boolean>("is_startup_enabled")
+      .then(setStartupEnabled)
+      .catch((error) => {
+        secureLogError("consultar inicialização com Windows", error);
+        setStartupEnabled(false);
+      });
+  }, []);
 
   const requestTrayProtection = useCallback((reason: "inactive" | "minimize" | "close") => {
     window.dispatchEvent(new CustomEvent("kpassword:protect-to-tray", { detail: { reason } }));
@@ -1927,6 +1941,21 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("kpassword:active-vault", activeVaultName);
   }, [activeVaultName]);
+
+  async function updateStartupEnabled(enabled: boolean) {
+    setStartupBusy(true);
+
+    try {
+      const nextEnabled = await invoke<boolean>("set_startup_enabled", { enabled });
+      setStartupEnabled(nextEnabled);
+      setMessage(nextEnabled ? t("settings.startupEnabled") : t("settings.startupDisabled"));
+    } catch (error) {
+      secureLogError("alterar inicialização com Windows", error);
+      setMessage(t("settings.startupError"));
+    } finally {
+      setStartupBusy(false);
+    }
+  }
 
   useEffect(() => {
     const interval = window.setInterval(() => setTotpTick(Date.now()), 1000);
@@ -3128,7 +3157,7 @@ export default function App() {
     setTotpPreview(preview);
     setTotpSetupMode("preview");
 
-    if (source === "manual") {
+    if (source === "manual" || credentialForm.totpSecret) {
       return true;
     }
 
@@ -4705,6 +4734,13 @@ export default function App() {
     totpPreview.source !== "manual" &&
     credentialForm.totpSecret === totpPreview.secret,
   );
+  const totpPreviewRequiresReplaceConfirmation = Boolean(
+    totpSetupMode === "preview" &&
+    totpPreview &&
+    totpPreview.source !== "manual" &&
+    credentialForm.totpSecret &&
+    credentialForm.totpSecret !== totpPreview.secret,
+  );
 
   const totpSetupDialog = totpSetupOpen ? (
     <div className="modalOverlay totpEasyOverlay" onMouseDown={closeTotpSetup}>
@@ -4815,6 +4851,10 @@ export default function App() {
 
         {totpPreviewAutoSaved && (
           <p className="totpEasySuccess">{t("totp.easy.autoSaved")}</p>
+        )}
+
+        {totpPreviewRequiresReplaceConfirmation && (
+          <p className="totpEasyWarning">{t("totp.easy.replaceExistingWarning")}</p>
         )}
 
         {totpSetupError && <p className="totpEasyError">{totpSetupError}</p>}
@@ -6387,6 +6427,19 @@ export default function App() {
 
                 <label className="toggleRow">
                   <span>
+                    <strong>{t("settings.startupWithWindows")}</strong>
+                    <small>{t("settings.startupWithWindowsDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={startupEnabled}
+                    disabled={startupBusy}
+                    onChange={(event) => void updateStartupEnabled(event.target.checked)}
+                  />
+                </label>
+
+                <label className="toggleRow">
+                  <span>
                     <strong>{t("settings.notifyOnTray")}</strong>
                     <small>{t("settings.notifyOnTrayDescription")}</small>
                   </span>
@@ -6412,7 +6465,7 @@ export default function App() {
 
               <div className="securityGrid">
                 <span>{t("settings.winV")}</span>
-                <span>{t("settings.autostart")}</span>
+                <span>{startupEnabled ? t("settings.autostartEnabledStatus") : t("settings.autostartDisabledStatus")}</span>
                 <span>{t("settings.tray")}</span>
                 <span>{t("settings.singleInstance")}</span>
               </div>

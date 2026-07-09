@@ -1158,6 +1158,106 @@ mod storage_tests {
         let _ = fs::remove_dir_all(&backup_dir);
     }
 }
+
+#[cfg(windows)]
+fn trim_current_process_working_set() {
+    #[link(name = "Kernel32")]
+    extern "system" {
+        fn GetCurrentProcess() -> *mut std::ffi::c_void;
+        fn SetProcessWorkingSetSize(
+            h_process: *mut std::ffi::c_void,
+            minimum_working_set_size: usize,
+            maximum_working_set_size: usize,
+        ) -> i32;
+    }
+
+    unsafe {
+        let process = GetCurrentProcess();
+        let _ = SetProcessWorkingSetSize(process, usize::MAX, usize::MAX);
+    }
+}
+
+#[cfg(not(windows))]
+fn trim_current_process_working_set() {}
+
+#[cfg(windows)]
+const STARTUP_REGISTRY_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+#[cfg(windows)]
+const STARTUP_VALUE_NAME: &str = "KPassword";
+
+#[cfg(windows)]
+fn startup_command_line() -> Result<String, String> {
+    let exe = std::env::current_exe()
+        .map_err(|error| format!("Não foi possível localizar o executável do KPassword: {error}"))?;
+    Ok(format!("\"{}\" --startup", exe.to_string_lossy()))
+}
+
+#[cfg(windows)]
+fn run_reg_command(args: &[&str]) -> Result<(), String> {
+    let status = Command::new("reg")
+        .args(args)
+        .status()
+        .map_err(|error| format!("Não foi possível executar reg.exe: {error}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("reg.exe retornou código {:?}", status.code()))
+    }
+}
+
+#[cfg(windows)]
+fn is_startup_enabled_impl() -> bool {
+    Command::new("reg")
+        .args(["query", STARTUP_REGISTRY_KEY, "/v", STARTUP_VALUE_NAME])
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
+#[cfg(not(windows))]
+fn is_startup_enabled_impl() -> bool {
+    false
+}
+
+#[cfg(windows)]
+fn set_startup_enabled_impl(enabled: bool) -> Result<(), String> {
+    if enabled {
+        let command_line = startup_command_line()?;
+        run_reg_command(&[
+            "add",
+            STARTUP_REGISTRY_KEY,
+            "/v",
+            STARTUP_VALUE_NAME,
+            "/t",
+            "REG_SZ",
+            "/d",
+            &command_line,
+            "/f",
+        ])
+    } else if is_startup_enabled_impl() {
+        run_reg_command(&["delete", STARTUP_REGISTRY_KEY, "/v", STARTUP_VALUE_NAME, "/f"])
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(not(windows))]
+fn set_startup_enabled_impl(_enabled: bool) -> Result<(), String> {
+    Err("Inicialização com Windows disponível apenas no Windows.".to_string())
+}
+
+#[tauri::command]
+fn is_startup_enabled() -> bool {
+    is_startup_enabled_impl()
+}
+
+#[tauri::command]
+fn set_startup_enabled(enabled: bool) -> Result<bool, String> {
+    set_startup_enabled_impl(enabled)?;
+    Ok(is_startup_enabled_impl())
+}
+
 #[tauri::command]
 fn hide_to_tray(
     app: AppHandle,
@@ -1171,6 +1271,11 @@ fn hide_to_tray(
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
     }
+
+    // Ao ir para a bandeja, o cofre já foi bloqueado no frontend.
+    // Este ajuste apenas pede ao Windows para reduzir o working set do processo principal.
+    // Os processos filhos do WebView2 continuam sob controle do runtime do Windows.
+    trim_current_process_working_set();
 
     if notify.unwrap_or(true) {
         let title = notification_title.unwrap_or_else(|| "KPassword protegido".to_string());
@@ -1897,10 +2002,19 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            if std::env::args().any(|arg| arg == "--startup") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                    trim_current_process_working_set();
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             hide_to_tray,
+            is_startup_enabled,
+            set_startup_enabled,
             load_vault_file,
             save_vault_file,
             get_storage_info,

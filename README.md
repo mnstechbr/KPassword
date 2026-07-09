@@ -11,13 +11,13 @@ Baixe a versão mais recente pela página de Releases do GitHub.
 Arquivo recomendado:
 
 ```text
-KPassword-Setup-v1.3.2.exe
+KPassword-Setup-v1.3.3.exe
 ```
 
 Também são publicados junto ao release:
 
 ```text
-KPassword-Setup-v1.3.2.exe.sig
+KPassword-Setup-v1.3.3.exe.sig
 latest.json
 SHA256SUMS.txt
 ```
@@ -27,7 +27,7 @@ O arquivo `latest.json` é usado pelo atualizador automático do app. O arquivo 
 ## Como instalar
 
 1. Baixe o instalador da versão mais recente em Releases.
-2. Execute `KPassword-Setup-v1.3.2.exe`.
+2. Execute `KPassword-Setup-v1.3.3.exe`.
 3. Abra o KPassword.
 4. Crie sua senha mestra.
 5. Guarde a senha mestra com segurança, pois ela não pode ser recuperada.
@@ -43,7 +43,7 @@ O KPassword salva seus dados localmente em um cofre criptografado. O app não ex
 - Verificação de backup sem restaurar o cofre atual.
 - Credenciais, notas seguras, cartões, identidades e licenças.
 - TOTP/2FA opcional dentro da credencial.
-- Leitura local de QR Code por imagem ou detecção nativa de QR visível na tela.
+- Leitura local de QR Code por imagem ou recorte do Windows, sem salvar screenshot em disco.
 - Assistente do Cofre com próximas ações sugeridas.
 - Diagnóstico de senhas fracas, reutilizadas, antigas, vencidas ou sem 2FA.
 - Histórico de ações do cofre, sem armazenar senhas, TOTP, anexos ou valores sensíveis.
@@ -52,6 +52,7 @@ O KPassword salva seus dados localmente em um cofre criptografado. O app não ex
 - Exportação CSV para migração, com aviso de risco.
 - Windows Hello/PIN/biometria como desbloqueio rápido opcional no dispositivo.
 - Atualização via GitHub Releases com assets assinados.
+- Inicialização com Windows opcional, registrada como KPassword.
 - Interface com temas escuro, claro e misto.
 
 ## Segurança e privacidade
@@ -87,9 +88,9 @@ npm run build
 Build oficial de release:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "1.3.2"
-npm run release:hash -- --ReleaseDir ".\dist-release\v1.3.2"
-npm run release:validate -- --ReleaseDir ".\dist-release\v1.3.2"
+powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "1.3.3"
+npm run release:hash -- --ReleaseDir ".\dist-release\v1.3.3"
+npm run release:validate -- --ReleaseDir ".\dist-release\v1.3.3"
 ```
 
 O script de build assinado não faz `git add`, `git commit`, `git push` nem instala dependências automaticamente. Antes da release, confira o estado do Git, rode `npm install` manualmente quando necessário e use uma chave privada do updater protegida por senha forte.

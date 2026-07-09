@@ -77,3 +77,13 @@ Antes de publicar uma release do KPassword:
 - [ ] Exportação CSV mostra aviso reforçado de arquivo não criptografado.
 - [ ] `tools\fix-updater-v030-build.ps1` exige senha da chave e não faz commit/push.
 - [ ] `npm run security:audit` mostra dependências que usam quick-xml e executa cargo audit quando instalado.
+
+## Validações específicas v1.3.3
+
+- [ ] QR novo em credencial sem 2FA salva automaticamente e mantém a tela do código aberta.
+- [ ] QR novo em credencial com 2FA existente mostra aviso e exige Substituir 2FA antes de trocar.
+- [ ] Recorte do Windows continua minimizando, voltando ao app e lendo o QR.
+- [ ] Toggle Iniciar com Windows cria/remove entrada KPassword nos Aplicativos de inicialização.
+- [ ] Ao iniciar com `--startup`, o app abre direto na bandeja.
+- [ ] Título do WebView aparece como KPassword, sem "Tauri + React + Typescript".
+- [ ] App enviado à bandeja bloqueia o cofre e não mantém dados sensíveis em estado desbloqueado.

@@ -105,7 +105,7 @@ npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 - [ ] CSV com notas multilinha importado corretamente.
 - [ ] CSV com TOTP `otpauth://` importado corretamente.
 - [ ] Imagem de QR grande recusada antes do processamento.
-- [ ] Detecção nativa de QR visível na tela funcionando sem seletor estilo compartilhamento de tela.
+- [ ] Recorte do Windows para QR funcionando sem seletor estilo compartilhamento de tela.
 - [ ] Leitor QR validado offline.
 - [ ] Windows Hello descrito como conveniência local/DPAPI.
 
@@ -113,7 +113,17 @@ npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 
 - [ ] Confirmar que a chave do updater tem senha forte.
 - [ ] Confirmar que nenhum script fez commit/push automático.
-- [ ] Confirmar detecção nativa de QR visível na tela, com minimização e retorno automático do app.
+- [ ] Confirmar recorte do Windows para QR, com minimização e retorno automático do app.
 - [ ] Confirmar rejeição de imagens QR grandes no frontend e no Rust.
 - [ ] Confirmar aviso reforçado da exportação CSV.
 - [ ] Confirmar `cargo tree`/`cargo audit` para advisories transitivos como quick-xml.
+
+## Validações específicas v1.3.3
+
+- [ ] QR novo em credencial sem 2FA salva automaticamente e mantém a tela do código aberta.
+- [ ] QR novo em credencial com 2FA existente mostra aviso e exige Substituir 2FA antes de trocar.
+- [ ] Recorte do Windows continua minimizando, voltando ao app e lendo o QR.
+- [ ] Toggle Iniciar com Windows cria/remove entrada KPassword nos Aplicativos de inicialização.
+- [ ] Ao iniciar com `--startup`, o app abre direto na bandeja.
+- [ ] Título do WebView aparece como KPassword, sem "Tauri + React + Typescript".
+- [ ] App enviado à bandeja bloqueia o cofre e não mantém dados sensíveis em estado desbloqueado.

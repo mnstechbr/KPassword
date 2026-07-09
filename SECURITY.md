@@ -59,6 +59,8 @@ Windows Hello/PIN/biometria no KPassword é desbloqueio rápido opcional no disp
 
 A leitura de QR Code/TOTP é feita localmente pelo app. Não envie senhas, QR Codes, TOTP secrets ou cofres reais em relatórios de bug.
 
+No fluxo de recorte do Windows, o app aciona Win + Shift + S, lê a imagem do clipboard localmente e não grava o recorte em disco. Quando uma credencial já tem 2FA, um QR novo exige confirmação antes de substituir o segredo existente.
+
 CSV exportado não é criptografado e deve ser usado apenas para migração temporária.
 
 
@@ -73,3 +75,7 @@ Windows Hello no KPassword é uma conveniência local. Quando ativado, o segredo
 ## Dependências transitivas
 
 Dependências Rust transitivas devem ser acompanhadas com `cargo audit` quando disponível e com `cargo tree`, especialmente bibliotecas usadas por Tauri/plugins. Overrides manuais de dependências transitivas não devem ser aplicados sem confirmar compatibilidade, para evitar corrigir um advisory criando instabilidade de runtime.
+
+## Bandeja, inicialização e memória
+
+A inicialização com Windows é opcional e usa registro do usuário atual em HKCU. Ao iniciar com `--startup`, o app abre na bandeja. Ao ir para a bandeja, o cofre é bloqueado conforme configuração e o app solicita ao Windows redução do working set do processo principal. Processos filhos do WebView2 continuam sob controle do runtime do Windows.

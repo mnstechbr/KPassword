@@ -3839,8 +3839,60 @@ const v132Translations: Record<AppLanguage, Record<string, string>> = {
   }
 };
 
+
+const v133Translations: Record<AppLanguage, Record<string, string>> = {
+  pt: {
+    "totp.easy.noticeText": "Guardar o 2FA no KPassword facilita o uso, mas mantém senha e código no mesmo cofre. QR válido salva automaticamente apenas quando a credencial ainda não tem 2FA; se já existir, o app pede confirmação antes de substituir.",
+    "totp.easy.screenIntroStep3": "Arraste ao redor do QR Code. Depois do recorte, o KPassword volta com o código; se já existir 2FA, ele pede confirmação antes de substituir.",
+    "totp.easy.replaceExistingWarning": "Esta credencial já tem 2FA cadastrado. O novo QR ainda não substituiu o atual. Confira o código e clique em Substituir 2FA somente se quiser trocar.",
+    "settings.startupWithWindows": "Iniciar com Windows",
+    "settings.startupWithWindowsDescription": "Registra o KPassword nos Aplicativos de inicialização do Windows. Você pode ativar ou desativar por aqui.",
+    "settings.startupEnabled": "KPassword configurado para iniciar com o Windows.",
+    "settings.startupDisabled": "KPassword removido da inicialização do Windows.",
+    "settings.startupError": "Não foi possível alterar a inicialização com o Windows.",
+    "settings.autostartEnabledStatus": "Inicialização com Windows: ativa",
+    "settings.autostartDisabledStatus": "Inicialização com Windows: desativada"
+  },
+  en: {
+    "totp.easy.noticeText": "Keeping 2FA in KPassword is convenient, but keeps password and code in the same vault. A valid QR is saved automatically only when the credential does not have 2FA yet; if one already exists, KPassword asks before replacing it.",
+    "totp.easy.screenIntroStep3": "Drag around the QR code. After the snip, KPassword returns with the code; if 2FA already exists, it asks before replacing it.",
+    "totp.easy.replaceExistingWarning": "This credential already has 2FA configured. The new QR has not replaced the current one yet. Check the code and click Replace 2FA only if you want to switch.",
+    "settings.startupWithWindows": "Start with Windows",
+    "settings.startupWithWindowsDescription": "Registers KPassword in Windows Startup Apps. You can enable or disable it here.",
+    "settings.startupEnabled": "KPassword is configured to start with Windows.",
+    "settings.startupDisabled": "KPassword was removed from Windows startup.",
+    "settings.startupError": "Could not change Windows startup.",
+    "settings.autostartEnabledStatus": "Start with Windows: enabled",
+    "settings.autostartDisabledStatus": "Start with Windows: disabled"
+  },
+  es: {
+    "totp.easy.noticeText": "Guardar el 2FA en KPassword facilita el uso, pero mantiene contraseña y código en la misma bóveda. Un QR válido se guarda automáticamente solo cuando la credencial aún no tiene 2FA; si ya existe, KPassword pide confirmación antes de sustituirlo.",
+    "totp.easy.screenIntroStep3": "Arrastra alrededor del QR. Después del recorte, KPassword vuelve con el código; si ya existe 2FA, pide confirmación antes de sustituirlo.",
+    "totp.easy.replaceExistingWarning": "Esta credencial ya tiene 2FA configurado. El nuevo QR aún no sustituyó al actual. Revisa el código y haz clic en Sustituir 2FA solo si quieres cambiarlo.",
+    "settings.startupWithWindows": "Iniciar con Windows",
+    "settings.startupWithWindowsDescription": "Registra KPassword en las Aplicaciones de inicio de Windows. Puedes activarlo o desactivarlo aquí.",
+    "settings.startupEnabled": "KPassword está configurado para iniciar con Windows.",
+    "settings.startupDisabled": "KPassword se quitó del inicio de Windows.",
+    "settings.startupError": "No se pudo cambiar el inicio con Windows.",
+    "settings.autostartEnabledStatus": "Inicio con Windows: activo",
+    "settings.autostartDisabledStatus": "Inicio con Windows: desactivado"
+  },
+  tr: {
+    "totp.easy.noticeText": "2FA bilgisini KPassword içinde tutmak kullanışlıdır, ancak parola ve kodu aynı kasada tutar. Geçerli QR yalnızca kimlik bilgisinde henüz 2FA yoksa otomatik kaydedilir; zaten varsa KPassword değiştirmeden önce onay ister.",
+    "totp.easy.screenIntroStep3": "QR kodun etrafında sürükleyin. Kırpmadan sonra KPassword kodla geri döner; 2FA zaten varsa değiştirmeden önce onay ister.",
+    "totp.easy.replaceExistingWarning": "Bu kimlik bilgisinde zaten 2FA var. Yeni QR mevcut olanın yerini henüz almadı. Kodu kontrol edin ve yalnızca değiştirmek istiyorsanız 2FA'yı değiştir'e tıklayın.",
+    "settings.startupWithWindows": "Windows ile başlat",
+    "settings.startupWithWindowsDescription": "KPassword'u Windows Başlangıç Uygulamaları'na kaydeder. Buradan açıp kapatabilirsiniz.",
+    "settings.startupEnabled": "KPassword Windows ile başlayacak şekilde ayarlandı.",
+    "settings.startupDisabled": "KPassword Windows başlangıcından kaldırıldı.",
+    "settings.startupError": "Windows başlangıcı değiştirilemedi.",
+    "settings.autostartEnabledStatus": "Windows ile başlatma: açık",
+    "settings.autostartDisabledStatus": "Windows ile başlatma: kapalı"
+  }
+};
+
 export function translate(language: AppLanguage, key: TranslationKey, values: TranslationValues = {}) {
-  const template = v132Translations[language]?.[key] ?? v132Translations.en[key] ?? v132Translations.pt[key] ?? v130Translations[language]?.[key] ?? v130Translations.en[key] ?? v130Translations.pt[key] ?? v100Translations[language]?.[key] ?? v100Translations.en[key] ?? v100Translations.pt[key] ?? v095Translations[language]?.[key] ?? v095Translations.en[key] ?? v095Translations.pt[key] ?? v094Translations[language]?.[key] ?? v094Translations.en[key] ?? v094Translations.pt[key] ?? v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
+  const template = v133Translations[language]?.[key] ?? v133Translations.en[key] ?? v133Translations.pt[key] ?? v132Translations[language]?.[key] ?? v132Translations.en[key] ?? v132Translations.pt[key] ?? v130Translations[language]?.[key] ?? v130Translations.en[key] ?? v130Translations.pt[key] ?? v100Translations[language]?.[key] ?? v100Translations.en[key] ?? v100Translations.pt[key] ?? v095Translations[language]?.[key] ?? v095Translations.en[key] ?? v095Translations.pt[key] ?? v094Translations[language]?.[key] ?? v094Translations.en[key] ?? v094Translations.pt[key] ?? v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
 
   return String(template).replace(/\{(\w+)\}/g, (_, name: string) =>
     values[name] === undefined ? `{${name}}` : String(values[name]),

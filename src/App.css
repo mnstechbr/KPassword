@@ -12457,6 +12457,15 @@ textarea {
   background: color-mix(in srgb, #22c55e 13%, transparent);
 }
 
+.totpEasyWarning {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, #f59e0b 48%, var(--border));
+  border-radius: 14px;
+  color: color-mix(in srgb, #f59e0b 86%, white);
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+}
+
 @media (max-width: 720px) {
   .totpEasyCard,
   .totpBoxActions {
