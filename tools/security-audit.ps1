@@ -35,6 +35,15 @@ Invoke-Step "cargo test" {
 Invoke-Step "npm audit" { npm audit }
 
 Write-Host ""
+Write-Host "=== dependências Rust que usam quick-xml ===" -ForegroundColor Cyan
+Push-Location "$Project\src-tauri"
+try {
+  cargo tree | Select-String -Pattern "quick-xml"
+} finally {
+  Pop-Location
+}
+
+Write-Host ""
 Write-Host "=== cargo audit ===" -ForegroundColor Cyan
 $cargoAuditInstalled = $false
 try {

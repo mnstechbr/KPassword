@@ -1,5 +1,6 @@
 use std::{
     fs,
+    io::Cursor,
     path::{Path, PathBuf},
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
@@ -19,6 +20,9 @@ use tauri::{
 };
 
 const BACKUP_INTERVAL_SECONDS: u64 = 4 * 60 * 60;
+const MAX_QR_IMAGE_BYTES: usize = 12 * 1024 * 1024;
+const MAX_QR_IMAGE_SIDE: u32 = 10_000;
+const MAX_QR_IMAGE_PIXELS: u64 = 25_000_000;
 
 #[derive(Serialize)]
 struct BackupFile {
@@ -382,7 +386,7 @@ fn save_vault_file(
                 ));
             }
 
-            eprintln!("Aviso: cofre salvo, mas backup automático falhou: {error}");
+            eprintln!("Aviso: cofre salvo, mas backup automático falhou.");
         }
     }
 
@@ -1222,34 +1226,573 @@ fn decode_qr_with_quircs(gray_image: &image::GrayImage) -> Option<String> {
     first_non_empty_qr_payload(payloads)
 }
 
-fn brighten_qr_image(gray_image: &image::GrayImage) -> image::GrayImage {
+fn validate_qr_image_dimensions(width: u32, height: u32) -> Result<(), String> {
+    if width == 0 || height == 0 {
+        return Err("Imagem inválida ou corrompida.".to_string());
+    }
+
+    let pixels = u64::from(width) * u64::from(height);
+
+    if width > MAX_QR_IMAGE_SIDE || height > MAX_QR_IMAGE_SIDE || pixels > MAX_QR_IMAGE_PIXELS {
+        return Err("Imagem muito grande. Use um print menor do QR Code.".to_string());
+    }
+
+    Ok(())
+}
+
+fn read_qr_image_dimensions(image_bytes: &[u8]) -> Result<(u32, u32), String> {
+    let reader = image::ImageReader::new(Cursor::new(image_bytes))
+        .with_guessed_format()
+        .map_err(|_| "Imagem inválida ou corrompida.".to_string())?;
+
+    reader
+        .into_dimensions()
+        .map_err(|_| "Não foi possível abrir a imagem do QR Code.".to_string())
+}
+
+fn threshold_qr_image(gray_image: &image::GrayImage, threshold: u8) -> image::GrayImage {
     let mut output = gray_image.clone();
 
     for pixel in output.pixels_mut() {
         let value = pixel[0];
-        pixel[0] = if value < 150 { 0 } else { 255 };
+        pixel[0] = if value < threshold { 0 } else { 255 };
     }
 
     output
 }
 
-fn qr_image_variants(decoded_image: &image::DynamicImage) -> Vec<image::GrayImage> {
-    let original = decoded_image.to_luma8();
-    let mut variants = vec![original.clone(), brighten_qr_image(&original)];
+fn qr_gray_variants(original: &image::GrayImage) -> Vec<image::GrayImage> {
+    let mut variants = vec![
+        original.clone(),
+        threshold_qr_image(original, 110),
+        threshold_qr_image(original, 145),
+        threshold_qr_image(original, 180),
+    ];
 
     let max_dimension = original.width().max(original.height());
-    if max_dimension < 700 {
+    let mut add_scaled = |scale: u32| {
+        let scaled_width = original.width().saturating_mul(scale);
+        let scaled_height = original.height().saturating_mul(scale);
+
+        if scaled_width == 0 || scaled_height == 0 {
+            return;
+        }
+
         let scaled = image::imageops::resize(
-            &original,
-            original.width().saturating_mul(2),
-            original.height().saturating_mul(2),
+            original,
+            scaled_width,
+            scaled_height,
             image::imageops::FilterType::Nearest,
         );
         variants.push(scaled.clone());
-        variants.push(brighten_qr_image(&scaled));
+        variants.push(threshold_qr_image(&scaled, 145));
+    };
+
+    if max_dimension < 450 {
+        add_scaled(4);
+    } else if max_dimension < 900 {
+        add_scaled(3);
+    } else if max_dimension < 1400 {
+        add_scaled(2);
     }
 
     variants
+}
+
+fn decode_qr_from_gray_image(gray_image: &image::GrayImage) -> Option<String> {
+    for variant in qr_gray_variants(gray_image) {
+        if let Some(content) = decode_qr_with_quircs(&variant) {
+            return Some(content);
+        }
+
+        if let Some(content) = decode_qr_with_rqrr(variant) {
+            return Some(content);
+        }
+    }
+
+    None
+}
+
+fn tile_starts(total: u32, tile: u32) -> Vec<u32> {
+    if tile >= total {
+        return vec![0];
+    }
+
+    let step = (tile / 2).max(160);
+    let mut starts = vec![0];
+    let mut current = step;
+
+    while current + tile < total {
+        starts.push(current);
+        current = current.saturating_add(step);
+    }
+
+    starts.push(total - tile);
+    starts.sort_unstable();
+    starts.dedup();
+    starts
+}
+
+fn centered_crop(gray_image: &image::GrayImage, width: u32, height: u32) -> image::GrayImage {
+    let crop_width = width.min(gray_image.width());
+    let crop_height = height.min(gray_image.height());
+    let x = (gray_image.width() - crop_width) / 2;
+    let y = (gray_image.height() - crop_height) / 2;
+
+    image::imageops::crop_imm(gray_image, x, y, crop_width, crop_height).to_image()
+}
+
+fn decode_qr_from_large_gray_image(gray_image: &image::GrayImage) -> Option<String> {
+    let width = gray_image.width();
+    let height = gray_image.height();
+    let max_dimension = width.max(height);
+
+    // Primeiro tentamos recortes centrais. Na tela de configuração 2FA, o QR quase sempre
+    // fica no centro da janela do navegador, como no cenário relatado pelo usuário.
+    for size in [420, 560, 720, 900, 1100, 1400, 1700] {
+        if size > max_dimension.saturating_add(200) {
+            continue;
+        }
+
+        let crop = centered_crop(gray_image, size.min(width), size.min(height));
+        if let Some(content) = decode_qr_from_gray_image(&crop) {
+            return Some(content);
+        }
+    }
+
+    // Depois varremos a tela com recortes sobrepostos. Isso evita pedir recorte manual e
+    // resolve QR pequeno dentro de uma captura de desktop grande.
+    for size in [420, 560, 720, 900, 1100, 1400] {
+        let tile_width = size.min(width);
+        let tile_height = size.min(height);
+
+        if tile_width < 180 || tile_height < 180 {
+            continue;
+        }
+
+        for y in tile_starts(height, tile_height) {
+            for x in tile_starts(width, tile_width) {
+                let crop = image::imageops::crop_imm(gray_image, x, y, tile_width, tile_height).to_image();
+                if let Some(content) = decode_qr_from_gray_image(&crop) {
+                    return Some(content);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn decode_qr_from_dynamic_image(decoded_image: &image::DynamicImage) -> Result<String, String> {
+    validate_qr_image_dimensions(decoded_image.width(), decoded_image.height())?;
+
+    let gray_image = decoded_image.to_luma8();
+
+    if let Some(content) = decode_qr_from_gray_image(&gray_image) {
+        return Ok(content);
+    }
+
+    if gray_image.width().max(gray_image.height()) > 900 {
+        if let Some(content) = decode_qr_from_large_gray_image(&gray_image) {
+            return Ok(content);
+        }
+    }
+
+    Err("Não foi possível ler um QR Code nessa imagem.".to_string())
+}
+
+fn encode_qr_capture_as_png_data_url(image: &image::DynamicImage) -> Result<String, String> {
+    validate_qr_image_dimensions(image.width(), image.height())?;
+
+    let mut cursor = Cursor::new(Vec::new());
+    image
+        .write_to(&mut cursor, image::ImageFormat::Png)
+        .map_err(|_| "Não foi possível preparar a captura da tela.".to_string())?;
+    let bytes = cursor.into_inner();
+
+    if bytes.len() > MAX_QR_IMAGE_BYTES.saturating_mul(2) {
+        return Err("A captura ficou grande demais. Deixe apenas o QR visível e tente novamente.".to_string());
+    }
+
+    Ok(format!(
+        "data:image/png;base64,{}",
+        general_purpose::STANDARD.encode(bytes)
+    ))
+}
+
+#[cfg(windows)]
+mod windows_screen_snip_native {
+    use super::{encode_qr_capture_as_png_data_url, validate_qr_image_dimensions, MAX_QR_IMAGE_BYTES};
+    use image::{DynamicImage, RgbaImage};
+    use std::{ffi::c_void, mem, thread, time::Duration};
+
+    const CF_DIB: u32 = 8;
+    const CF_DIBV5: u32 = 17;
+    const BI_BITFIELDS: u32 = 3;
+    const BI_ALPHABITFIELDS: u32 = 6;
+    const INPUT_KEYBOARD: u32 = 1;
+    const KEYEVENTF_KEYUP: u32 = 0x0002;
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct MouseInput {
+        dx: i32,
+        dy: i32,
+        mouse_data: u32,
+        dw_flags: u32,
+        time: u32,
+        dw_extra_info: usize,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct KeyboardInput {
+        w_vk: u16,
+        w_scan: u16,
+        dw_flags: u32,
+        time: u32,
+        dw_extra_info: usize,
+    }
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct HardwareInput {
+        u_msg: u32,
+        w_param_l: u16,
+        w_param_h: u16,
+    }
+
+    #[repr(C)]
+    union InputUnion {
+        mi: MouseInput,
+        ki: KeyboardInput,
+        hi: HardwareInput,
+    }
+
+    #[repr(C)]
+    struct Input {
+        input_type: u32,
+        union: InputUnion,
+    }
+
+    #[link(name = "User32")]
+    extern "system" {
+        fn OpenClipboard(hwnd_new_owner: *mut c_void) -> i32;
+        fn CloseClipboard() -> i32;
+        fn IsClipboardFormatAvailable(format: u32) -> i32;
+        fn GetClipboardData(format: u32) -> *mut c_void;
+        fn GetClipboardSequenceNumber() -> u32;
+        fn RegisterClipboardFormatW(format: *const u16) -> u32;
+        fn SendInput(c_inputs: u32, p_inputs: *const Input, cb_size: i32) -> u32;
+    }
+
+    #[link(name = "Kernel32")]
+    extern "system" {
+        fn GlobalLock(memory: *mut c_void) -> *mut c_void;
+        fn GlobalUnlock(memory: *mut c_void) -> i32;
+        fn GlobalSize(memory: *mut c_void) -> usize;
+    }
+
+    struct ClipboardGuard;
+
+    impl Drop for ClipboardGuard {
+        fn drop(&mut self) {
+            unsafe {
+                let _ = CloseClipboard();
+            }
+        }
+    }
+
+    fn open_clipboard() -> Option<ClipboardGuard> {
+        let opened = unsafe { OpenClipboard(std::ptr::null_mut()) } != 0;
+        opened.then_some(ClipboardGuard)
+    }
+
+    fn clipboard_sequence_number() -> u32 {
+        unsafe { GetClipboardSequenceNumber() }
+    }
+
+    fn register_clipboard_format(name: &str) -> u32 {
+        let mut wide: Vec<u16> = name.encode_utf16().collect();
+        wide.push(0);
+        unsafe { RegisterClipboardFormatW(wide.as_ptr()) }
+    }
+
+    fn read_clipboard_format_bytes(format: u32) -> Option<Vec<u8>> {
+        if unsafe { IsClipboardFormatAvailable(format) } == 0 {
+            return None;
+        }
+
+        let handle = unsafe { GetClipboardData(format) };
+        if handle.is_null() {
+            return None;
+        }
+
+        let size = unsafe { GlobalSize(handle) };
+        if size == 0 || size > MAX_QR_IMAGE_BYTES.saturating_mul(10) {
+            return None;
+        }
+
+        let locked = unsafe { GlobalLock(handle) };
+        if locked.is_null() {
+            return None;
+        }
+
+        let bytes = unsafe { std::slice::from_raw_parts(locked.cast::<u8>(), size).to_vec() };
+        unsafe {
+            let _ = GlobalUnlock(handle);
+        }
+
+        Some(bytes)
+    }
+
+    fn read_le_u16(bytes: &[u8], offset: usize) -> Option<u16> {
+        let value = bytes.get(offset..offset + 2)?;
+        Some(u16::from_le_bytes([value[0], value[1]]))
+    }
+
+    fn read_le_u32(bytes: &[u8], offset: usize) -> Option<u32> {
+        let value = bytes.get(offset..offset + 4)?;
+        Some(u32::from_le_bytes([value[0], value[1], value[2], value[3]]))
+    }
+
+    fn read_le_i32(bytes: &[u8], offset: usize) -> Option<i32> {
+        let value = bytes.get(offset..offset + 4)?;
+        Some(i32::from_le_bytes([value[0], value[1], value[2], value[3]]))
+    }
+
+    fn clipboard_dib_to_image(bytes: &[u8]) -> Option<DynamicImage> {
+        let header_size = usize::try_from(read_le_u32(bytes, 0)?).ok()?;
+        if header_size < 40 || bytes.len() < header_size {
+            return None;
+        }
+
+        let width_i32 = read_le_i32(bytes, 4)?;
+        let height_i32 = read_le_i32(bytes, 8)?;
+        let planes = read_le_u16(bytes, 12)?;
+        let bit_count = read_le_u16(bytes, 14)?;
+        let compression = read_le_u32(bytes, 16)?;
+        let colors_used = read_le_u32(bytes, 32).unwrap_or(0);
+
+        if planes != 1 || width_i32 <= 0 || height_i32 == 0 {
+            return None;
+        }
+
+        let width = u32::try_from(width_i32).ok()?;
+        let height = height_i32.unsigned_abs();
+        validate_qr_image_dimensions(width, height).ok()?;
+
+        let mut pixel_offset = header_size;
+        if bit_count <= 8 {
+            let colors = if colors_used > 0 { colors_used } else { 1u32.checked_shl(bit_count.into()).unwrap_or(0) };
+            pixel_offset = pixel_offset.checked_add(usize::try_from(colors).ok()?.checked_mul(4)?)?;
+        } else if header_size == 40 && (compression == BI_BITFIELDS || compression == BI_ALPHABITFIELDS) {
+            pixel_offset = pixel_offset.checked_add(if compression == BI_ALPHABITFIELDS { 16 } else { 12 })?;
+        }
+
+        let width_usize = usize::try_from(width).ok()?;
+        let height_usize = usize::try_from(height).ok()?;
+        let bottom_up = height_i32 > 0;
+        let mut rgba = vec![0u8; width_usize.checked_mul(height_usize)?.checked_mul(4)?];
+
+        match bit_count {
+            32 => {
+                let stride = width_usize.checked_mul(4)?;
+                if bytes.len() < pixel_offset.checked_add(stride.checked_mul(height_usize)?)? {
+                    return None;
+                }
+
+                for y in 0..height_usize {
+                    let source_y = if bottom_up { height_usize - 1 - y } else { y };
+                    let source_row = pixel_offset + source_y * stride;
+                    let target_row = y * width_usize * 4;
+
+                    for x in 0..width_usize {
+                        let source = source_row + x * 4;
+                        let target = target_row + x * 4;
+                        rgba[target] = bytes[source + 2];
+                        rgba[target + 1] = bytes[source + 1];
+                        rgba[target + 2] = bytes[source];
+                        rgba[target + 3] = 255;
+                    }
+                }
+            }
+            24 => {
+                let stride = width_usize.checked_mul(3)?.checked_add(3)? & !3;
+                if bytes.len() < pixel_offset.checked_add(stride.checked_mul(height_usize)?)? {
+                    return None;
+                }
+
+                for y in 0..height_usize {
+                    let source_y = if bottom_up { height_usize - 1 - y } else { y };
+                    let source_row = pixel_offset + source_y * stride;
+                    let target_row = y * width_usize * 4;
+
+                    for x in 0..width_usize {
+                        let source = source_row + x * 3;
+                        let target = target_row + x * 4;
+                        rgba[target] = bytes[source + 2];
+                        rgba[target + 1] = bytes[source + 1];
+                        rgba[target + 2] = bytes[source];
+                        rgba[target + 3] = 255;
+                    }
+                }
+            }
+            _ => return None,
+        }
+
+        let image = RgbaImage::from_raw(width, height, rgba)?;
+        Some(DynamicImage::ImageRgba8(image))
+    }
+
+    fn read_clipboard_image() -> Option<DynamicImage> {
+        let _guard = open_clipboard()?;
+
+        let png_format = register_clipboard_format("PNG");
+        if png_format != 0 {
+            if let Some(bytes) = read_clipboard_format_bytes(png_format) {
+                if let Ok(image) = image::load_from_memory(&bytes) {
+                    return Some(image);
+                }
+            }
+        }
+
+        for format in [CF_DIBV5, CF_DIB] {
+            if let Some(bytes) = read_clipboard_format_bytes(format) {
+                if let Some(image) = clipboard_dib_to_image(&bytes) {
+                    return Some(image);
+                }
+            }
+        }
+
+        None
+    }
+
+    fn send_keyboard_input(vk: u16, flags: u32) -> Result<(), String> {
+        let input = Input {
+            input_type: INPUT_KEYBOARD,
+            union: InputUnion {
+                ki: KeyboardInput {
+                    w_vk: vk,
+                    w_scan: 0,
+                    dw_flags: flags,
+                    time: 0,
+                    dw_extra_info: 0,
+                },
+            },
+        };
+
+        let sent = unsafe { SendInput(1, &input as *const Input, mem::size_of::<Input>() as i32) };
+        if sent == 0 {
+            return Err("Não foi possível acionar o atalho de recorte do Windows.".to_string());
+        }
+
+        Ok(())
+    }
+
+    pub fn launch_screen_snip() -> Result<(), String> {
+        // Aciona o mesmo fluxo do atalho global Win + Shift + S.
+        // SendInput é mais confiável que keybd_event para o atalho global do Windows.
+        const VK_LWIN: u16 = 0x5B;
+        const VK_SHIFT: u16 = 0x10;
+        const VK_S: u16 = 0x53;
+
+        send_keyboard_input(VK_LWIN, 0)?;
+        thread::sleep(Duration::from_millis(45));
+        send_keyboard_input(VK_SHIFT, 0)?;
+        thread::sleep(Duration::from_millis(45));
+        send_keyboard_input(VK_S, 0)?;
+        thread::sleep(Duration::from_millis(80));
+        send_keyboard_input(VK_S, KEYEVENTF_KEYUP)?;
+        thread::sleep(Duration::from_millis(45));
+        send_keyboard_input(VK_SHIFT, KEYEVENTF_KEYUP)?;
+        thread::sleep(Duration::from_millis(45));
+        send_keyboard_input(VK_LWIN, KEYEVENTF_KEYUP)?;
+
+        Ok(())
+    }
+
+    pub fn clipboard_sequence() -> u32 {
+        clipboard_sequence_number()
+    }
+
+    pub fn read_clipboard_image_png_data_url(after_sequence: u32) -> Result<String, String> {
+        let current_sequence = clipboard_sequence_number();
+        if after_sequence != 0 && current_sequence == after_sequence {
+            return Err("Aguardando um novo recorte no clipboard.".to_string());
+        }
+
+        let image = read_clipboard_image()
+            .ok_or_else(|| "Nenhuma imagem recortada foi encontrada no clipboard.".to_string())?;
+
+        encode_qr_capture_as_png_data_url(&image)
+    }
+}
+
+#[cfg(windows)]
+fn get_windows_clipboard_sequence_number_impl() -> u32 {
+    windows_screen_snip_native::clipboard_sequence()
+}
+
+#[cfg(not(windows))]
+fn get_windows_clipboard_sequence_number_impl() -> u32 {
+    0
+}
+
+#[tauri::command]
+fn get_windows_clipboard_sequence_number() -> u32 {
+    get_windows_clipboard_sequence_number_impl()
+}
+
+#[cfg(windows)]
+fn start_windows_screen_snip_impl() -> Result<(), String> {
+    windows_screen_snip_native::launch_screen_snip()
+}
+
+#[cfg(not(windows))]
+fn start_windows_screen_snip_impl() -> Result<(), String> {
+    Err("O recorte automático de QR está disponível apenas no Windows.".to_string())
+}
+
+#[tauri::command]
+fn start_windows_screen_snip(window: tauri::Window) -> Result<(), String> {
+    // Fazemos a preparação no backend para garantir que a janela suma antes do Win + Shift + S.
+    // O frontend continua responsável por aguardar o novo recorte no clipboard e restaurar a janela.
+    let _ = window.set_always_on_top(false);
+    let _ = window.minimize();
+    std::thread::sleep(std::time::Duration::from_millis(900));
+    start_windows_screen_snip_impl()
+}
+
+#[tauri::command]
+fn restore_main_window_after_screen_snip(window: tauri::Window) -> Result<(), String> {
+    // Depois que o Windows copia o recorte para o clipboard, trazemos o KPassword de volta.
+    // O pulso topmost ajuda quando o foco ainda fica preso no navegador ou na overlay de recorte.
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_always_on_top(true);
+    let _ = window.set_focus();
+    std::thread::sleep(std::time::Duration::from_millis(220));
+    let _ = window.set_focus();
+    std::thread::sleep(std::time::Duration::from_millis(320));
+    let _ = window.set_always_on_top(false);
+    let _ = window.set_focus();
+    Ok(())
+}
+
+#[cfg(windows)]
+fn read_windows_clipboard_image_png_data_url_impl(after_sequence: u32) -> Result<String, String> {
+    windows_screen_snip_native::read_clipboard_image_png_data_url(after_sequence)
+}
+
+#[cfg(not(windows))]
+fn read_windows_clipboard_image_png_data_url_impl(_after_sequence: u32) -> Result<String, String> {
+    Err("O recorte automático de QR está disponível apenas no Windows.".to_string())
+}
+
+#[tauri::command]
+fn read_windows_clipboard_image_png_data_url(after_sequence: u32) -> Result<String, String> {
+    read_windows_clipboard_image_png_data_url_impl(after_sequence)
 }
 
 #[tauri::command]
@@ -1263,24 +1806,37 @@ fn decode_qr_from_image_data_url(data_url: String) -> Result<String, String> {
         .decode(encoded.as_bytes())
         .map_err(|_| "Imagem inválida ou corrompida.".to_string())?;
 
-    if image_bytes.len() > 12 * 1024 * 1024 {
+    if image_bytes.len() > MAX_QR_IMAGE_BYTES {
         return Err("Imagem muito grande. Use um print menor do QR Code.".to_string());
     }
+
+    let (width, height) = read_qr_image_dimensions(&image_bytes)?;
+    validate_qr_image_dimensions(width, height)?;
 
     let decoded_image = image::load_from_memory(&image_bytes)
         .map_err(|_| "Não foi possível abrir a imagem do QR Code.".to_string())?;
 
-    for variant in qr_image_variants(&decoded_image) {
-        if let Some(content) = decode_qr_with_quircs(&variant) {
-            return Ok(content);
-        }
+    decode_qr_from_dynamic_image(&decoded_image)
+}
 
-        if let Some(content) = decode_qr_with_rqrr(variant) {
-            return Ok(content);
-        }
+#[cfg(test)]
+mod qr_safety_tests {
+    use super::*;
+
+    #[test]
+    fn qr_dimensions_accept_reasonable_image() {
+        assert!(validate_qr_image_dimensions(1024, 1024).is_ok());
     }
 
-    Err("Não foi possível ler um QR Code nessa imagem.".to_string())
+    #[test]
+    fn qr_dimensions_reject_oversized_side() {
+        assert!(validate_qr_image_dimensions(MAX_QR_IMAGE_SIDE + 1, 512).is_err());
+    }
+
+    #[test]
+    fn qr_dimensions_reject_oversized_pixel_count() {
+        assert!(validate_qr_image_dimensions(5001, 5001).is_err());
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1325,7 +1881,7 @@ pub fn run() {
                         app.exit(0);
                     }
                     _ => {
-                        println!("Item de menu nao tratado: {:?}", event.id);
+                        println!("Item de menu nao tratado.");
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -1362,8 +1918,13 @@ pub fn run() {
             enable_windows_hello,
             disable_windows_hello,
             unlock_with_windows_hello,
-            decode_qr_from_image_data_url
+            decode_qr_from_image_data_url,
+            get_windows_clipboard_sequence_number,
+            start_windows_screen_snip,
+            restore_main_window_after_screen_snip,
+            read_windows_clipboard_image_png_data_url
         ])
         .run(tauri::generate_context!())
         .expect("erro ao executar o KPassword");
 }
+

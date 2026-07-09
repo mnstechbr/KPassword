@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.3.2
+
+Release de hardening preventivo após auditoria de segurança.
+
+### Segurança
+
+- Endurecido o fluxo de release/updater para não fazer commit, push ou instalação de dependências automaticamente.
+- Removida a orientação de criar chave do updater sem senha; releases agora exigem chave local com senha forte.
+- Adicionados limites de dimensão e quantidade de pixels no decoder QR Rust antes do processamento completo da imagem.
+- Melhorado o gerador de senhas para usar rejection sampling e reduzir viés estatístico.
+- Adicionado logging sanitizado no frontend para evitar despejo acidental de objetos de erro com dados sensíveis.
+- Reduzido log operacional no Rust para não incluir detalhes desnecessários em falha de backup automático.
+
+### Melhorias
+
+- Exportação CSV reforça que o arquivo não é criptografado e deve ser apagado após a migração.
+- Substituída a captura de QR estilo compartilhamento de tela por detecção nativa de QR visível na tela, com minimização temporária e retorno automático do app.
+- Auditoria local passa a mostrar dependências Rust que usam quick-xml para acompanhamento de advisories transitivos.
+- Documentação de release e segurança reforçada para chave do updater, Windows Hello/DPAPI e ameaça local.
+
+### Observação
+
+- A atualização de quick-xml deve ser acompanhada via cargo audit/cargo tree. Não foi adicionado override manual inseguro de dependência transitiva.
+
 ## v1.3.0
 
 Release focada em rastreabilidade local e organização das ações recentes do cofre, sem registrar dados sensíveis.

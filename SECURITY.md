@@ -60,3 +60,16 @@ Windows Hello/PIN/biometria no KPassword é desbloqueio rápido opcional no disp
 A leitura de QR Code/TOTP é feita localmente pelo app. Não envie senhas, QR Codes, TOTP secrets ou cofres reais em relatórios de bug.
 
 CSV exportado não é criptografado e deve ser usado apenas para migração temporária.
+
+
+## Assinatura e updater
+
+A chave privada usada para assinar o updater deve ficar fora do repositório, protegida por senha forte e com acesso restrito ao mantenedor. Scripts de release não devem fazer `git add`, `git commit`, `git push` ou instalar dependências automaticamente. A publicação deve anexar apenas instalador, assinatura, `latest.json` e `SHA256SUMS.txt` validados localmente.
+
+## Windows Hello e DPAPI
+
+Windows Hello no KPassword é uma conveniência local. Quando ativado, o segredo necessário para desbloqueio rápido fica protegido pelo contexto Windows/DPAPI do usuário local. Em um perfil Windows comprometido, com malware ativo ou acesso indevido ao usuário, esse mecanismo não substitui a senha mestra nem protege contra captura de tela, teclado, clipboard ou memória.
+
+## Dependências transitivas
+
+Dependências Rust transitivas devem ser acompanhadas com `cargo audit` quando disponível e com `cargo tree`, especialmente bibliotecas usadas por Tauri/plugins. Overrides manuais de dependências transitivas não devem ser aplicados sem confirmar compatibilidade, para evitar corrigir um advisory criando instabilidade de runtime.

@@ -1888,7 +1888,7 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
     "totp.easy.configuredDescription": "Configurado para {issuer}. Você pode alterar ou remover antes de salvar a credencial.",
     "totp.easy.detailHint": "Adicione selecionando o QR Code na tela, importando um print ou usando a opção manual avançada.",
     "totp.easy.noticeTitle": "Antes de salvar",
-    "totp.easy.noticeText": "Guardar o 2FA no KPassword facilita o uso, mas mantém senha e código no mesmo cofre. O QR/segredo é processado localmente e nada é salvo sem sua confirmação.",
+    "totp.easy.noticeText": "Guardar o 2FA no KPassword facilita o uso, mas mantém senha e código no mesmo cofre. Ao ler um QR válido, o 2FA é salvo automaticamente nesta credencial.",
     "totp.easy.importImage": "Importar print com QR Code",
     "totp.easy.importImageHint": "Escolha uma imagem ou print da tela de autenticação onde o QR Code aparece.",
     "totp.easy.selectScreen": "Selecionar QR Code na tela",
@@ -1977,7 +1977,7 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
     "totp.easy.configuredDescription": "Configured for {issuer}. You can change or remove it before saving the credential.",
     "totp.easy.detailHint": "Add it by selecting the QR code on screen, importing a screenshot, or using the advanced manual option.",
     "totp.easy.noticeTitle": "Before saving",
-    "totp.easy.noticeText": "Keeping 2FA in KPassword is convenient, but keeps password and code in the same vault. The QR/secret is processed locally and nothing is saved without your confirmation.",
+    "totp.easy.noticeText": "Keeping 2FA in KPassword is convenient, but keeps password and code in the same vault. When a valid QR is read, 2FA is saved automatically to this credential.",
     "totp.easy.importImage": "Import screenshot with QR code",
     "totp.easy.importImageHint": "Choose an image or screenshot of the authentication screen where the QR code appears.",
     "totp.easy.selectScreen": "Select QR code on screen",
@@ -2066,7 +2066,7 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
     "totp.easy.configuredDescription": "Configurado para {issuer}. Puedes cambiarlo o eliminarlo antes de guardar la credencial.",
     "totp.easy.detailHint": "Añádelo seleccionando el QR en pantalla, importando una captura o usando la opción manual avanzada.",
     "totp.easy.noticeTitle": "Antes de guardar",
-    "totp.easy.noticeText": "Guardar el 2FA en KPassword facilita el uso, pero mantiene contraseña y código en la misma bóveda. El QR/secreto se procesa localmente y nada se guarda sin confirmación.",
+    "totp.easy.noticeText": "Guardar el 2FA en KPassword facilita el uso, pero mantiene contraseña y código en la misma bóveda. Al leer un QR válido, el 2FA se guarda automáticamente en esta credencial.",
     "totp.easy.importImage": "Importar captura con QR",
     "totp.easy.importImageHint": "Elige una imagen o captura de la pantalla de autenticación donde aparece el QR.",
     "totp.easy.selectScreen": "Seleccionar QR en pantalla",
@@ -2155,7 +2155,7 @@ const v050Translations: Record<AppLanguage, Record<string, string>> = {
     "totp.easy.configuredDescription": "{issuer} için yapılandırıldı. Kimlik bilgisini kaydetmeden önce değiştirebilir veya kaldırabilirsiniz.",
     "totp.easy.detailHint": "QR kodu ekranda seçerek, ekran görüntüsü içe aktararak veya gelişmiş manuel seçenekle ekleyin.",
     "totp.easy.noticeTitle": "Kaydetmeden önce",
-    "totp.easy.noticeText": "2FA bilgisini KPassword içinde tutmak kullanışlıdır, ancak parola ve kodu aynı kasada tutar. QR/gizli bilgi yerel olarak işlenir ve onayınız olmadan hiçbir şey kaydedilmez.",
+    "totp.easy.noticeText": "2FA bilgisini KPassword içinde tutmak kullanışlıdır, ancak parola ve kodu aynı kasada tutar. Geçerli bir QR okunduğunda 2FA bu kimlik bilgisine otomatik olarak kaydedilir.",
     "totp.easy.importImage": "QR kodlu ekran görüntüsü içe aktar",
     "totp.easy.importImageHint": "QR kodun göründüğü doğrulama ekranının resmini veya ekran görüntüsünü seçin.",
     "totp.easy.selectScreen": "Ekrandaki QR kodu seç",
@@ -3763,8 +3763,84 @@ const v130Translations: Record<AppLanguage, Record<string, string>> = {
   }
 };
 
+
+const v132Translations: Record<AppLanguage, Record<string, string>> = {
+  pt: {
+    "totp.easy.selectScreen": "Recortar QR da tela",
+    "totp.easy.selectScreenHint": "O KPassword minimiza e abre o recorte do Windows. Selecione somente o QR Code.",
+    "totp.easy.screenIntroTitle": "Recorte somente o QR Code",
+    "totp.easy.screenIntroText": "Ao iniciar, o KPassword minimiza e aciona o recorte do Windows. Marque apenas o QR Code; o recorte será copiado para a área de transferência e lido localmente.",
+    "totp.easy.screenIntroStep1": "Deixe o QR Code visível em outra janela ou navegador.",
+    "totp.easy.screenIntroStep2": "Clique em Recortar QR agora. O Windows abrirá a seleção de recorte.",
+    "totp.easy.screenIntroStep3": "Arraste ao redor do QR Code. Depois do recorte, o KPassword volta e salva o 2FA automaticamente.",
+    "totp.easy.startScreenSelection": "Recortar QR agora",
+    "totp.easy.autoSaved": "2FA salvo nesta credencial. Use o código abaixo no site. Se quiser remover depois, edite a credencial e remova o 2FA.",
+    "totp.easy.errorScreenQrNotFound": "Não consegui ler o QR recortado. Tente novamente selecionando somente o QR Code, incluindo suas bordas.",
+    "totp.easy.errorScreenUnsupported": "O recorte automático de QR está disponível apenas no Windows.",
+    "totp.easy.sourceScreen": "QR recortado da tela",
+    "export.csvCleanupReminder": "Depois de exportar, apague o CSV assim que terminar a migração. Ele não recebe proteção do cofre.",
+    "export.csvSuccess": "CSV não criptografado exportado. Apague o arquivo assim que terminar a migração.",
+    "totp.easy.errorScreenExpired": "A captura temporária foi descartada por segurança. Capture a tela novamente se ainda precisar ler o QR Code.",
+    "windowsHello.description": "Desbloqueio rápido opcional neste dispositivo, protegido pelo Windows/DPAPI do usuário local. Ele guarda um segredo protegido no perfil do Windows, não substitui a senha mestra e não é um segundo fator separado."
+  },
+  en: {
+    "totp.easy.selectScreen": "Clip QR from screen",
+    "totp.easy.selectScreenHint": "KPassword minimizes and opens Windows screen snip. Select only the QR code.",
+    "totp.easy.screenIntroTitle": "Clip only the QR code",
+    "totp.easy.screenIntroText": "When started, KPassword minimizes and triggers Windows screen snip. Mark only the QR code; the snip is copied to the clipboard and read locally.",
+    "totp.easy.screenIntroStep1": "Keep the QR code visible in another window or browser.",
+    "totp.easy.screenIntroStep2": "Click Clip QR now. Windows will open the snip selection.",
+    "totp.easy.screenIntroStep3": "Drag around the QR code. After the snip, KPassword returns and saves 2FA automatically.",
+    "totp.easy.startScreenSelection": "Clip QR now",
+    "totp.easy.autoSaved": "2FA saved to this credential. Use the code below on the website. To remove it later, edit the credential and remove 2FA.",
+    "totp.easy.errorScreenQrNotFound": "I could not read the clipped QR. Try again by selecting only the QR code, including its border.",
+    "totp.easy.errorScreenUnsupported": "Automatic QR clipping is available only on Windows.",
+    "totp.easy.sourceScreen": "QR clipped from screen",
+    "export.csvCleanupReminder": "After exporting, delete the CSV as soon as migration is done. It is not protected by the vault.",
+    "export.csvSuccess": "Unencrypted CSV exported. Delete the file as soon as migration is done.",
+    "totp.easy.errorScreenExpired": "The temporary screenshot was discarded for safety. Capture the screen again if you still need to read the QR code.",
+    "windowsHello.description": "Optional quick unlock on this device, protected by the local user Windows/DPAPI context. It stores a protected secret in the Windows profile, does not replace the master password and is not a separate second factor."
+  },
+  es: {
+    "totp.easy.selectScreen": "Recortar QR de la pantalla",
+    "totp.easy.selectScreenHint": "KPassword se minimiza y abre el recorte de Windows. Selecciona solo el QR.",
+    "totp.easy.screenIntroTitle": "Recorta solo el QR",
+    "totp.easy.screenIntroText": "Al iniciar, KPassword se minimiza y activa el recorte de Windows. Marca solo el QR; el recorte se copia al portapapeles y se lee localmente.",
+    "totp.easy.screenIntroStep1": "Deja el QR visible en otra ventana o navegador.",
+    "totp.easy.screenIntroStep2": "Haz clic en Recortar QR ahora. Windows abrirá la selección de recorte.",
+    "totp.easy.screenIntroStep3": "Arrastra alrededor del QR. Después del recorte, KPassword vuelve y guarda el 2FA automáticamente.",
+    "totp.easy.startScreenSelection": "Recortar QR ahora",
+    "totp.easy.autoSaved": "2FA guardado en esta credencial. Usa el código de abajo en el sitio. Para quitarlo después, edita la credencial y elimina el 2FA.",
+    "totp.easy.errorScreenQrNotFound": "No pude leer el QR recortado. Inténtalo de nuevo seleccionando solo el QR, incluyendo sus bordes.",
+    "totp.easy.errorScreenUnsupported": "El recorte automático de QR está disponible solo en Windows.",
+    "totp.easy.sourceScreen": "QR recortado de la pantalla",
+    "export.csvCleanupReminder": "Después de exportar, elimina el CSV en cuanto termines la migración. No está protegido por la bóveda.",
+    "export.csvSuccess": "CSV no cifrado exportado. Elimina el archivo en cuanto termines la migración.",
+    "totp.easy.errorScreenExpired": "La captura temporal se descartó por seguridad. Captura la pantalla nuevamente si aún necesitas leer el QR.",
+    "windowsHello.description": "Desbloqueo rápido opcional en este dispositivo, protegido por el contexto local de Windows/DPAPI del usuario. Guarda un secreto protegido en el perfil de Windows, no sustituye la contraseña maestra y no es un segundo factor separado."
+  },
+  tr: {
+    "totp.easy.selectScreen": "Ekrandan QR kırp",
+    "totp.easy.selectScreenHint": "KPassword küçülür ve Windows ekran kırpmayı açar. Yalnızca QR kodu seçin.",
+    "totp.easy.screenIntroTitle": "Yalnızca QR kodu kırpın",
+    "totp.easy.screenIntroText": "Başlatınca KPassword küçülür ve Windows ekran kırpmayı tetikler. Yalnızca QR kodu işaretleyin; kırpma panoya kopyalanır ve yerel olarak okunur.",
+    "totp.easy.screenIntroStep1": "QR kodu başka bir pencerede veya tarayıcıda görünür bırakın.",
+    "totp.easy.screenIntroStep2": "QR'ı şimdi kırpa tıklayın. Windows kırpma seçimini açar.",
+    "totp.easy.screenIntroStep3": "QR kodun etrafında sürükleyin. Kırpmadan sonra KPassword geri döner ve 2FA bilgisini otomatik olarak kaydeder.",
+    "totp.easy.startScreenSelection": "QR'ı şimdi kırp",
+    "totp.easy.autoSaved": "2FA bu kimlik bilgisine kaydedildi. Aşağıdaki kodu sitede kullanın. Daha sonra kaldırmak isterseniz kimlik bilgisini düzenleyip 2FA bilgisini kaldırın.",
+    "totp.easy.errorScreenQrNotFound": "Kırpılan QR okunamadı. Yalnızca QR kodu ve kenarlarını seçerek tekrar deneyin.",
+    "totp.easy.errorScreenUnsupported": "Otomatik QR kırpma yalnızca Windows'ta kullanılabilir.",
+    "totp.easy.sourceScreen": "Ekrandan kırpılan QR",
+    "export.csvCleanupReminder": "Dışa aktardıktan sonra geçiş biter bitmez CSV dosyasını silin. Bu dosya kasa tarafından korunmaz.",
+    "export.csvSuccess": "Şifrelenmemiş CSV dışa aktarıldı. Geçiş biter bitmez dosyayı silin.",
+    "totp.easy.errorScreenExpired": "Geçici ekran görüntüsü güvenlik için silindi. QR kodu hâlâ okumanız gerekiyorsa ekranı tekrar yakalayın.",
+    "windowsHello.description": "Bu cihazda isteğe bağlı hızlı kilit açma, yerel kullanıcı Windows/DPAPI bağlamıyla korunur. Windows profilinde korumalı bir sır saklar, ana parolanın yerini almaz ve ayrı bir ikinci faktör değildir."
+  }
+};
+
 export function translate(language: AppLanguage, key: TranslationKey, values: TranslationValues = {}) {
-  const template = v130Translations[language]?.[key] ?? v130Translations.en[key] ?? v130Translations.pt[key] ?? v100Translations[language]?.[key] ?? v100Translations.en[key] ?? v100Translations.pt[key] ?? v095Translations[language]?.[key] ?? v095Translations.en[key] ?? v095Translations.pt[key] ?? v094Translations[language]?.[key] ?? v094Translations.en[key] ?? v094Translations.pt[key] ?? v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
+  const template = v132Translations[language]?.[key] ?? v132Translations.en[key] ?? v132Translations.pt[key] ?? v130Translations[language]?.[key] ?? v130Translations.en[key] ?? v130Translations.pt[key] ?? v100Translations[language]?.[key] ?? v100Translations.en[key] ?? v100Translations.pt[key] ?? v095Translations[language]?.[key] ?? v095Translations.en[key] ?? v095Translations.pt[key] ?? v094Translations[language]?.[key] ?? v094Translations.en[key] ?? v094Translations.pt[key] ?? v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
 
   return String(template).replace(/\{(\w+)\}/g, (_, name: string) =>
     values[name] === undefined ? `{${name}}` : String(values[name]),

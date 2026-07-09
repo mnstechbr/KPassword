@@ -51,6 +51,8 @@ Antes de publicar uma release do KPassword:
 ## Segurança operacional
 
 - [ ] não commitar chave privada de assinatura;
+- [ ] chave privada do updater protegida por senha forte;
+- [ ] scripts de release não fizeram git add/commit/push automático;
 - [ ] não commitar cofres `.kpvault`;
 - [ ] não commitar backups reais;
 - [ ] revisar `git status --short`;
@@ -66,3 +68,12 @@ Antes de publicar uma release do KPassword:
 - [ ] Seções expansíveis de senha mestra, backup, importação/exportação e segurança funcionam em temas escuro, claro e misto.
 - [ ] App continua utilizável em janela menor e maximizada.
 - [ ] Build oficial valida com Erros: 0 e Avisos: 0.
+
+## Validações específicas v1.3.2
+
+- [ ] Gerador de senhas testado em modo aleatório, memorável e PIN.
+- [ ] Leitura de QR por imagem rejeita arquivos grandes.
+- [ ] Leitura de QR visível na tela usa captura nativa local, minimiza o app temporariamente e volta automaticamente após a tentativa.
+- [ ] Exportação CSV mostra aviso reforçado de arquivo não criptografado.
+- [ ] `tools\fix-updater-v030-build.ps1` exige senha da chave e não faz commit/push.
+- [ ] `npm run security:audit` mostra dependências que usam quick-xml e executa cargo audit quando instalado.

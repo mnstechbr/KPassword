@@ -1,6 +1,6 @@
 [package]
 name = "kpassword"
-version = "1.3.1"
+version = "1.3.2"
 description = "KPassword"
 authors = ["Jean Silva"]
 edition = "2021"
@@ -33,4 +33,3 @@ zeroize = "1"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = ["Foundation", "Security_Credentials_UI"] }
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_System_Memory"] }

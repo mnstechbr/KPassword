@@ -39,16 +39,27 @@ export type PasswordGeneratorOptions = {
   avoidAmbiguous?: boolean;
 };
 
-function pick(chars: string) {
+function randomIndex(length: number) {
+  if (!Number.isSafeInteger(length) || length <= 0) {
+    throw new Error("Invalid random range.");
+  }
+
+  const maxValid = Math.floor(0x100000000 / length) * length;
   const array = new Uint32Array(1);
-  crypto.getRandomValues(array);
-  return chars[array[0] % chars.length];
+
+  do {
+    crypto.getRandomValues(array);
+  } while (array[0] >= maxValid);
+
+  return array[0] % length;
+}
+
+function pick(chars: string) {
+  return chars[randomIndex(chars.length)];
 }
 
 function pickIndex(length: number) {
-  const array = new Uint32Array(1);
-  crypto.getRandomValues(array);
-  return array[0] % length;
+  return randomIndex(length);
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -67,9 +78,7 @@ function shuffle(value: string[]) {
   const result = [...value];
 
   for (let index = result.length - 1; index > 0; index -= 1) {
-    const array = new Uint32Array(1);
-    crypto.getRandomValues(array);
-    const target = array[0] % (index + 1);
+    const target = randomIndex(index + 1);
     [result[index], result[target]] = [result[target], result[index]];
   }
 

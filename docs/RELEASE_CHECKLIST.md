@@ -39,9 +39,11 @@ git commit -m "Mensagem da versão"
 git push
 ```
 
-Não use `git add .` no fluxo de release. O staging deve ser explícito para reduzir risco de incluir cofres, backups, chaves ou arquivos locais por engano.
+Não use `git add .` no fluxo de release. O staging deve ser explícito para reduzir risco de incluir cofres, backups, chaves ou arquivos locais por engano. Scripts de release não devem fazer commit ou push automaticamente.
 
 ## Gerar instalador/updater
+
+A chave privada do updater deve existir fora do repositório, protegida por senha forte. O script de build vai pedir a senha da chave e não fará commit ou push.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "<versao>"
@@ -103,6 +105,15 @@ npm run release:validate -- -ReleaseDir ".\dist-release\v<versao>"
 - [ ] CSV com notas multilinha importado corretamente.
 - [ ] CSV com TOTP `otpauth://` importado corretamente.
 - [ ] Imagem de QR grande recusada antes do processamento.
-- [ ] Seleção de QR na tela funcionando e descartando captura completa após prévia.
+- [ ] Detecção nativa de QR visível na tela funcionando sem seletor estilo compartilhamento de tela.
 - [ ] Leitor QR validado offline.
 - [ ] Windows Hello descrito como conveniência local/DPAPI.
+
+## Validações específicas v1.3.2
+
+- [ ] Confirmar que a chave do updater tem senha forte.
+- [ ] Confirmar que nenhum script fez commit/push automático.
+- [ ] Confirmar detecção nativa de QR visível na tela, com minimização e retorno automático do app.
+- [ ] Confirmar rejeição de imagens QR grandes no frontend e no Rust.
+- [ ] Confirmar aviso reforçado da exportação CSV.
+- [ ] Confirmar `cargo tree`/`cargo audit` para advisories transitivos como quick-xml.

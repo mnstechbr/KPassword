@@ -111,7 +111,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.3.2";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -162,15 +162,8 @@ type QuickVaultFilter =
 type ActionHistoryFilter = "all" | "credentials" | "security" | "system";
 
 
-type TotpSetupMode = "choice" | "manual" | "preview" | "screenIntro" | "screenCrop";
+type TotpSetupMode = "choice" | "manual" | "preview" | "screenIntro";
 type TotpSetupSource = "image" | "manual" | "screen";
-
-type TotpScreenSelection = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
 
 type TotpPreview = {
   secret: string;
@@ -332,6 +325,22 @@ type ConfirmDialog = {
 
 function createId() {
   return crypto.randomUUID();
+}
+
+function sanitizeErrorForLog(error: unknown) {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message };
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return String(error);
+}
+
+function secureLogError(context: string, error: unknown) {
+  console.error(`[KPassword] ${context}`, sanitizeErrorForLog(error));
 }
 
 function formatDate(value?: string | number, language: AppLanguage = "pt") {
@@ -1024,6 +1033,21 @@ function readFileAsDataUrl(file: File) {
     reader.onerror = () => reject(reader.error ?? new Error("Erro ao ler arquivo."));
     reader.readAsDataURL(file);
   });
+}
+
+async function dataUrlToImageFile(dataUrl: string, filename: string) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return new File([blob], filename, { type: blob.type || "image/png" });
+}
+
+async function decodeQrFromDataUrlBestEffort(dataUrl: string) {
+  try {
+    const imageFile = await dataUrlToImageFile(dataUrl, "kpassword-screen-qr.png");
+    return await decodeQrFromImageFile(imageFile);
+  } catch {
+    return await invoke<string>("decode_qr_from_image_data_url", { dataUrl });
+  }
 }
 
 function downloadTextFile(filename: string, content: string, mimeType = "application/json;charset=utf-8") {
@@ -1834,9 +1858,6 @@ export default function App() {
   const [totpPreview, setTotpPreview] = useState<TotpPreview | null>(null);
   const [totpSetupError, setTotpSetupError] = useState("");
   const [totpQrBusy, setTotpQrBusy] = useState(false);
-  const [totpScreenImage, setTotpScreenImage] = useState("");
-  const [totpScreenSelection, setTotpScreenSelection] = useState<TotpScreenSelection | null>(null);
-  const [totpScreenDragStart, setTotpScreenDragStart] = useState<{ x: number; y: number } | null>(null);
   const [appLanguage, setAppLanguage] = useState<AppLanguage>(getInitialLanguage);
   const [generatorMode, setGeneratorMode] = useState<PasswordGeneratorMode>("random");
   const [generatorLength, setGeneratorLength] = useState(24);
@@ -1849,7 +1870,6 @@ export default function App() {
   const clipboardCleanupRef = useRef<number | null>(null);
   const quickFilterMenuRef = useRef<HTMLDivElement | null>(null);
   const totpImageInputRef = useRef<HTMLInputElement | null>(null);
-  const totpScreenImageRef = useRef<HTMLImageElement | null>(null);
 
   const t = useCallback(
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
@@ -1876,6 +1896,7 @@ export default function App() {
     () => groupActionHistoryEntries(filteredActionHistoryEntries),
     [filteredActionHistoryEntries],
   );
+
 
   const requestTrayProtection = useCallback((reason: "inactive" | "minimize" | "close") => {
     window.dispatchEvent(new CustomEvent("kpassword:protect-to-tray", { detail: { reason } }));
@@ -2027,7 +2048,7 @@ export default function App() {
       setVaultFiles(files);
       return files;
     } catch (error) {
-      console.error("Erro ao listar cofres:", error);
+      secureLogError("listar cofres", error);
       return [];
     }
   }, []);
@@ -2041,7 +2062,7 @@ export default function App() {
       setStorageInfo(info);
       setBackups(backupFiles);
     } catch (error) {
-      console.error("Erro ao carregar informações de armazenamento:", error);
+      secureLogError("carregar informações de armazenamento", error);
     }
   }, [activeVaultName]);
 
@@ -2051,7 +2072,7 @@ export default function App() {
       setWindowsHelloStatus(status);
       return status;
     } catch (error) {
-      console.error("Erro ao consultar Windows Hello:", error);
+      secureLogError("consultar Windows Hello", error);
       const fallback = {
         ...DEFAULT_WINDOWS_HELLO_STATUS,
         vault_name: vaultName,
@@ -2223,7 +2244,7 @@ export default function App() {
           createActionHistoryEntry(type, targetName),
         );
       } catch (error) {
-        console.error("Erro ao registrar histórico de ações:", error);
+        secureLogError("registrar histórico de ações", error);
       }
     },
     [persistVaultWithHistory, vault],
@@ -2251,7 +2272,7 @@ export default function App() {
 
     const interval = window.setInterval(() => {
       void persistVault(vault).catch((error) => {
-        console.error("Erro ao criar backup automático:", error);
+        secureLogError("criar backup automático", error);
       });
     }, vault.settings.backupIntervalHours * 60 * 60 * 1000);
 
@@ -2309,7 +2330,7 @@ export default function App() {
       setMode("unlocked");
       setMessage("");
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("errors.createVault"));
     } finally {
       setBusy(false);
@@ -2347,7 +2368,7 @@ export default function App() {
         setBackups(historyInfo.backups);
         unlockedVault = { ...vaultWithHistory, updatedAt: historyFile.updatedAt };
       } catch (historyError) {
-        console.error("Erro ao registrar desbloqueio no histórico:", historyError);
+        secureLogError("registrar desbloqueio no histórico", historyError);
       }
 
       setVault(unlockedVault);
@@ -2383,7 +2404,7 @@ export default function App() {
       await appWindow.setFocus();
       await new Promise((resolve) => window.setTimeout(resolve, 260));
     } catch (error) {
-      console.error("Erro ao focar janela antes do Windows Hello:", error);
+      secureLogError("focar janela antes do Windows Hello", error);
     }
   }
 
@@ -2393,7 +2414,7 @@ export default function App() {
       await appWindow.setAlwaysOnTop(false);
       await appWindow.setFocus();
     } catch (error) {
-      console.error("Erro ao normalizar janela depois do Windows Hello:", error);
+      secureLogError("normalizar janela depois do Windows Hello", error);
     }
   }
 
@@ -2430,7 +2451,7 @@ export default function App() {
         setBackups(historyInfo.backups);
         unlockedVault = { ...vaultWithHistory, updatedAt: historyFile.updatedAt };
       } catch (historyError) {
-        console.error("Erro ao registrar desbloqueio com Windows Hello no histórico:", historyError);
+        secureLogError("registrar desbloqueio com Windows Hello no histórico", historyError);
       }
 
       setVault(unlockedVault);
@@ -2448,7 +2469,7 @@ export default function App() {
       void maybeShowPasswordRotationReminder(plainVault);
       void maybeShowPasswordExpiryReminder(plainVault);
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setUnlockGateOpen(false);
       setMessage(t("windowsHello.unlockError"));
       await refreshWindowsHelloStatus(activeVaultName);
@@ -2492,7 +2513,7 @@ export default function App() {
       await recordActionHistoryOnly("windows_hello_enabled");
       setMessage(t("windowsHello.enabledSuccess"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("windowsHello.enableError"));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
@@ -2524,7 +2545,7 @@ export default function App() {
       await recordActionHistoryOnly("windows_hello_disabled");
       setMessage(t("windowsHello.disabledSuccess"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("windowsHello.disableError"));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
@@ -2722,7 +2743,7 @@ export default function App() {
           const status = await enableWindowsHello(activeVaultName, newMasterPassword, t("windowsHello.promptEnable"));
           setWindowsHelloStatus(status);
         } catch (helloError) {
-          console.error(helloError);
+          secureLogError("reativar Windows Hello após troca de senha", helloError);
           const status = await disableWindowsHello(activeVaultName);
           setWindowsHelloStatus(status);
           setMessage(t("windowsHello.reenableNeeded"));
@@ -2945,7 +2966,7 @@ export default function App() {
       setActionHistoryFilter("all");
       setMessage(t("actionHistory.clearSuccess"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("actionHistory.clearError"));
     }
   }
@@ -3029,9 +3050,6 @@ export default function App() {
     setTotpPreview(null);
     setTotpSetupError("");
     setTotpQrBusy(false);
-    setTotpScreenImage("");
-    setTotpScreenSelection(null);
-    setTotpScreenDragStart(null);
   }
 
   function openTotpSetup(mode: TotpSetupMode = "choice") {
@@ -3040,9 +3058,6 @@ export default function App() {
     setTotpManualIssuer(credentialForm.totpIssuer ?? credentialForm.title ?? "");
     setTotpPreview(null);
     setTotpSetupError("");
-    setTotpScreenImage("");
-    setTotpScreenSelection(null);
-    setTotpScreenDragStart(null);
     setTotpSetupOpen(true);
   }
 
@@ -3069,31 +3084,55 @@ export default function App() {
     }
   }
 
-  async function prepareTotpPreview(rawValue: string, source: TotpSetupSource, fallbackIssuer = credentialForm.totpIssuer || credentialForm.title): Promise<boolean> {
+  async function buildTotpPreview(rawValue: string, source: TotpSetupSource, fallbackIssuer = credentialForm.totpIssuer || credentialForm.title): Promise<TotpPreview | null> {
     try {
       const candidate = parseTotpCandidate(rawValue, fallbackIssuer, source);
 
       if (!isStandardTotp(candidate)) {
         setTotpSetupError(t("totp.easy.errorUnsupported"));
         setTotpPreview(null);
-        setTotpSetupMode(source === "manual" ? "manual" : source === "screen" ? "screenCrop" : "choice");
-        return false;
+        setTotpSetupMode(source === "manual" ? "manual" : source === "screen" ? "screenIntro" : "choice");
+        return null;
       }
 
       const currentCode = await generateTotp(candidate.secret);
-      setTotpPreview({ ...candidate, currentCode });
-      setTotpSetupMode("preview");
       setTotpSetupError("");
-      return true;
+      return { ...candidate, currentCode };
     } catch (error) {
       const key = error instanceof Error && error.message.startsWith("totp.error.")
         ? error.message
         : "totp.easy.errorInvalid";
       setTotpSetupError(t(key as Parameters<typeof translate>[1]));
       setTotpPreview(null);
-      setTotpSetupMode(source === "manual" ? "manual" : source === "screen" ? "screenCrop" : "choice");
-      return false;
+      setTotpSetupMode(source === "manual" ? "manual" : source === "screen" ? "screenIntro" : "choice");
+      return null;
     }
+  }
+
+  async function prepareTotpPreview(rawValue: string, source: TotpSetupSource, fallbackIssuer = credentialForm.totpIssuer || credentialForm.title): Promise<boolean> {
+    const preview = await buildTotpPreview(rawValue, source, fallbackIssuer);
+
+    if (!preview) return false;
+
+    setTotpPreview(preview);
+    setTotpSetupMode("preview");
+    setTotpSetupError("");
+    return true;
+  }
+
+  async function applyTotpFromRawValue(rawValue: string, source: TotpSetupSource, fallbackIssuer = credentialForm.totpIssuer || credentialForm.title): Promise<boolean> {
+    const preview = await buildTotpPreview(rawValue, source, fallbackIssuer);
+
+    if (!preview) return false;
+
+    setTotpPreview(preview);
+    setTotpSetupMode("preview");
+
+    if (source === "manual") {
+      return true;
+    }
+
+    return applyTotpCandidate(preview, { keepPreviewOpen: true });
   }
 
   async function handleTotpManualVerify() {
@@ -3134,7 +3173,7 @@ export default function App() {
         content = await invoke<string>("decode_qr_from_image_data_url", { dataUrl });
       }
 
-      await prepareTotpPreview(content, "image", credentialForm.totpIssuer || credentialForm.title);
+      await applyTotpFromRawValue(content, "image", credentialForm.totpIssuer || credentialForm.title);
     } catch {
       setTotpSetupError(t("totp.easy.errorQrNotFound"));
       setTotpPreview(null);
@@ -3163,224 +3202,94 @@ export default function App() {
       }
 
       await appWindow.setFocus();
+      window.focus();
 
       if (useTopBump) {
         window.setTimeout(() => {
           void getCurrentWindow().setAlwaysOnTop(false).catch(() => undefined);
-        }, 450);
+        }, 700);
       }
     } catch {
-      // Conveniência de UX. A captura continua válida mesmo se o Windows bloquear o foco imediato.
+      // Conveniência de UX. A detecção continua válida mesmo se o Windows bloquear o foco imediato.
     }
   }
 
-  async function restoreTotpWindowAfterScreenSelection() {
-    // Não deixamos a janela como always-on-top antes do seletor do Windows, porque isso pode causar
-    // o retorno para a tela compartilhada em alguns ambientes. O "top bump" acontece só depois
-    // que o frame já foi capturado e o stream encerrado.
-    await bringTotpWindowToFront(120, true);
-    window.setTimeout(() => void bringTotpWindowToFront(0, true), 450);
-    window.setTimeout(() => void bringTotpWindowToFront(0, false), 1000);
-    window.setTimeout(() => void bringTotpWindowToFront(0, false), 1800);
-  }
-
-  function getTotpScreenPoint(event: MouseEvent<HTMLDivElement>) {
-    const image = totpScreenImageRef.current;
-    if (!image) return null;
-
-    const rect = image.getBoundingClientRect();
-    const x = Math.min(Math.max(event.clientX - rect.left, 0), rect.width);
-    const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
-
-    return { x, y };
-  }
-
-  function normalizeTotpScreenSelection(start: { x: number; y: number }, end: { x: number; y: number }): TotpScreenSelection {
-    const x = Math.min(start.x, end.x);
-    const y = Math.min(start.y, end.y);
-    const width = Math.abs(end.x - start.x);
-    const height = Math.abs(end.y - start.y);
-
-    return { x, y, width, height };
-  }
-
-  function isTotpScreenSelectionReady(selection: TotpScreenSelection | null) {
-    return Boolean(selection && selection.width >= 24 && selection.height >= 24);
-  }
-
-  function handleTotpScreenMouseDown(event: MouseEvent<HTMLDivElement>) {
-    const point = getTotpScreenPoint(event);
-    if (!point) return;
-
-    setTotpScreenDragStart(point);
-    setTotpScreenSelection({ ...point, width: 0, height: 0 });
-    setTotpSetupError("");
-  }
-
-  function handleTotpScreenMouseMove(event: MouseEvent<HTMLDivElement>) {
-    if (!totpScreenDragStart) return;
-
-    const point = getTotpScreenPoint(event);
-    if (!point) return;
-
-    setTotpScreenSelection(normalizeTotpScreenSelection(totpScreenDragStart, point));
-  }
-
-  function handleTotpScreenMouseUp(event: MouseEvent<HTMLDivElement>) {
-    if (!totpScreenDragStart) return;
-
-    const point = getTotpScreenPoint(event);
-    if (point) {
-      setTotpScreenSelection(normalizeTotpScreenSelection(totpScreenDragStart, point));
-    }
-    setTotpScreenDragStart(null);
-  }
-
-  async function captureTotpScreenFrame() {
-    const mediaDevices = navigator.mediaDevices as MediaDevices & {
-      getDisplayMedia?: (constraints?: DisplayMediaStreamOptions) => Promise<MediaStream>;
-    };
-
-    if (!mediaDevices?.getDisplayMedia) {
-      setTotpSetupError(t("totp.easy.errorScreenUnsupported"));
-      setTotpSetupMode("choice");
-      return;
-    }
-
-    setTotpQrBusy(true);
-    setTotpSetupError("");
-    setTotpScreenImage("");
-    setTotpScreenSelection(null);
-    setTotpScreenDragStart(null);
-
-    let stream: MediaStream | null = null;
-    let shouldRestoreWindow = false;
-
+  async function restoreTotpWindowAfterWindowsSnip() {
     try {
-      // O seletor nativo do Windows/WebView pode focar a tela ou janela escolhida.
-      // Não prendemos o KPassword no topo antes do seletor para evitar o comportamento
-      // em que ele volta a minimizar ou fica atrás da origem compartilhada.
-      stream = await mediaDevices.getDisplayMedia({ video: true, audio: false });
-      shouldRestoreWindow = true;
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-
-      await video.play();
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-
-      const track = stream.getVideoTracks()[0];
-      const settings = track?.getSettings?.() ?? {};
-      const width = video.videoWidth || settings.width || 0;
-      const height = video.videoHeight || settings.height || 0;
-
-      if (!width || !height) {
-        throw new Error("Screen frame unavailable.");
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-
-      if (!context) {
-        throw new Error("Canvas unavailable.");
-      }
-
-      context.drawImage(video, 0, 0, width, height);
-      setTotpScreenImage(canvas.toDataURL("image/png"));
-      setTotpSetupMode("screenCrop");
+      await invoke("restore_main_window_after_screen_snip");
     } catch {
-      setTotpSetupError(t("totp.easy.errorScreenCapture"));
-      setTotpSetupMode("choice");
-    } finally {
-      stream?.getTracks().forEach((track) => track.stop());
-      setTotpQrBusy(false);
-
-      if (shouldRestoreWindow) {
-        await restoreTotpWindowAfterScreenSelection();
-      }
+      // Fallback pelo frontend caso o comando nativo de foco seja bloqueado pelo Windows.
     }
+
+    await bringTotpWindowToFront(0, true);
   }
 
-  async function decodeTotpScreenSelection() {
-    const image = totpScreenImageRef.current;
-
-    const selection = totpScreenSelection;
-
-    if (!image || !totpScreenImage || !selection || !isTotpScreenSelectionReady(selection)) {
-      setTotpSetupError(t("totp.easy.errorScreenSelection"));
-      return;
-    }
-
-    const displayWidth = image.clientWidth;
-    const displayHeight = image.clientHeight;
-
-    if (!displayWidth || !displayHeight || !image.naturalWidth || !image.naturalHeight) {
-      setTotpSetupError(t("totp.easy.errorScreenSelection"));
-      return;
-    }
-
-    const scaleX = image.naturalWidth / displayWidth;
-    const scaleY = image.naturalHeight / displayHeight;
-    const sourceX = Math.max(0, Math.round(selection.x * scaleX));
-    const sourceY = Math.max(0, Math.round(selection.y * scaleY));
-    const sourceWidth = Math.max(1, Math.round(selection.width * scaleX));
-    const sourceHeight = Math.max(1, Math.round(selection.height * scaleY));
-
-    const canvas = document.createElement("canvas");
-    canvas.width = sourceWidth;
-    canvas.height = sourceHeight;
-    const context = canvas.getContext("2d");
-
-    if (!context) {
-      setTotpSetupError(t("totp.easy.errorQrNotFound"));
-      return;
-    }
-
-    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight);
-
+  async function detectTotpQrFromWindowsSnip() {
     setTotpQrBusy(true);
     setTotpSetupError("");
+    setTotpPreview(null);
+
+    const appWindow = getCurrentWindow();
 
     try {
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      // Fluxo novo e mais previsível:
+      // 1. Esconde/minimiza o KPassword.
+      // 2. Aciona Win + Shift + S via comando nativo.
+      // 3. O usuário recorta somente o QR Code.
+      // 4. O frontend aguarda a imagem nova no clipboard e usa o leitor de imagem já validado.
+      const clipboardSequence = await invoke<number>("get_windows_clipboard_sequence_number").catch(() => 0);
 
-      if (!blob) {
-        throw new Error("Crop unavailable.");
-      }
-
-      let content = "";
-      const file = new File([blob], "kpassword-qr-selection.png", { type: "image/png" });
-
+      // A minimização agora também acontece no comando Rust, antes de disparar Win + Shift + S.
+      // Mantemos uma tentativa leve aqui apenas para tirar a janela da frente o quanto antes.
       try {
-        content = await decodeQrFromImageFile(file);
+        await appWindow.setAlwaysOnTop(false);
+        await appWindow.minimize();
       } catch {
-        content = await invoke<string>("decode_qr_from_image_data_url", { dataUrl: canvas.toDataURL("image/png") });
+        // Se o Windows negar a minimização via frontend, o comando nativo ainda tentará minimizar.
       }
 
-      const previewReady = await prepareTotpPreview(content, "screen", credentialForm.totpIssuer || credentialForm.title);
+      await invoke("start_windows_screen_snip");
 
-      if (previewReady) {
-        setTotpScreenImage("");
-        setTotpScreenSelection(null);
-        setTotpScreenDragStart(null);
+      let dataUrl = "";
+      const deadline = Date.now() + 60_000;
+
+      while (Date.now() < deadline) {
+        try {
+          dataUrl = await invoke<string>("read_windows_clipboard_image_png_data_url", {
+            afterSequence: clipboardSequence,
+          });
+          break;
+        } catch {
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 450));
+        }
       }
-    } catch {
-      setTotpSetupError(t("totp.easy.errorQrNotFound"));
+
+      if (!dataUrl) {
+        throw new Error("Nenhum recorte novo foi encontrado no clipboard.");
+      }
+
+      // Assim que o recorte chega no clipboard, trazemos o KPassword de volta antes de processar.
+      // Isso evita a sensação de que o app ficou preso/minimizado enquanto a leitura já aconteceu.
+      await restoreTotpWindowAfterWindowsSnip();
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 180));
+
+      const content = await decodeQrFromDataUrlBestEffort(dataUrl);
+      await applyTotpFromRawValue(content, "screen", credentialForm.totpIssuer || credentialForm.title);
+    } catch (error) {
+      await restoreTotpWindowAfterWindowsSnip();
+      secureLogError("recortar QR da tela", error);
+      setTotpSetupError(t("totp.easy.errorScreenQrNotFound"));
       setTotpPreview(null);
-      setTotpSetupMode("screenCrop");
+      setTotpSetupMode("screenIntro");
     } finally {
       setTotpQrBusy(false);
+      window.setTimeout(() => void restoreTotpWindowAfterWindowsSnip(), 500);
     }
   }
 
-  async function applyTotpPreview() {
-    if (!totpPreview) return;
-
-    const nextTotpSecret = totpPreview.secret;
-    const nextTotpIssuer = totpPreview.issuer || credentialForm.title;
+  async function applyTotpCandidate(candidate: TotpPreview, options: { keepPreviewOpen?: boolean } = {}): Promise<boolean> {
+    const nextTotpSecret = candidate.secret;
+    const nextTotpIssuer = candidate.issuer || credentialForm.title;
 
     setCredentialForm((current) => ({
       ...current,
@@ -3389,8 +3298,11 @@ export default function App() {
     }));
 
     if (!vault || !editingId) {
-      closeTotpSetup();
-      return;
+      setMessage(t("totp.easy.saveSuccess"));
+      if (!options.keepPreviewOpen) {
+        closeTotpSetup();
+      }
+      return true;
     }
 
     setBusy(true);
@@ -3415,13 +3327,23 @@ export default function App() {
         createActionHistoryEntry("totp_updated", credentialForm.title),
       );
       setMessage(t("totp.easy.saveSuccess"));
-      closeTotpSetup();
+      if (!options.keepPreviewOpen) {
+        closeTotpSetup();
+      }
+      return true;
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("totp.easy.saveError"));
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  async function applyTotpPreview() {
+    if (!totpPreview) return;
+
+    await applyTotpCandidate(totpPreview);
   }
 
   async function clearTotpFromForm() {
@@ -3464,7 +3386,7 @@ export default function App() {
       );
       setMessage(t("totp.easy.removeSuccess"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("totp.easy.removeError"));
     } finally {
       setBusy(false);
@@ -3497,7 +3419,7 @@ export default function App() {
     try {
       await openExternalUrl(credential.url);
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("assistant.openSiteError"));
     }
   }
@@ -3559,7 +3481,7 @@ export default function App() {
 
       setMessage(t("assistant.tags.applied", { count: suggestions.length }));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("assistant.tags.error"));
     } finally {
       setBusy(false);
@@ -3709,7 +3631,7 @@ export default function App() {
       setScreen("credentials");
       setMessage(editingId ? t("success.credentialUpdated") : t("success.credentialCreated"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("errors.saveCredential"));
     } finally {
       setBusy(false);
@@ -3759,7 +3681,7 @@ export default function App() {
 
       setMessage(t("trash.moved"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("errors.deleteCredential"));
     } finally {
       setBusy(false);
@@ -3794,7 +3716,7 @@ export default function App() {
 
       setMessage(t("trash.restored"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("trash.restoreError"));
     }
   }
@@ -3826,7 +3748,7 @@ export default function App() {
 
       setMessage(t("trash.deletedForever"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("trash.deleteForeverError"));
     }
   }
@@ -3860,7 +3782,7 @@ export default function App() {
 
       setMessage(t("trash.emptySuccess"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("trash.emptyError"));
     }
   }
@@ -3916,7 +3838,7 @@ export default function App() {
 
       setMessage(t("history.restored"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("history.restoreError"));
     }
   }
@@ -3957,7 +3879,7 @@ export default function App() {
 
       setMessage(t("history.cleared"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("history.clearError"));
     }
   }
@@ -4089,7 +4011,7 @@ export default function App() {
 
       setMessage(t("attachments.added"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("attachments.addError"));
     } finally {
       setBusy(false);
@@ -4134,7 +4056,7 @@ export default function App() {
 
       setMessage(t("attachments.removed"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("attachments.removeError"));
     }
   }
@@ -4164,7 +4086,7 @@ export default function App() {
       await recordActionHistoryOnly("encrypted_exported");
       setMessage(t("export.encryptedSuccess"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("export.encryptedError"));
     } finally {
       setBusy(false);
@@ -4208,7 +4130,7 @@ export default function App() {
       closeCsvExportDialog();
       setMessage(t("export.csvSuccess"));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("export.csvError"));
     }
   }
@@ -4236,7 +4158,7 @@ export default function App() {
       });
       setMessage(t("import.previewReady", { count: parsed.rows.length }));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setCsvImportPreview(null);
       setMessage(t("import.csvError"));
     } finally {
@@ -4300,7 +4222,7 @@ export default function App() {
       setScreen("credentials");
       setMessage(t("import.csvSuccess", { count: importedCredentials.length }));
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("import.csvError"));
     } finally {
       setBusy(false);
@@ -4317,7 +4239,7 @@ export default function App() {
     try {
       await openVaultFolder(activeVaultName);
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("folders.openVaultError"));
     }
   }
@@ -4326,7 +4248,7 @@ export default function App() {
     try {
       await openBackupFolder(activeVaultName);
     } catch (error) {
-      console.error(error);
+      secureLogError("operação do app", error);
       setMessage(t("folders.openBackupError"));
     }
   }
@@ -4777,6 +4699,13 @@ export default function App() {
     </div>
   ) : null;
 
+  const totpPreviewAutoSaved = Boolean(
+    totpSetupMode === "preview" &&
+    totpPreview &&
+    totpPreview.source !== "manual" &&
+    credentialForm.totpSecret === totpPreview.secret,
+  );
+
   const totpSetupDialog = totpSetupOpen ? (
     <div className="modalOverlay totpEasyOverlay" onMouseDown={closeTotpSetup}>
       <section className={`credentialModal totpEasyModal totpEasyModal--${totpSetupMode}`} role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
@@ -4842,34 +4771,6 @@ export default function App() {
           </div>
         )}
 
-        {totpSetupMode === "screenCrop" && totpScreenImage && (
-          <div className="totpScreenCropPanel">
-            <div className="totpScreenCropHint">
-              <strong>{t("totp.easy.screenCropTitle")}</strong>
-              <p>{t("totp.easy.screenCropText")}</p>
-            </div>
-            <div
-              className="totpScreenCropCanvas"
-              onMouseDown={handleTotpScreenMouseDown}
-              onMouseMove={handleTotpScreenMouseMove}
-              onMouseUp={handleTotpScreenMouseUp}
-              onMouseLeave={handleTotpScreenMouseUp}
-            >
-              <img ref={totpScreenImageRef} src={totpScreenImage} alt={t("totp.easy.screenImageAlt")} draggable={false} />
-              {totpScreenSelection && (
-                <span
-                  className="totpScreenSelection"
-                  style={{
-                    left: `${totpScreenSelection.x}px`,
-                    top: `${totpScreenSelection.y}px`,
-                    width: `${totpScreenSelection.width}px`,
-                    height: `${totpScreenSelection.height}px`,
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        )}
 
         {totpSetupMode === "manual" && (
           <div className="totpManualPanel">
@@ -4912,22 +4813,17 @@ export default function App() {
           </div>
         )}
 
+        {totpPreviewAutoSaved && (
+          <p className="totpEasySuccess">{t("totp.easy.autoSaved")}</p>
+        )}
+
         {totpSetupError && <p className="totpEasyError">{totpSetupError}</p>}
 
+        {!totpPreviewAutoSaved && (
         <div className="modalActions">
           {totpSetupMode === "screenIntro" && (
-            <button type="button" className="primaryButton" disabled={totpQrBusy} onClick={() => void captureTotpScreenFrame()}>
+            <button type="button" className="primaryButton" disabled={totpQrBusy} onClick={() => void detectTotpQrFromWindowsSnip()}>
               {totpQrBusy ? t("totp.easy.reading") : t("totp.easy.startScreenSelection")}
-            </button>
-          )}
-          {totpSetupMode === "screenCrop" && (
-            <button type="button" className="primaryButton" disabled={totpQrBusy || !isTotpScreenSelectionReady(totpScreenSelection)} onClick={() => void decodeTotpScreenSelection()}>
-              {totpQrBusy ? t("totp.easy.reading") : t("totp.easy.readSelection")}
-            </button>
-          )}
-          {totpSetupMode === "screenCrop" && (
-            <button type="button" className="secondaryButton" disabled={totpQrBusy} onClick={() => void captureTotpScreenFrame()}>
-              {t("totp.easy.captureAgain")}
             </button>
           )}
           {totpSetupMode === "manual" && (
@@ -4941,12 +4837,13 @@ export default function App() {
             </button>
           )}
           {totpSetupMode !== "choice" && (
-            <button type="button" className="secondaryButton" onClick={() => { setTotpSetupMode("choice"); setTotpSetupError(""); setTotpPreview(null); setTotpScreenImage(""); setTotpScreenSelection(null); setTotpScreenDragStart(null); }}>
+            <button type="button" className="secondaryButton" onClick={() => { setTotpSetupMode("choice"); setTotpSetupError(""); setTotpPreview(null); }}>
               {t("totp.easy.back")}
             </button>
           )}
           <button type="button" className="secondaryButton" onClick={closeTotpSetup}>{t("dialog.cancel")}</button>
         </div>
+        )}
       </section>
     </div>
   ) : null;
@@ -4986,6 +4883,8 @@ export default function App() {
             <strong>{t("export.csvRecommendedTitle")}</strong>
             <p>{t("export.csvRecommendedBackup")}</p>
           </div>
+
+          <p className="csvExportCleanupReminder">{t("export.csvCleanupReminder")}</p>
 
           <label className="csvExportPasswordField">
             {t("export.confirmPassword")}
@@ -7119,7 +7018,7 @@ export default function App() {
                 {detailCredential.url && (
                   <button
                     onClick={() => void openExternalUrl(detailCredential.url).catch((error) => {
-                      console.error(error);
+                      secureLogError("operação do app", error);
                       setMessage(t("credential.openSiteError"));
                     })}
                   >
