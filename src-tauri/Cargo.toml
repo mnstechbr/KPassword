@@ -16,7 +16,7 @@ tauri-build = { version = "2", features = [] }
 aes-gcm = "0.10"
 argon2 = "0.5"
 base64 = "0.22"
-getrandom = "0.3"
+getrandom = "0.4"
 pbkdf2 = "0.12"
 sha2 = "0.10"
 tauri = { version = "2", features = ["tray-icon"] }
