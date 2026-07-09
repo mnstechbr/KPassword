@@ -11,13 +11,13 @@ Baixe a versão mais recente pela página de Releases do GitHub.
 Arquivo recomendado:
 
 ```text
-KPassword-Setup-v1.3.0.exe
+KPassword-Setup-v1.3.1.exe
 ```
 
 Também são publicados junto ao release:
 
 ```text
-KPassword-Setup-v1.3.0.exe.sig
+KPassword-Setup-v1.3.1.exe.sig
 latest.json
 SHA256SUMS.txt
 ```
@@ -27,7 +27,7 @@ O arquivo `latest.json` é usado pelo atualizador automático do app. O arquivo 
 ## Como instalar
 
 1. Baixe o instalador da versão mais recente em Releases.
-2. Execute `KPassword-Setup-v1.3.0.exe`.
+2. Execute `KPassword-Setup-v1.3.1.exe`.
 3. Abra o KPassword.
 4. Crie sua senha mestra.
 5. Guarde a senha mestra com segurança, pois ela não pode ser recuperada.
@@ -87,9 +87,9 @@ npm run build
 Build oficial de release:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "1.3.0"
-npm run release:hash -- --ReleaseDir ".\dist-release\v1.3.0"
-npm run release:validate -- --ReleaseDir ".\dist-release\v1.3.0"
+powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "1.3.1"
+npm run release:hash -- --ReleaseDir ".\dist-release\v1.3.1"
+npm run release:validate -- --ReleaseDir ".\dist-release\v1.3.1"
 ```
 
 ## Assets de release
