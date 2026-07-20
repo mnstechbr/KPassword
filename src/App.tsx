@@ -111,7 +111,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.3.4";
+const APP_VERSION = "1.3.5";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -5295,7 +5295,7 @@ export default function App() {
     return (
       <>
         <main className="authShell authDesktopShell">
-          <section className="authCard authExperience authLoading">
+          <section className="authCard authExperience authLocked authLoadingState">
             <div className="authUtilityBar">
               <div className="authProductMark">
                 <AppLogo size="sm" />
@@ -5307,21 +5307,21 @@ export default function App() {
               {authLoginToolsElement}
             </div>
 
-            <div className="authHeroBlock">
-              <AppLogo size="lg" />
-              <p className="eyebrow">{t("auth.localOfflineBadge")}</p>
-              <h1>KPassword</h1>
-              <p>{t("auth.heroDescription")}</p>
-              <div className="authTrustRow">
-                <span>{t("auth.trustLocal")}</span>
-                <span>{t("auth.trustEncrypted")}</span>
-                <span>{t("auth.trustPrivate")}</span>
-              </div>
+            <div className="authHeroBlock authLogoStage">
+              <AppLogo size="lg" className="vaultLogo" />
             </div>
 
-            <section className="authPanel authLoadingPanel">
+            <section
+              className="authPanel authUnlockPanel authLoadingPanel"
+              aria-live="polite"
+              aria-busy="true"
+            >
               <span className="authPanelLabel">{t("status.loadingVault")}</span>
-              <div className="authLoadingBar" aria-hidden="true" />
+              <div
+                className="authLoadingBar"
+                role="progressbar"
+                aria-label={t("status.loadingVault")}
+              />
             </section>
 
             <footer className="authDeveloperCredit">

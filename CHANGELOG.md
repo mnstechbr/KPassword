@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.3.5
+
+Versão de consistência visual do fluxo de inicialização e verificação do cofre.
+
+### Melhorias
+
+- A tela temporária de carregamento agora reutiliza a mesma estrutura visual da tela oficial de desbloqueio.
+- Logo, controles superiores, seletor de idioma, card central e rodapé permanecem nas mesmas posições durante a leitura do cofre local.
+- O progresso de carregamento é mostrado dentro do card central, sem trocar para o antigo layout promocional.
+- Reduzidos saltos visuais entre iniciar o app, localizar o cofre e exibir o desbloqueio.
+
+### Acessibilidade
+
+- O estado de carregamento agora informa `aria-busy` e usa uma barra de progresso identificada para tecnologias assistivas.
+
+### Segurança
+
+- Nenhuma alteração no formato do cofre, criptografia, backup, Windows Hello ou dados existentes.
+
 ## v1.3.4
 
 Versão de polimento da integração com Windows e da experiência de bandeja.

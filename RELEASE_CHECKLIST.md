@@ -87,3 +87,13 @@ Antes de publicar uma release do KPassword:
 - [ ] Ao iniciar com `--startup`, o app abre direto na bandeja.
 - [ ] Título do WebView aparece como KPassword, sem "Tauri + React + Typescript".
 - [ ] App enviado à bandeja bloqueia o cofre e não mantém dados sensíveis em estado desbloqueado.
+
+## Validações específicas v1.3.5
+
+- [ ] Ao iniciar o app, a tela de carregamento mantém a mesma estrutura da tela de desbloqueio.
+- [ ] Logo, controles superiores, card central e rodapé não mudam de posição ao passar de carregamento para bloqueado.
+- [ ] Em instalação sem cofre, o carregamento inicial permanece consistente até abrir o fluxo de primeiro uso.
+- [ ] Ao alternar entre cofres, a tela temporária de carregamento mantém o layout oficial.
+- [ ] Temas escuro, claro e misto foram testados durante o carregamento.
+- [ ] Janela maximizada e janela menor foram testadas sem saltos ou sobreposição.
+
