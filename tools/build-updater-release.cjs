@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { selectSignedInstaller } = require("./release-artifacts.cjs");
 
 const args = process.argv.slice(2);
 const getArg = (name, fallback = "") => {
@@ -34,27 +35,13 @@ function listFiles(dir) {
 
 const files = listFiles(nsisDir);
 
-const setup = files
-  .filter((item) => item.name.toLowerCase().endsWith(".exe") && item.name.toLowerCase().includes("setup"))
-  .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs)[0];
-
-if (!setup) {
-  throw new Error(`Setup .exe não encontrado em ${nsisDir}`);
-}
-
-let sig = files.find((item) => item.name === `${setup.name}.sig`);
-
-if (!sig) {
-  sig = files
-    .filter((item) => item.name.toLowerCase().endsWith(".sig"))
-    .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs)[0];
-}
-
-if (!sig) {
-  throw new Error(
-    `Arquivo .sig não encontrado em ${nsisDir}. Verifique se bundle.createUpdaterArtifacts=true e TAURI_SIGNING_PRIVATE_KEY foi definido.`,
-  );
-}
+// FAIL-CLOSED (auditoria Fase 4, achado HIGH-2): ver tools/release-artifacts.cjs.
+const { installer, signature: signatureName } = selectSignedInstaller(
+  files.map((item) => item.name),
+  nsisDir,
+);
+const setup = { name: installer, full: path.join(nsisDir, installer) };
+const sig = { name: signatureName, full: path.join(nsisDir, signatureName) };
 
 fs.mkdirSync(releaseDir, { recursive: true });
 

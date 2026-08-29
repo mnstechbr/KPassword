@@ -43,6 +43,7 @@ Antes de publicar uma release do KPassword:
 - [ ] anexar `.sig` correto;
 - [ ] anexar `latest.json`;
 - [ ] anexar `SHA256SUMS.txt`;
+- [ ] rodar `npm run version:check` antes de gerar artefatos;
 - [ ] validar assets locais com `tools\validate-release-assets.ps1`;
 - [ ] conferir se `latest.json` aponta para a tag correta;
 - [ ] marcar como latest release quando apropriado.

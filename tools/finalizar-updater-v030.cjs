@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { selectSignedInstaller } = require("./release-artifacts.cjs");
 
 const args = process.argv.slice(2);
 const getArg = (name, fallback = "") => {
@@ -206,46 +207,23 @@ function ensureLibRs() {
   writeNoBom(files.libRs, lib);
 }
 
-function findNewestFile(dir, predicate) {
-  if (!fs.existsSync(dir)) return null;
-
-  const found = [];
-  for (const name of fs.readdirSync(dir)) {
-    const full = path.join(dir, name);
-    const stat = fs.statSync(full);
-    if (stat.isDirectory()) {
-      const nested = findNewestFile(full, predicate);
-      if (nested) found.push(nested);
-      continue;
-    }
-    if (predicate(name, full)) found.push({ name, full, stat });
-  }
-
-  return found.sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs)[0] ?? null;
-}
-
 function makeReleaseFolder() {
   const nsisDir = path.join(project, "src-tauri", "target", "release", "bundle", "nsis");
   const releaseDir = path.join(project, "dist-release", `v${version}`);
 
-  const setup = findNewestFile(nsisDir, (name) => name.toLowerCase().endsWith(".exe") && name.toLowerCase().includes("setup"));
-  if (!setup) {
-    throw new Error(`Setup .exe não encontrado em ${nsisDir}`);
+  // FAIL-CLOSED (auditoria Fase 4, achado HIGH-2): ver tools/release-artifacts.cjs.
+  if (!fs.existsSync(nsisDir)) {
+    throw new Error(`Pasta NSIS não encontrada: ${nsisDir}`);
   }
 
-  let sig = null;
-  const exactSig = `${setup.full}.sig`;
-  if (fs.existsSync(exactSig)) {
-    sig = { name: path.basename(exactSig), full: exactSig, stat: fs.statSync(exactSig) };
-  } else {
-    sig = findNewestFile(nsisDir, (name) => name.toLowerCase().endsWith(".sig"));
-  }
+  const nsisEntries = fs
+    .readdirSync(nsisDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
 
-  if (!sig) {
-    throw new Error(
-      `Arquivo .sig não encontrado em ${nsisDir}. O build precisa gerar assinatura para o updater.`,
-    );
-  }
+  const { installer, signature: signatureName } = selectSignedInstaller(nsisEntries, nsisDir);
+  const setup = { name: installer, full: path.join(nsisDir, installer) };
+  const sig = { name: signatureName, full: path.join(nsisDir, signatureName) };
 
   fs.mkdirSync(releaseDir, { recursive: true });
 
@@ -282,6 +260,7 @@ function makeReleaseFolder() {
       `- ${setupName}`,
       `- ${setupName}.sig`,
       "- latest.json",
+      "- SHA256SUMS.txt",
       "",
       "Link para criar a release:",
       `https://github.com/${owner}/${repo}/releases/new`,
