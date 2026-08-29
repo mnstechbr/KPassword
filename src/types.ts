@@ -183,9 +183,25 @@ export type BackupVerificationReport = {
   createdAt?: string;
 };
 
+/**
+ * Estado operacional do registro Windows Hello (v1).
+ *
+ * `state` NAO prova vinculo criptografico entre o registro e o cofre — o
+ * formato v1 nao oferece essa propriedade. Ele apenas separa situacoes:
+ *
+ * - `disabled`   nao ha registro;
+ * - `stale`      ha registro, mas o cofre correspondente nao existe (orfao),
+ *                ou o segredo recuperado nao abriu o cofre;
+ * - `invalid`    registro presente com tamanho fora do plausivel;
+ * - `configured` ha registro utilizavel para um cofre existente.
+ */
+export type WindowsHelloRecordState = "disabled" | "configured" | "stale" | "invalid";
+
 export type WindowsHelloStatus = {
   available: boolean;
+  /** Compatibilidade: verdadeiro apenas quando `state === "configured"`. */
   enabled: boolean;
+  state: WindowsHelloRecordState;
   reason: string;
   vault_name: string;
 };
