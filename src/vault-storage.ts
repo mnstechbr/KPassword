@@ -80,6 +80,32 @@ export async function disableWindowsHello(vaultName = "vault") {
   );
 }
 
+/**
+ * Remove um registro Hello orfao (estado `stale`) antes de criar um cofre novo
+ * com o mesmo nome. Devolve `true` quando removeu algo. Nunca remove o registro
+ * de um cofre existente — o backend recusa em qualquer outro estado.
+ */
+export async function discardOrphanWindowsHello(vaultName = "vault") {
+  return withCommandTimeout(
+    invoke<boolean>("discard_orphan_windows_hello", { vaultName }),
+    WINDOWS_HELLO_DISABLE_TIMEOUT_MS,
+    "Windows Hello orphan cleanup",
+  );
+}
+
+/**
+ * Isola (renomeia) o registro Hello quando o segredo recuperado nao abre o
+ * cofre atual. Nao apaga: preserva o arquivo e interrompe o ciclo de oferecer
+ * repetidamente um Hello que comprovadamente nao funciona.
+ */
+export async function quarantineWindowsHello(vaultName = "vault") {
+  return withCommandTimeout(
+    invoke<boolean>("quarantine_windows_hello", { vaultName }),
+    WINDOWS_HELLO_DISABLE_TIMEOUT_MS,
+    "Windows Hello quarantine",
+  );
+}
+
 export async function unlockWithWindowsHello(vaultName = "vault", reason: string) {
   return withCommandTimeout(
     invoke<string>("unlock_with_windows_hello", { vaultName, reason }),
