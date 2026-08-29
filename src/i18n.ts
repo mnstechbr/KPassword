@@ -3893,6 +3893,8 @@ const v133Translations: Record<AppLanguage, Record<string, string>> = {
 
 const v134Translations: Record<AppLanguage, Record<string, string>> = {
   pt: {
+    "windowsHello.staleRecord": "O registro do Windows Hello nao abre mais este cofre e foi isolado. Use a senha mestra e ative o desbloqueio novamente.",
+    "vault.helloCleanupFailed": "Nao foi possivel remover um registro antigo de desbloqueio com esse nome. O cofre nao foi criado.",
     "settings.startupStatusOn": "Iniciar com Windows está ativo",
     "settings.startupStatusOff": "Iniciar com Windows está desativado",
     "settings.startupStatusDescription": "Quando ativado, o KPassword inicia protegido direto na bandeja usando o registro do usuário atual.",
@@ -3935,6 +3937,8 @@ const v134Translations: Record<AppLanguage, Record<string, string>> = {
     "appDiagnostics.windowsProcessNote": "O KPassword é um app Tauri e usa o Microsoft WebView2 para renderizar a interface. O Windows pode agrupar processos filhos como Gerenciador WebView2, mesmo quando a janela e o subprocesso aparecem como KPassword."
   },
   en: {
+    "windowsHello.staleRecord": "The Windows Hello record no longer opens this vault and was quarantined. Use the master password and enable unlock again.",
+    "vault.helloCleanupFailed": "Could not remove a leftover unlock record with this name. The vault was not created.",
     "settings.startupStatusOn": "Start with Windows is enabled",
     "settings.startupStatusOff": "Start with Windows is disabled",
     "settings.startupStatusDescription": "When enabled, KPassword starts protected directly in the tray using the current user's registry entry.",
@@ -3977,6 +3981,8 @@ const v134Translations: Record<AppLanguage, Record<string, string>> = {
     "appDiagnostics.windowsProcessNote": "KPassword is a Tauri app and uses Microsoft WebView2 to render the interface. Windows may group child processes as WebView2 Manager, even when the window and subprocess show KPassword."
   },
   es: {
+    "windowsHello.staleRecord": "El registro de Windows Hello ya no abre esta boveda y fue aislado. Usa la contrasena maestra y activa el desbloqueo de nuevo.",
+    "vault.helloCleanupFailed": "No se pudo eliminar un registro anterior de desbloqueo con ese nombre. La boveda no fue creada.",
     "settings.startupStatusOn": "Inicio con Windows activo",
     "settings.startupStatusOff": "Inicio con Windows desactivado",
     "settings.startupStatusDescription": "Cuando está activo, KPassword inicia protegido directamente en la bandeja usando el registro del usuario actual.",
@@ -4019,6 +4025,8 @@ const v134Translations: Record<AppLanguage, Record<string, string>> = {
     "appDiagnostics.windowsProcessNote": "KPassword es una app Tauri y usa Microsoft WebView2 para renderizar la interfaz. Windows puede agrupar procesos hijos como Administrador WebView2, incluso cuando la ventana y el subproceso muestran KPassword."
   },
   tr: {
+    "windowsHello.staleRecord": "Windows Hello kaydi bu kasayi artik acmiyor ve karantinaya alindi. Ana parolayi kullanin ve kilit acmayi yeniden etkinlestirin.",
+    "vault.helloCleanupFailed": "Bu ada sahip eski bir kilit acma kaydi kaldirilamadi. Kasa olusturulmadi.",
     "settings.startupStatusOn": "Windows ile başlatma açık",
     "settings.startupStatusOff": "Windows ile başlatma kapalı",
     "settings.startupStatusDescription": "Açık olduğunda KPassword mevcut kullanıcı kayıt defteriyle doğrudan tepside korumalı başlar.",

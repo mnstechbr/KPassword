@@ -52,7 +52,10 @@ struct StorageInfo {
 #[derive(Serialize)]
 struct WindowsHelloStatus {
     available: bool,
+    /// Compatibilidade: verdadeiro apenas quando `state == "configured"`.
     enabled: bool,
+    /// "disabled" | "configured" | "stale" | "invalid" -- ver `hello_record_state`.
+    state: String,
     reason: String,
     vault_name: String,
 }
@@ -64,6 +67,75 @@ struct StartupStatus {
     value_name: String,
     command_line: String,
     startup_argument: String,
+}
+
+/// Limites de tamanho plausiveis para um registro Windows Hello v1.
+/// Serve apenas para distinguir arquivo truncado/absurdo de registro utilizavel.
+const HELLO_RECORD_MIN_BYTES: u64 = 16;
+const HELLO_RECORD_MAX_BYTES: u64 = 64 * 1024;
+
+pub const HELLO_STATE_DISABLED: &str = "disabled";
+pub const HELLO_STATE_CONFIGURED: &str = "configured";
+pub const HELLO_STATE_STALE: &str = "stale";
+pub const HELLO_STATE_INVALID: &str = "invalid";
+
+/// Classifica o estado do registro Windows Hello a partir de fatos observaveis.
+///
+/// Funcao pura, para permitir teste sem sistema de arquivos nem Windows.
+///
+/// IMPORTANTE: isto NAO prova vinculo criptografico entre o registro e o cofre.
+/// O formato v1 nao oferece essa propriedade. A classificacao apenas separa
+/// estados operacionais:
+///
+/// - `disabled`   nao ha registro;
+/// - `stale`      ha registro, mas o cofre correspondente nao existe (orfao);
+/// - `invalid`    ha registro, mas com tamanho fora do plausivel;
+/// - `configured` ha registro e ha cofre -- utilizavel, sem garantia de que abre.
+///
+/// Deliberadamente NAO inspecionamos o cabecalho interno do blob DPAPI: seu
+/// layout nao e documentado pela Microsoft, e esta fase existe justamente para
+/// deixar de depender de comportamento nao documentado.
+fn hello_record_state(vault_exists: bool, record_size: Option<u64>) -> &'static str {
+    match record_size {
+        None => HELLO_STATE_DISABLED,
+        Some(_) if !vault_exists => HELLO_STATE_STALE,
+        Some(size) if !(HELLO_RECORD_MIN_BYTES..=HELLO_RECORD_MAX_BYTES).contains(&size) => {
+            HELLO_STATE_INVALID
+        }
+        Some(_) => HELLO_STATE_CONFIGURED,
+    }
+}
+
+/// Caminhos do cofre e do registro Hello, SEM criar diretorios.
+fn vault_and_hello_paths(
+    app: &AppHandle,
+    vault_name: Option<String>,
+) -> Result<(PathBuf, PathBuf, String), String> {
+    let safe_vault_name = sanitize_vault_name(vault_name)?;
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
+
+    let vault_path = data_dir.join(vault_filename(&safe_vault_name));
+    let record_path = data_dir
+        .join("windows_hello")
+        .join(format!("{safe_vault_name}.kphello"));
+
+    Ok((vault_path, record_path, safe_vault_name))
+}
+
+/// Estado atual do registro Hello para um cofre.
+fn classify_hello_record(
+    app: &AppHandle,
+    vault_name: Option<String>,
+) -> Result<(&'static str, String), String> {
+    let (vault_path, record_path, safe_vault_name) = vault_and_hello_paths(app, vault_name)?;
+    let record_size = fs::metadata(&record_path).ok().map(|meta| meta.len());
+    Ok((
+        hello_record_state(vault_path.exists(), record_size),
+        safe_vault_name,
+    ))
 }
 
 fn now_epoch_seconds() -> u64 {
@@ -934,7 +1006,7 @@ mod windows_hello_native {
         app: AppHandle,
         vault_name: Option<String>,
     ) -> Result<WindowsHelloStatus, String> {
-        let (path, safe_vault_name) = token_path(&app, vault_name)?;
+        let (state, safe_vault_name) = super::classify_hello_record(&app, vault_name)?;
         let availability = check_availability();
 
         let (available, reason) = match availability {
@@ -947,7 +1019,10 @@ mod windows_hello_native {
 
         Ok(WindowsHelloStatus {
             available,
-            enabled: path.exists(),
+            // `enabled` deixa de significar "o arquivo existe" e passa a
+            // significar "ha registro utilizavel para um cofre existente".
+            enabled: state == super::HELLO_STATE_CONFIGURED,
+            state: state.to_string(),
             reason,
             vault_name: safe_vault_name,
         })
@@ -1054,10 +1129,52 @@ async fn windows_hello_status(
         Ok(WindowsHelloStatus {
             available: false,
             enabled: false,
+            state: HELLO_STATE_DISABLED.to_string(),
             reason: "not_windows".to_string(),
             vault_name: safe_vault_name,
         })
     }
+}
+
+/// Remove um registro Hello ORFAO (estado `stale`): existe o `.kphello`, mas nao
+/// existe o `.kpvault` correspondente.
+///
+/// Recusa-se a agir em qualquer outro estado -- em particular, nunca remove o
+/// registro de um cofre existente. Devolve `true` quando removeu algo.
+#[tauri::command]
+fn discard_orphan_windows_hello(
+    app: AppHandle,
+    vault_name: Option<String>,
+) -> Result<bool, String> {
+    let (state, _) = classify_hello_record(&app, vault_name.clone())?;
+
+    if state != HELLO_STATE_STALE {
+        return Ok(false);
+    }
+
+    let (_, record_path, _) = vault_and_hello_paths(&app, vault_name)?;
+    fs::remove_file(&record_path)
+        .map_err(|error| format!("Erro ao remover registro Windows Hello orfao: {error}"))?;
+    Ok(true)
+}
+
+/// Coloca o registro Hello em quarentena, renomeando-o em vez de apagar.
+///
+/// Usado quando o segredo recuperado nao abre o cofre atual. Preserva o arquivo
+/// para diagnostico e evita que a interface continue oferecendo um Hello que
+/// comprovadamente nao funciona.
+#[tauri::command]
+fn quarantine_windows_hello(app: AppHandle, vault_name: Option<String>) -> Result<bool, String> {
+    let (_, record_path, _) = vault_and_hello_paths(&app, vault_name)?;
+
+    if !record_path.exists() {
+        return Ok(false);
+    }
+
+    let quarantined = record_path.with_extension(format!("kphello.invalid-{}", now_epoch_millis()));
+    fs::rename(&record_path, &quarantined)
+        .map_err(|error| format!("Erro ao isolar registro Windows Hello invalido: {error}"))?;
+    Ok(true)
 }
 
 #[tauri::command]
@@ -1142,6 +1259,62 @@ async fn unlock_with_windows_hello(
 #[cfg(test)]
 mod storage_tests {
     use super::*;
+
+    // --- HELLO-2 / STATUS: classificacao de estado do registro Windows Hello ---
+    // Funcao pura: nao exige Windows, sistema de arquivos nem prompt.
+
+    #[test]
+    fn sem_registro_o_estado_e_disabled() {
+        assert_eq!(hello_record_state(true, None), HELLO_STATE_DISABLED);
+        assert_eq!(hello_record_state(false, None), HELLO_STATE_DISABLED);
+    }
+
+    #[test]
+    fn registro_sem_cofre_correspondente_e_orfao() {
+        // HELLO-2: o .kpvault foi removido, o .kphello sobreviveu.
+        assert_eq!(hello_record_state(false, Some(246)), HELLO_STATE_STALE);
+    }
+
+    #[test]
+    fn registro_com_tamanho_implausivel_e_invalido() {
+        assert_eq!(hello_record_state(true, Some(0)), HELLO_STATE_INVALID);
+        assert_eq!(
+            hello_record_state(true, Some(HELLO_RECORD_MIN_BYTES - 1)),
+            HELLO_STATE_INVALID
+        );
+        assert_eq!(
+            hello_record_state(true, Some(HELLO_RECORD_MAX_BYTES + 1)),
+            HELLO_STATE_INVALID
+        );
+    }
+
+    #[test]
+    fn registro_com_cofre_e_tamanho_plausivel_e_configured() {
+        assert_eq!(hello_record_state(true, Some(246)), HELLO_STATE_CONFIGURED);
+        assert_eq!(
+            hello_record_state(true, Some(HELLO_RECORD_MIN_BYTES)),
+            HELLO_STATE_CONFIGURED
+        );
+        assert_eq!(
+            hello_record_state(true, Some(HELLO_RECORD_MAX_BYTES)),
+            HELLO_STATE_CONFIGURED
+        );
+    }
+
+    #[test]
+    fn apenas_configured_habilita_o_desbloqueio_por_hello() {
+        // A interface so deve oferecer Hello no estado configured.
+        for (vault, size) in [(false, Some(246)), (true, Some(0)), (true, None), (false, None)] {
+            assert_ne!(hello_record_state(vault, size), HELLO_STATE_CONFIGURED);
+        }
+    }
+
+    #[test]
+    fn orfao_tem_precedencia_sobre_tamanho_invalido() {
+        // Sem cofre, o registro e orfao independentemente do tamanho: em ambos
+        // os casos nao deve ser usado, mas "stale" descreve melhor a causa.
+        assert_eq!(hello_record_state(false, Some(0)), HELLO_STATE_STALE);
+    }
 
     #[test]
     fn pre_argon2_backup_name_is_identifiable_and_preserves_payload() {
@@ -2069,6 +2242,8 @@ pub fn run() {
             enable_windows_hello,
             disable_windows_hello,
             unlock_with_windows_hello,
+            discard_orphan_windows_hello,
+            quarantine_windows_hello,
             decode_qr_from_image_data_url,
             get_windows_clipboard_sequence_number,
             start_windows_screen_snip,
