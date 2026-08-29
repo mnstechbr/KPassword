@@ -1,0 +1,96 @@
+name: CI
+
+# Rede de seguranca minima: executa as suites de teste e os guard rails de
+# release em cada push e pull request.
+#
+# Esta pipeline NAO assina, NAO empacota release e NAO publica nada.
+# A chave privada de assinatura nunca entra no GitHub.
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+# Least privilege: nenhum job precisa escrever no repositorio.
+permissions:
+  contents: read
+
+# Um PR que recebe novos commits cancela a execucao anterior.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (tsc + vitest + build)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install (lockfile exato)
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  rust:
+    name: Rust (cargo test)
+    # windows-latest e obrigatorio: lib.rs contem modulos sob #[cfg(windows)]
+    # e faz #[link(name = "Crypt32")], que nao compilam em Linux.
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # --lib limita a compilacao a biblioteca kpassword_lib, evitando empacotar
+      # o binario Tauri completo. Verificado localmente: 29 testes.
+      - name: cargo test --lib
+        run: cargo test --lib
+
+  release-consistency:
+    name: Release consistency (version:check)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      # Guard rail read-only: falha se as 7 fontes de versao divergirem.
+      # Nao instala dependencias -- o script usa apenas a stdlib do Node.
+      - name: version:check
+        run: node ./tools/version-check.mjs
