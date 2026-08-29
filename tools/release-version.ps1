@@ -5,7 +5,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Project = "C:\Projetos\KPassword"
+# Raiz do repositorio derivada da localizacao DESTE script (tools/..), nunca de
+# um caminho fixo de uma maquina especifica.
+$Project = (Resolve-Path (Join-Path $PSScriptRoot "..")).ProviderPath
 Set-Location $Project
 
 Write-Host ""
@@ -40,10 +42,11 @@ git status --short --branch
 Write-Host ""
 Write-Host "Validação concluída. Próximos passos manuais sugeridos:" -ForegroundColor Green
 Write-Host ""
+Write-Host "npm run version:check" -ForegroundColor White
 Write-Host "git status --short --branch" -ForegroundColor White
 Write-Host "git add CAMINHOS_ESPECIFICOS" -ForegroundColor White
-Write-Host "git commit -m \"$Message\"" -ForegroundColor White
+Write-Host "git commit -m ""$Message""" -ForegroundColor White
 Write-Host "git push" -ForegroundColor White
-Write-Host "powershell -ExecutionPolicy Bypass -File \".\tools\fix-updater-v030-build.ps1\" -Version \"$Version\"" -ForegroundColor White
-Write-Host "npm run release:hash -- --ReleaseDir \".\dist-release\v$Version\"" -ForegroundColor White
-Write-Host "npm run release:validate -- --ReleaseDir \".\dist-release\v$Version\"" -ForegroundColor White
+Write-Host "powershell -ExecutionPolicy Bypass -File "".\tools\fix-updater-v030-build.ps1"" -Version ""$Version""" -ForegroundColor White
+Write-Host "npm run release:hash -- --ReleaseDir "".\dist-release\v$Version""" -ForegroundColor White
+Write-Host "npm run release:validate -- --ReleaseDir "".\dist-release\v$Version""" -ForegroundColor White
