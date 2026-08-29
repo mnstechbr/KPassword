@@ -91,8 +91,21 @@ Run-Step "4/7 Validando frontend" {
 Write-Host ""
 Write-Host "5/7 Limpando bundle antigo" -ForegroundColor Cyan
 $BundleDir = Join-Path $Project "src-tauri\target\release\bundle"
+# FAIL-CLOSED: valida o alvo antes de qualquer remocao recursiva.
+$ResolvedProject = (Resolve-Path $Project).ProviderPath.TrimEnd([char]92)
+$ExpectedSuffix = Join-Path (Join-Path (Join-Path "src-tauri" "target") "release") "bundle"
+if (-not $BundleDir.StartsWith($ResolvedProject, [System.StringComparison]::OrdinalIgnoreCase)) {
+  throw "Recusado: alvo de limpeza fora da raiz do projeto: $BundleDir"
+}
+if (-not $BundleDir.EndsWith($ExpectedSuffix, [System.StringComparison]::OrdinalIgnoreCase)) {
+  throw "Recusado: alvo de limpeza nao termina em '$ExpectedSuffix': $BundleDir"
+}
+
 if (Test-Path $BundleDir) {
   Remove-Item $BundleDir -Recurse -Force
+  Write-Host "      bundle removido" -ForegroundColor DarkGray
+} else {
+  Write-Host "      bundle ja estava limpo" -ForegroundColor DarkGray
 }
 
 Write-Host ""

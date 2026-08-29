@@ -88,10 +88,13 @@ npm run build
 Build oficial de release:
 
 ```powershell
+npm run version:check
 powershell -ExecutionPolicy Bypass -File ".\tools\fix-updater-v030-build.ps1" -Version "1.3.5"
 npm run release:hash -- --ReleaseDir ".\dist-release\v1.3.5"
 npm run release:validate -- --ReleaseDir ".\dist-release\v1.3.5"
 ```
+
+`npm run version:check` confere as sete fontes de versao do projeto e falha se alguma divergir. Ele nao corrige nada: e um guard rail antes de gerar qualquer artefato.
 
 O script de build assinado não faz `git add`, `git commit`, `git push` nem instala dependências automaticamente. Antes da release, confira o estado do Git, rode `npm install` manualmente quando necessário e use uma chave privada do updater protegida por senha forte.
 
