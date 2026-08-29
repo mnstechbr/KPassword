@@ -20,16 +20,28 @@ import {
   validateMasterPassword,
   verifyEncryptedVaultBackup,
 } from "./crypto";
-import { generatePassword, getPasswordLabel, getPasswordScore, type PasswordGeneratorMode } from "./password";
+import { generatePassword, type PasswordGeneratorMode } from "./password";
+import {
+  isWeakStrength,
+  strengthLabelFromScore,
+  type PasswordStrength,
+} from "./password-strength";
+import { createStrengthEngine, type StrengthEngine } from "./strength-engine";
+import {
+  canOfferHelloUnlock,
+  masterPasswordChangePlan,
+} from "./windows-hello-policy";
 import { decodeQrFromImageFile } from "./totp-qr-reader";
 import {
   createPreArgon2Backup,
   getStorageInfo,
   disableWindowsHello,
+  discardOrphanWindowsHello,
   enableWindowsHello,
   getWindowsHelloStatus,
   listBackupFiles,
   listVaultFiles,
+  quarantineWindowsHello,
   loadVaultFile,
   openBackupFolder,
   openVaultFolder,
@@ -119,6 +131,7 @@ const ACTION_HISTORY_LIMIT = 200;
 const DEFAULT_WINDOWS_HELLO_STATUS: WindowsHelloStatus = {
   available: false,
   enabled: false,
+  state: "disabled",
   reason: "",
   vault_name: DEFAULT_VAULT_NAME,
 };
@@ -1682,6 +1695,10 @@ function getExpiryBadgeClass(status: PasswordExpiryStatus) {
 function getCredentialDiagnosticIssues(
   credential: CredentialRecord,
   passwordCounts: Map<string, number>,
+  // Resultado da analise assincrona de forca. `null` significa "ainda nao
+  // analisada": nesse caso a credencial nao e marcada como fraca, para nao
+  // inventar um veredito antes de o worker responder.
+  strength: PasswordStrength | null,
 ): DiagnosticIssue[] {
   if (!isCredentialItem(credential)) return [];
 
@@ -1689,7 +1706,7 @@ function getCredentialDiagnosticIssues(
   const normalizedPassword = credential.password.trim();
   const expiryInfo = getPasswordExpiryInfo(credential);
 
-  if (!normalizedPassword || getPasswordScore(normalizedPassword) < 60) {
+  if (!normalizedPassword || isWeakStrength(strength)) {
     issues.push("weak");
   }
 
@@ -1886,10 +1903,37 @@ export default function App() {
   const [generatorNumbers, setGeneratorNumbers] = useState(true);
   const [generatorSymbols, setGeneratorSymbols] = useState(true);
   const [generatorAvoidAmbiguous, setGeneratorAvoidAmbiguous] = useState(true);
+  // Resultados da analise assincrona de forca, por id de credencial.
+  // Guarda apenas dados derivados: nunca a senha.
+  const [strengthByCredential, setStrengthByCredential] = useState<Record<string, PasswordStrength>>({});
+  const [draftStrength, setDraftStrength] = useState<PasswordStrength | null>(null);
+  const strengthEngineRef = useRef<StrengthEngine | null>(null);
   const lastActivityRef = useRef(Date.now());
   const clipboardCleanupRef = useRef<number | null>(null);
   const quickFilterMenuRef = useRef<HTMLDivElement | null>(null);
   const totpImageInputRef = useRef<HTMLInputElement | null>(null);
+
+  // O motor (e o worker) so nascem quando ha algo para analisar. Nada de
+  // zxcvbn durante o startup do app.
+  const getStrengthEngine = useCallback(() => {
+    if (!strengthEngineRef.current) {
+      strengthEngineRef.current = createStrengthEngine({
+        onCredentialResult: (id, strength) =>
+          setStrengthByCredential((current) => ({ ...current, [id]: strength })),
+        onDraftResult: setDraftStrength,
+      });
+    }
+    return strengthEngineRef.current;
+  }, []);
+
+  const teardownStrengthEngine = useCallback(() => {
+    strengthEngineRef.current?.destroy();
+    strengthEngineRef.current = null;
+    setStrengthByCredential({});
+    setDraftStrength(null);
+  }, []);
+
+  useEffect(() => teardownStrengthEngine, [teardownStrengthEngine]);
 
   const t = useCallback(
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
@@ -2194,6 +2238,7 @@ export default function App() {
   }, [activeVaultName, refreshStorageInfo, refreshVaultFiles, refreshWindowsHelloStatus]);
 
   const lockVault = useCallback(() => {
+    teardownStrengthEngine();
     setVault(null);
     setMasterPassword("");
     setUnlockPassword("");
@@ -2219,7 +2264,7 @@ export default function App() {
     setUnlockGateOpen(false);
     setMessage("");
     setMode((current) => (current === "setup" ? "setup" : "locked"));
-  }, []);
+  }, [teardownStrengthEngine]);
 
   useEffect(() => {
     const handler = () => lockVault();
@@ -2522,7 +2567,25 @@ export default function App() {
     try {
       await prepareWindowsHelloPrompt();
       const password = await unlockWithWindowsHello(activeVaultName, t("windowsHello.promptUnlock"));
-      const plainVault = normalizeVault(await decryptVault(encryptedVault, password));
+
+      // O segredo veio do registro Hello, mas pode não abrir ESTE cofre — por
+      // exemplo após uma troca de senha mestra interrompida. Nesse caso o
+      // registro é isolado (renomeado, não apagado) para não continuar sendo
+      // oferecido, e o usuário segue pela senha mestra.
+      let plainVault: PlainVault;
+      try {
+        plainVault = normalizeVault(await decryptVault(encryptedVault, password));
+      } catch (staleError) {
+        secureLogError("segredo do Windows Hello não abre o cofre atual", staleError);
+        try {
+          await quarantineWindowsHello(activeVaultName);
+        } catch (quarantineError) {
+          secureLogError("isolar registro do Windows Hello inválido", quarantineError);
+        }
+        await refreshWindowsHelloStatus(activeVaultName);
+        setMessage(t("windowsHello.staleRecord"));
+        return;
+      }
       await migrateLegacyVaultIfNeeded(encryptedVault, plainVault, password);
 
       let unlockedVault = plainVault;
@@ -2696,6 +2759,18 @@ export default function App() {
 
     if (!confirmed) return;
 
+    // HELLO-2: um `.kphello` pode ter sobrevivido à remoção manual de um cofre
+    // homônimo. Se o novo cofre nascesse com esse registro presente, a interface
+    // ofereceria Hello e o desbloqueio devolveria a senha mestra do cofre ANTIGO.
+    // O backend só remove quando o estado é `stale` (registro sem cofre).
+    try {
+      await discardOrphanWindowsHello(slug);
+    } catch (orphanError) {
+      secureLogError("remover registro órfão do Windows Hello", orphanError);
+      setMessage(t("vault.helloCleanupFailed"));
+      return;
+    }
+
     setNewVaultName("");
     setVault(null);
     setEncryptedVault(null);
@@ -2815,6 +2890,27 @@ export default function App() {
         }),
         createActionHistoryEntry("master_password_changed"),
       );
+      // HELLO-1 (fail-safe): o registro Windows Hello guarda a senha mestra.
+      // Ele precisa ser REMOVIDO ANTES de o cofre passar a usar a senha nova,
+      // caso contrário uma interrupção deixaria em disco um registro com a
+      // senha ANTIGA — que continua abrindo backups da época.
+      const { removeRecordFirst: hadHelloRecord, recreateAfterPersist: shouldReenableHello } =
+        masterPasswordChangePlan(windowsHelloStatus.state);
+
+      if (hadHelloRecord) {
+        try {
+          const status = await disableWindowsHello(activeVaultName);
+          setWindowsHelloStatus(status);
+        } catch (helloError) {
+          // Se não conseguimos remover o registro antigo, ABORTAMOS a troca:
+          // é preferível manter tudo consistente a criar a janela de segredo
+          // obsoleto. O cofre continua com a senha atual.
+          secureLogError("remover registro do Windows Hello antes da troca", helloError);
+          setMessage(t("windowsHello.disableError"));
+          return;
+        }
+      }
+
       const file = await encryptVault(nextVault, newMasterPassword, null);
       const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName);
 
@@ -2827,14 +2923,16 @@ export default function App() {
       setStorageInfo(info);
       setBackups(info.backups);
 
-      if (windowsHelloStatus.enabled) {
+      // A partir daqui a senha nova JÁ É a senha do cofre. Falhar ao recriar o
+      // Windows Hello nunca reverte o cofre nem bloqueia o acesso: apenas
+      // deixa o desbloqueio rápido desativado.
+      if (shouldReenableHello) {
         try {
           const status = await enableWindowsHello(activeVaultName, newMasterPassword, t("windowsHello.promptEnable"));
           setWindowsHelloStatus(status);
         } catch (helloError) {
           secureLogError("reativar Windows Hello após troca de senha", helloError);
-          const status = await disableWindowsHello(activeVaultName);
-          setWindowsHelloStatus(status);
+          await refreshWindowsHelloStatus(activeVaultName);
           setMessage(t("windowsHello.reenableNeeded"));
           return;
         }
@@ -4358,8 +4456,13 @@ export default function App() {
   }, [vault]);
 
   const getDiagnosticIssuesFor = useCallback(
-    (credential: CredentialRecord) => getCredentialDiagnosticIssues(credential, diagnosticPasswordCounts),
-    [diagnosticPasswordCounts],
+    (credential: CredentialRecord) =>
+      getCredentialDiagnosticIssues(
+        credential,
+        diagnosticPasswordCounts,
+        strengthByCredential[credential.id] ?? null,
+      ),
+    [diagnosticPasswordCounts, strengthByCredential],
   );
 
   const getDiagnosticLabel = useCallback(
@@ -4452,6 +4555,36 @@ export default function App() {
     });
   }, [activeDiagnosticFilter, activeQuickFilter, activeTagFilter, appLanguage, getDiagnosticIssuesFor, search, vault]);
 
+  // COLD START: a UI ja renderizou; aqui apenas enfileiramos as credenciais.
+  // O motor cria o worker sob demanda e processa com backpressure, entao este
+  // efeito retorna imediatamente mesmo com centenas de itens.
+  useEffect(() => {
+    if (mode !== "unlocked" || !vault) return;
+
+    const items = vault.credentials
+      .filter((credential) => isCredentialItem(credential) && credential.password)
+      .map((credential) => ({
+        id: credential.id,
+        updatedAt: credential.updatedAt,
+        password: credential.password,
+      }));
+
+    if (items.length > 0) getStrengthEngine().analyzeVault(items);
+  }, [getStrengthEngine, mode, vault]);
+
+  // Senha em edicao: analise com debounce, sem executar a cada tecla.
+  useEffect(() => {
+    if (!formOpen) {
+      setDraftStrength(null);
+      return;
+    }
+    getStrengthEngine().analyzeDraft(credentialForm.password);
+  }, [credentialForm.password, formOpen, getStrengthEngine]);
+
+  const detailStrength = detailCredentialId
+    ? strengthByCredential[detailCredentialId] ?? null
+    : null;
+
   const detailCredential = useMemo(() => {
     if (!vault || !detailCredentialId) return null;
     return vault.credentials.find((credential) => credential.id === detailCredentialId) ?? null;
@@ -4472,8 +4605,8 @@ export default function App() {
       );
     });
 
-    const weak = credentialItems.filter(
-      (credential) => getPasswordScore(credential.password) < 60,
+    const weak = credentialItems.filter((credential) =>
+      isWeakStrength(strengthByCredential[credential.id] ?? null),
     ).length;
     const repeated = credentialItems.filter(
       (credential) => credential.password.trim() && (repeatedPasswords.get(credential.password.trim()) ?? 0) > 1,
@@ -4521,8 +4654,8 @@ export default function App() {
   const expiringSoonCredentials = credentialItems.filter(
     (credential) => getPasswordExpiryInfo(credential).status === "soon",
   );
-  const weakCredentials = credentialItems.filter(
-    (credential) => getPasswordScore(credential.password) < 60,
+  const weakCredentials = credentialItems.filter((credential) =>
+    isWeakStrength(strengthByCredential[credential.id] ?? null),
   );
   const repeatedCredentials = credentialItems.filter(
     (credential) => credential.password.trim() && (diagnosticPasswordCounts.get(credential.password.trim()) ?? 0) > 1,
@@ -4625,7 +4758,7 @@ export default function App() {
 
   const canReorderCredentials = search.trim().length === 0 && activeDiagnosticFilter === "all" && activeQuickFilter === "all" && !activeTagFilter;
   const masterIssues = validateMasterPassword(setupPassword);
-  const score = getPasswordScore(credentialForm.password);
+  const score = draftStrength?.score ?? null;
 
   const vaultOptions = useMemo(() => {
     const options = [...vaultFiles];
@@ -5461,7 +5594,7 @@ export default function App() {
                   {busy ? t("auth.unlocking") : t("auth.unlock")}
                 </button>
 
-                {windowsHelloStatus.enabled && windowsHelloStatus.available && (
+                {canOfferHelloUnlock(windowsHelloStatus) && (
                   <button
                     type="button"
                     className="windowsHelloButton"
@@ -5719,7 +5852,7 @@ export default function App() {
             <section className="credentialRows">
               {filteredCredentials.map((credential, index) => {
                 const itemType = getItemType(credential);
-                const passwordScore = isCredentialItem(credential) ? getPasswordScore(credential.password) : 0;
+                const credentialStrength = strengthByCredential[credential.id] ?? null;
                 const primarySecret = getItemPrimarySecret(credential);
                 const previousCredential = filteredCredentials[index - 1];
                 const nextCredential = filteredCredentials[index + 1];
@@ -5793,7 +5926,11 @@ export default function App() {
                     <span className="rowHealth">
                       {isCredentialItem(credential) ? (
                         <>
-                          <span>{translatePasswordLabel(getPasswordLabel(passwordScore), appLanguage)} · {passwordScore}%</span>
+                          <span>
+                            {credentialStrength
+                              ? `${translatePasswordLabel(credentialStrength.label, appLanguage)} · ${credentialStrength.score}%`
+                              : "—"}
+                          </span>
                           <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
                             {getExpiryLabel(credential)}
                           </span>
@@ -6867,8 +7004,9 @@ export default function App() {
                   <div>
                     <span>{t("detail.strength")}</span>
                     <strong>
-                      {translatePasswordLabel(getPasswordLabel(getPasswordScore(detailCredential.password)), appLanguage)} ·{" "}
-                      {getPasswordScore(detailCredential.password)}%
+                      {detailStrength
+                        ? `${translatePasswordLabel(detailStrength.label, appLanguage)} · ${detailStrength.score}%`
+                        : "—"}
                     </strong>
                   </div>
 
@@ -7407,7 +7545,12 @@ export default function App() {
                       </button>
                     </div>
                     <span className="strength">
-                      {t("form.strength", { label: translatePasswordLabel(getPasswordLabel(score), appLanguage), score })}
+                      {score === null
+                        ? "—"
+                        : t("form.strength", {
+                            label: translatePasswordLabel(strengthLabelFromScore(score), appLanguage),
+                            score,
+                          })}
                     </span>
 
                     <div className="generatorPanel">
