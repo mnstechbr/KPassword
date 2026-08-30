@@ -7,14 +7,19 @@ on:
   push:
     branches: ["main", "master"]
 
+# A scorecard-action com publish_results: true valida este arquivo e recusa
+# publicar se houver QUALQUER permissao de escrita no nivel do workflow.
+# Por isso o topo e somente leitura e a escrita fica no job.
 permissions:
   contents: read
-  security-events: write
-  id-token: write
 
 jobs:
   scorecard:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # Upload SARIF
+      id-token: write         # token OIDC exigido por publish_results
     steps:
       - name: Checkout
         uses: actions/checkout@v4
