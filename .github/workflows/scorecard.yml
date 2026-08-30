@@ -22,7 +22,7 @@ jobs:
       id-token: write         # token OIDC exigido por publish_results
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
