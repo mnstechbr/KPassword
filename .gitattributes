@@ -1,0 +1,69 @@
+# Normalização de quebras de linha.
+#
+# Sem este arquivo, um checkout em Windows com core.autocrlf=true converte
+# todos os fontes para CRLF. O shebang de tools/version-check.mjs deixa de ser
+# reconhecido pelo pipeline de transformação do Vite/vitest e a suíte quebra
+# com "SyntaxError: Invalid or unexpected token". A CI roda em ubuntu-latest,
+# onde o git não converte nada, então a falha só aparece para quem desenvolve
+# em Windows.
+#
+# Regra geral: o git guarda tudo como LF e entrega LF na árvore de trabalho.
+* text=auto eol=lf
+
+# --- Fontes e configuração: sempre LF ----------------------------------------
+*.mjs           text eol=lf
+*.cjs           text eol=lf
+*.js            text eol=lf
+*.ts            text eol=lf
+*.tsx           text eol=lf
+*.json          text eol=lf
+*.css           text eol=lf
+*.html          text eol=lf
+*.svg           text eol=lf
+*.xml           text eol=lf
+*.rs            text eol=lf
+*.toml          text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.md            text eol=lf
+*.txt           text eol=lf
+*.csv           text eol=lf
+Cargo.lock      text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+
+# --- Scripts do Windows: CRLF na árvore de trabalho --------------------------
+# Continuam guardados como LF no repositório; o git entrega CRLF em qualquer
+# plataforma. É a convenção do PowerShell/cmd, os únicos consumidores destes
+# arquivos (package.json os invoca via `powershell -File`).
+*.ps1           text eol=crlf
+*.psm1          text eol=crlf
+*.psd1          text eol=crlf
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+
+# --- Patches arquivados: byte a byte, sem conversão --------------------------
+# Um .diff só aplica se as quebras de linha forem exatamente as do momento em
+# que foi gerado. `-text` desliga a conversão sem desligar o diff.
+*.diff          -text
+*.patch         -text
+
+# --- Binários: nunca converter, nunca tentar diff ----------------------------
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.icns          binary
+*.rgba          binary
+*.wav           binary
+*.wasm          binary
+*.pdf           binary
+*.zip           binary
+*.exe           binary
+*.dll           binary
+*.msi           binary
+*.ttf           binary
+*.otf           binary
+*.woff          binary
+*.woff2         binary
