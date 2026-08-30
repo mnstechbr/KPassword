@@ -1,5 +1,74 @@
 # Changelog
 
+## v1.4.0
+
+Versão de segurança e qualidade. Concentra a correção do gerador de senhas, um
+novo mecanismo de avaliação de força, o endurecimento do ciclo de vida do
+Windows Hello e a criação de uma rede de testes automatizados que antes não
+existia.
+
+### Novidades
+
+- Novo gerador de senha memorizável, baseado em uma lista de 1.089 palavras em
+  português. A configuração padrão passou de cerca de 25,6 bits de entropia para
+  cerca de 77,7 bits, com mínimo de 5 palavras e alvo de 72 bits.
+- A capitalização das palavras passou a ser sorteada com amostragem por
+  rejeição, eliminando padrões degenerados e tornando a distribuição uniforme.
+- Nova avaliação de força de senhas arbitrárias baseada em estimativa de
+  adivinhações, substituindo a heurística anterior que pontuava apenas a forma
+  da senha (comprimento e classes de caracteres).
+- A avaliação de força roda em um Web Worker e não bloqueia mais a interface.
+  O motor tem cache por credencial, limite de tarefas simultâneas e debounce
+  para o campo em edição.
+
+### Correções
+
+- O gerador de PIN usava apenas 9 dígitos: o `1` estava ausente por herança da
+  lista de caracteres ambíguos. O alfabeto agora é `0123456789` completo.
+- Corrigido metadado adulterado no `package-lock.json`, presente desde junho de
+  2026, que fazia `npm ci` falhar com erro 404 em qualquer checkout limpo.
+- Atualizados os transitivos npm `postcss` e `nanoid`, que respondiam por quatro
+  advisories de build. Nenhuma dependência de runtime foi alterada.
+
+### Segurança
+
+- Endurecido o ciclo de vida do registro do Windows Hello: a troca de senha
+  mestra agora remove o registro antes de persistir o novo cofre, e registros
+  órfãos ou inconsistentes passaram a ser detectados, classificados e postos em
+  quarentena em vez de permanecerem utilizáveis.
+- A seleção da assinatura na montagem da release passou a ser fail-closed. A
+  versão anterior caía para "a assinatura mais recente da pasta", o que poderia
+  publicar um `latest.json` com assinatura de outro binário.
+- Corrigido o escopo de permissões do workflow do OpenSSF Scorecard, que falhava
+  desde a sua criação e nunca havia produzido resultado. O efeito da correção é
+  de menor privilégio.
+- `SECURITY.md` passou a descrever explicitamente a limitação do Windows Hello
+  v1: o registro guarda a própria senha mestra protegida por DPAPI de usuário, e
+  o gesto do Hello não participa criptograficamente da liberação do segredo.
+
+### Infraestrutura
+
+- Adicionada CI que executa os testes de frontend, os testes Rust e a
+  verificação de consistência de versão em cada push e pull request.
+- Novo guard rail que compara as sete fontes de versão do projeto e falha quando
+  divergem.
+- Adicionado `.gitattributes` normalizando quebras de linha, corrigindo uma
+  quebra da suíte de testes em checkouts Windows.
+- A suíte de testes passou de 23 testes Rust para 29 testes Rust e 113 testes de
+  frontend.
+
+### Compatibilidade
+
+- **Nenhuma alteração no formato do cofre.** O `.kpvault` da v1.3.5 abre
+  normalmente. Verificado: `crypto_vault.rs` e `crypto.ts` não foram alterados
+  desde a v1.3.5.
+- **Nenhuma alteração na criptografia do cofre.** Argon2id, AES-256-GCM, os
+  parâmetros de derivação, o AAD e o `cryptoVersion` permanecem os mesmos.
+- **Nenhuma alteração nos backups nem nas migrações.**
+- O Windows Hello v1 continua usando DPAPI no escopo do usuário, exatamente como
+  na v1.3.5. As mudanças desta versão são de ciclo de vida do registro, não de
+  criptografia. A limitação permanece e está documentada em `SECURITY.md`.
+
 ## v1.3.5
 
 Versão de consistência visual do fluxo de inicialização e verificação do cofre.
