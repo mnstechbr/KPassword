@@ -4328,7 +4328,7 @@ button.metricCard {
 }
 
 .dashboardTotalCard::after {
-  content: "â–¾";
+  content: "\25BE";
   position: absolute;
   right: 18px;
   top: 18px;
@@ -4454,7 +4454,7 @@ button.metricCard {
 }
 
 .checklistGrid span::before {
-  content: "âœ“ ";
+  content: "\2713  ";
   color: #86efac;
   font-weight: 900;
 }
@@ -4502,7 +4502,9 @@ button.metricCard {
 }
 
 .firstUseGuide span::before {
-  content: "â€¢ ";
+  /* Escape ASCII do bullet U+2022. O caractere literal ja foi corrompido uma
+     vez por dupla codificacao neste arquivo; o escape e imune a isso. */
+  content: "\2022  ";
   color: #7dd3fc;
   font-weight: 900;
 }
@@ -8956,7 +8958,8 @@ body.theme-mixed,
   outline: none !important;
 }
 
-.authCard.authExperience.authLocked {
+.authCard.authExperience.authLocked,
+.authCard.authExperience.authSetup {
   display: grid !important;
   grid-template-columns: minmax(250px, 340px) minmax(480px, 540px) !important;
   grid-template-rows: auto minmax(0, 1fr) auto !important;
@@ -8974,6 +8977,159 @@ body.theme-mixed,
 .authLocked .authUtilityBar {
   grid-area: bar !important;
   align-self: start !important;
+}
+
+/* O estado de criacao renderiza o MESMO JSX do desbloqueio, mas so `.authLocked`
+   definia `grid-template-areas`. Sem as areas nomeadas, o `grid-area: bar` da
+   barra caia numa trilha implicita no fim do grid e o card inteiro se montava
+   por auto-placement: 4 colunas implicitas, hero ocupando 469px a esquerda e a
+   barra encolhida junto.
+
+   Medido na mesma janela de 1398x903, antes desta regra:
+
+     locked   barra (335, 49) 728x50   |  colunas "232px 420px"
+     setup    barra ( 67, 46) 469x50   |  colunas "469px 420px 0px 207px"
+
+   O desbloqueio e a referencia canonica. A criacao passa a herdar a mesma
+   composicao: mesma largura util, mesma barra no topo cobrindo as duas colunas,
+   logo e painel nas mesmas regioes, mesmos espacamentos. O conteudo exclusivo do
+   primeiro acesso continua na coluna da esquerda, com tipografia reduzida para
+   caber sem empurrar o card. O locked nao e alterado. */
+/* A linha do meio herdada do desbloqueio e elastica (`minmax(0, 1fr)`), o que
+   ali centraliza logo e painel numa tela de duas faixas. Na criacao existe uma
+   terceira faixa -- o guia -- e a linha elastica passava a abrir um vao de
+   ~170px entre o painel e ela. As quatro linhas passam a se dimensionar pelo
+   conteudo, e o conjunto inteiro e centrado por `align-content`. */
+.authCard.authExperience.authSetup {
+  grid-template-rows: auto minmax(0, 1fr) auto auto !important;
+}
+
+.authSetup .authUtilityBar {
+  grid-area: bar !important;
+  align-self: start !important;
+}
+
+.authSetup .authHeroBlock {
+  grid-area: logo !important;
+  justify-self: center !important;
+  align-self: center !important;
+  width: 100% !important;
+}
+
+.authSetup .authPanel {
+  grid-area: panel !important;
+}
+
+/* O guia deixou de morar dentro do hero (ver App.tsx) e passa a ocupar uma
+   faixa propria abaixo das duas colunas. Assim ele nao inflar mais a coluna da
+   esquerda, e le como informacao auxiliar em vez de conteudo principal.
+   Posicionado por linha/coluna, e nao por area nomeada, para nao precisar
+   redefinir grid-template-areas em cada breakpoint do card. */
+.authSetup .firstUseGuide {
+  grid-column: 1 / -1 !important;
+  grid-row: 3 !important;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  column-gap: 20px !important;
+  row-gap: 6px !important;
+  padding: 12px 16px !important;
+  margin: 0 !important;
+  align-self: start !important;
+  /* A regra base do guia fixa width/max-width em 390px, herdado de quando ele
+     vivia dentro da coluna. Na faixa inferior ele ocupa a largura combinada. */
+  width: 100% !important;
+  max-width: none !important;
+  /* A faixa do guia consome altura da linha elastica e empurraria o conjunto
+     logo+painel para cima, afastando o centro visual do desbloqueio. A margem
+     negativa devolve essa altura a linha do meio: o conjunto volta a centrar
+     perto do locked e o guia fica proximo do painel, em vez de flutuar no fim. */
+  margin-top: -104px !important;
+}
+
+.authSetup .firstUseGuide strong {
+  grid-column: 1 / -1 !important;
+  font-size: 12px !important;
+}
+
+.authSetup .firstUseGuide span {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+.authSetup .authDeveloperCredit {
+  grid-column: 1 / -1 !important;
+  grid-row: 4 !important;
+}
+
+/* A coluna da esquerda tem a logo como elemento principal, como no
+   desbloqueio. O rotulo e a explicacao permanecem curtos; o titulo deixa de ser
+   uma manchete e vira um heading discreto. */
+.authSetup .authHeroBlock h1 {
+  font-size: 15px !important;
+  line-height: 1.25 !important;
+  margin: 4px 0 6px !important;
+  font-weight: 700 !important;
+}
+
+.authSetup .authHeroBlock .eyebrow {
+  font-size: 10px !important;
+  letter-spacing: 0.16em !important;
+  margin: 0 !important;
+}
+
+.authSetup .authHeroBlock > p {
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+}
+
+/* Painel de criacao com a mesma largura da referencia e altura proxima dela.
+   O painel de desbloqueio recebe a classe `.authUnlockPanel`, que o torna um
+   flex em coluna; o de criacao tem so `.authPanel` e caia num grid de DUAS
+   colunas. Com `grid-auto-flow: row` e duas trilhas, o rotulo ia para a coluna 1
+   e o formulario inteiro para a coluna 2 -- de onde vinha a faixa vazia a
+   esquerda dos campos e o formulario espremido em 223px.
+
+   Medido antes, mesma janela:
+     SETUP    display grid   colunas 135px 223px   rotulo x=666 w=135   form x=817 w=223
+     LOCKED   display flex   colunas none          rotulo x=674 w=358   form x=693 w=320
+
+   Uma coluna unica faz rotulo e formulario empilharem e ocuparem a largura util,
+   como no desbloqueio. O padding lateral volta aos 30px da referencia. */
+.authSetup .authPanel {
+  grid-template-columns: minmax(0, 1fr) !important;
+  padding: 20px 30px 22px !important;
+  row-gap: 10px !important;
+}
+
+/* `.authForm` carrega `grid-column: 2` e `grid-row: 2 / span 4` de quando o
+   formulario era posicionado direto no grid do CARD. Hoje ele vive dentro do
+   painel, e essa colocacao herdada abria uma segunda coluna ali -- a faixa vazia
+   a esquerda dos campos. No desbloqueio o efeito nao aparece porque aquele
+   painel e flex e ignora colocacao de grid. Aqui a colocacao e neutralizada
+   para o formulario empilhar sob o rotulo e usar a largura util. */
+.authSetup .authPanel > .authForm {
+  grid-column: 1 !important;
+  grid-row: auto !important;
+}
+
+.authSetup .authForm {
+  row-gap: 10px !important;
+  gap: 10px !important;
+}
+
+.authSetup .authForm label {
+  row-gap: 4px !important;
+  gap: 4px !important;
+  font-size: 12px !important;
+}
+
+.authSetup .authForm input {
+  padding: 10px 14px !important;
+}
+
+.authSetup .authPanelLabel {
+  margin-bottom: 2px !important;
 }
 
 .authLocked .authLogoStage {
@@ -9215,14 +9371,16 @@ body.theme-mixed,
     grid-template-columns: 160px 174px 174px !important;
   }
 
-  .authCard.authExperience.authLocked {
+  .authCard.authExperience.authLocked,
+  .authCard.authExperience.authSetup {
     column-gap: 52px !important;
     grid-template-columns: minmax(220px, 300px) minmax(450px, 520px) !important;
   }
 }
 
 @media (max-width: 900px) {
-  .authCard.authExperience.authLocked {
+  .authCard.authExperience.authLocked,
+  .authCard.authExperience.authSetup {
     grid-template-columns: 1fr !important;
     grid-template-rows: auto auto auto auto !important;
     grid-template-areas:
@@ -9301,7 +9459,8 @@ body.theme-mixed,
 }
 
 @media (max-width: 520px) {
-  .authCard.authExperience.authLocked {
+  .authCard.authExperience.authLocked,
+  .authCard.authExperience.authSetup {
     padding: 22px 24px 30px !important;
     row-gap: 20px !important;
   }
@@ -9424,7 +9583,8 @@ body.theme-mixed,
     justify-content: center !important;
   }
 
-  .authCard.authExperience.authLocked {
+  .authCard.authExperience.authLocked,
+  .authCard.authExperience.authSetup {
     grid-template-columns: minmax(210px, 292px) minmax(430px, 500px) !important;
     column-gap: clamp(52px, 7vw, 92px) !important;
     row-gap: clamp(22px, 3vh, 40px) !important;
@@ -9614,7 +9774,8 @@ body.theme-mixed,
     align-items: center !important;
   }
 
-  .authCard.authExperience.authLocked {
+  .authCard.authExperience.authLocked,
+  .authCard.authExperience.authSetup {
     grid-template-columns: minmax(178px, 232px) minmax(360px, 420px) !important;
     column-gap: clamp(44px, 6vw, 76px) !important;
     row-gap: clamp(18px, 2.8vh, 34px) !important;
@@ -9760,7 +9921,8 @@ body.theme-mixed,
     max-width: 78px !important;
   }
 
-  .authCard.authExperience.authLocked {
+  .authCard.authExperience.authLocked,
+  .authCard.authExperience.authSetup {
     grid-template-columns: minmax(166px, 210px) minmax(342px, 400px) !important;
     column-gap: 40px !important;
     padding-left: 38px !important;
