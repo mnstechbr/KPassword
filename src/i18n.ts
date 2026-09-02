@@ -3893,6 +3893,9 @@ const v133Translations: Record<AppLanguage, Record<string, string>> = {
 
 const v134Translations: Record<AppLanguage, Record<string, string>> = {
   pt: {
+    "dialog.restoreBackupMessageNamed": "O backup selecionado substituira o cofre \"{vault}\". Uma copia de seguranca do conteudo atual sera criada antes da restauracao. Se a copia falhar, nada sera sobrescrito.",
+    "success.backupRestoredNamed": "Backup restaurado no cofre \"{vault}\". Copia de seguranca criada: {backup}.",
+    "errors.restoreAborted": "Restauracao cancelada por seguranca: nao foi possivel criar a copia do cofre atual. Nada foi sobrescrito.",
     "windowsHello.staleRecord": "O registro do Windows Hello nao abre mais este cofre e foi isolado. Use a senha mestra e ative o desbloqueio novamente.",
     "vault.helloCleanupFailed": "Nao foi possivel remover um registro antigo de desbloqueio com esse nome. O cofre nao foi criado.",
     "settings.startupStatusOn": "Iniciar com Windows está ativo",
@@ -3937,6 +3940,9 @@ const v134Translations: Record<AppLanguage, Record<string, string>> = {
     "appDiagnostics.windowsProcessNote": "O KPassword é um app Tauri e usa o Microsoft WebView2 para renderizar a interface. O Windows pode agrupar processos filhos como Gerenciador WebView2, mesmo quando a janela e o subprocesso aparecem como KPassword."
   },
   en: {
+    "dialog.restoreBackupMessageNamed": "The selected backup will replace the vault \"{vault}\". A safety copy of the current content will be created before restoring. If that copy fails, nothing is overwritten.",
+    "success.backupRestoredNamed": "Backup restored into vault \"{vault}\". Safety copy created: {backup}.",
+    "errors.restoreAborted": "Restore cancelled for safety: the copy of the current vault could not be created. Nothing was overwritten.",
     "windowsHello.staleRecord": "The Windows Hello record no longer opens this vault and was quarantined. Use the master password and enable unlock again.",
     "vault.helloCleanupFailed": "Could not remove a leftover unlock record with this name. The vault was not created.",
     "settings.startupStatusOn": "Start with Windows is enabled",
@@ -3981,6 +3987,9 @@ const v134Translations: Record<AppLanguage, Record<string, string>> = {
     "appDiagnostics.windowsProcessNote": "KPassword is a Tauri app and uses Microsoft WebView2 to render the interface. Windows may group child processes as WebView2 Manager, even when the window and subprocess show KPassword."
   },
   es: {
+    "dialog.restoreBackupMessageNamed": "La copia seleccionada reemplazara la boveda \"{vault}\". Se creara una copia de seguridad del contenido actual antes de restaurar. Si esa copia falla, no se sobrescribe nada.",
+    "success.backupRestoredNamed": "Copia restaurada en la boveda \"{vault}\". Copia de seguridad creada: {backup}.",
+    "errors.restoreAborted": "Restauracion cancelada por seguridad: no se pudo crear la copia de la boveda actual. No se sobrescribio nada.",
     "windowsHello.staleRecord": "El registro de Windows Hello ya no abre esta boveda y fue aislado. Usa la contrasena maestra y activa el desbloqueo de nuevo.",
     "vault.helloCleanupFailed": "No se pudo eliminar un registro anterior de desbloqueo con ese nombre. La boveda no fue creada.",
     "settings.startupStatusOn": "Inicio con Windows activo",
@@ -4025,6 +4034,9 @@ const v134Translations: Record<AppLanguage, Record<string, string>> = {
     "appDiagnostics.windowsProcessNote": "KPassword es una app Tauri y usa Microsoft WebView2 para renderizar la interfaz. Windows puede agrupar procesos hijos como Administrador WebView2, incluso cuando la ventana y el subproceso muestran KPassword."
   },
   tr: {
+    "dialog.restoreBackupMessageNamed": "Secilen yedek \"{vault}\" kasasinin yerini alacak. Geri yuklemeden once mevcut icerigin guvenlik kopyasi olusturulacak. Kopya olusturulamazsa hicbir sey uzerine yazilmaz.",
+    "success.backupRestoredNamed": "Yedek \"{vault}\" kasasina geri yuklendi. Guvenlik kopyasi olusturuldu: {backup}.",
+    "errors.restoreAborted": "Guvenlik nedeniyle geri yukleme iptal edildi: mevcut kasanin kopyasi olusturulamadi. Hicbir sey uzerine yazilmadi.",
     "windowsHello.staleRecord": "Windows Hello kaydi bu kasayi artik acmiyor ve karantinaya alindi. Ana parolayi kullanin ve kilit acmayi yeniden etkinlestirin.",
     "vault.helloCleanupFailed": "Bu ada sahip eski bir kilit acma kaydi kaldirilamadi. Kasa olusturulmadi.",
     "settings.startupStatusOn": "Windows ile başlatma açık",
