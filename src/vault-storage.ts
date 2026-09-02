@@ -28,6 +28,49 @@ export async function saveVaultFile(payload: string, vaultName = "vault", forceB
   return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup });
 }
 
+/** Chave onde a identidade do cofre ativo e persistida (perfil do WebView2). */
+export const ACTIVE_VAULT_STORAGE_KEY = "kpassword:active-vault";
+
+/**
+ * Le a identidade viva do cofre ativo.
+ *
+ * A identidade mora no localStorage, separada dos arquivos `.kpvault`. Os dois
+ * podem dessincronizar, entao operacoes destrutivas nao devem confiar em estado
+ * de React capturado antes de um dialogo -- leem daqui no momento da escrita.
+ */
+export function readActiveVaultName(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_VAULT_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Resultado da restauracao segura: info de storage + backup criado antes da escrita. */
+export type RestoreOutcome = {
+  storage: StorageInfo;
+  /** Nome do backup de seguranca. `null` apenas quando o cofre alvo nao existia. */
+  safetyBackup: string | null;
+};
+
+/**
+ * Restaura um backup sobre um cofre por uma UNICA operacao de backend.
+ *
+ * O backend cria a copia de seguranca do conteudo cifrado atual ANTES de
+ * sobrescrever e aborta se ela falhar. Nao decifra nada, entao funciona
+ * igualmente com o cofre bloqueado ou destravado.
+ *
+ * `expectedVaultName` e o alvo que o usuario confirmou: se o cofre ativo mudar
+ * enquanto a confirmacao estiver pendente, o backend recusa a operacao.
+ */
+export async function restoreVaultFile(
+  payload: string,
+  vaultName = "vault",
+  expectedVaultName?: string,
+) {
+  return invoke<RestoreOutcome>("restore_vault_file", { payload, vaultName, expectedVaultName });
+}
+
 export async function getStorageInfo(vaultName = "vault") {
   return invoke<StorageInfo>("get_storage_info", { vaultName });
 }

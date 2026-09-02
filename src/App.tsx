@@ -45,6 +45,8 @@ import {
   loadVaultFile,
   openBackupFolder,
   openVaultFolder,
+  readActiveVaultName,
+  restoreVaultFile,
   saveVaultFile,
   unlockWithWindowsHello,
 } from "./vault-storage";
@@ -2958,10 +2960,14 @@ export default function App() {
       const { file: parsed, plainVault } = await validateEncryptedVaultBackup(raw, password);
       const restoredVault = normalizeVault(plainVault);
 
+      // Alvo capturado ANTES da confirmacao e mantido ate o fim da operacao.
+      // A identidade do cofre vive no localStorage, separada dos arquivos: se ela
+      // mudar enquanto o dialogo estiver aberto, o backend recusa a escrita.
+      const targetVaultName = activeVaultName;
+
       const confirmed = await askConfirmation({
         title: t("dialog.restoreBackupTitle"),
-        message:
-          t("dialog.restoreBackupMessage"),
+        message: t("dialog.restoreBackupMessageNamed", { vault: targetVaultName }),
         confirmText: t("dialog.restoreBackupTitle"),
         cancelText: t("dialog.cancel"),
         tone: "danger",
@@ -2969,11 +2975,27 @@ export default function App() {
 
       if (!confirmed) return;
 
-      if (vault && masterPassword) {
-        await persistVault(vault, undefined, true);
+      // A copia de seguranca do conteudo atual deixou de ser responsabilidade
+      // daqui. Ela e pre-condicao da escrita, dentro do proprio comando: o
+      // backend preserva os bytes cifrados do alvo antes de sobrescrever e
+      // aborta se nao conseguir. Isso vale tambem com o cofre bloqueado, caso em
+      // que `vault` e null e a antiga salvaguarda era simplesmente pulada.
+      // `activeVaultName` aqui dentro e um snapshot do closure: nao enxerga troca
+      // ocorrida durante o dialogo. A fonte viva da identidade e o localStorage,
+      // entao e ele que resolve o alvo agora; o backend compara com o que foi
+      // confirmado e recusa a escrita se divergirem.
+      const liveVaultName = readActiveVaultName() ?? targetVaultName;
+
+      let outcome;
+      try {
+        outcome = await restoreVaultFile(raw, liveVaultName, targetVaultName);
+      } catch (error) {
+        secureLogError("restaurar backup", error);
+        setMessage(t("errors.restoreAborted"));
+        return;
       }
 
-      const info = await saveVaultFile(raw, activeVaultName, false);
+      const info = outcome.storage;
 
       setEncryptedVault(parsed);
       setVault(restoredVault);
@@ -2984,7 +3006,14 @@ export default function App() {
       setBackups(info.backups);
       setScreen("credentials");
       setMode("unlocked");
-      setMessage(t("success.backupRestored"));
+      setMessage(
+        outcome.safetyBackup
+          ? t("success.backupRestoredNamed", {
+              vault: targetVaultName,
+              backup: outcome.safetyBackup,
+            })
+          : t("success.backupRestored"),
+      );
     } catch {
       setMessage(t("errors.restoreBackup"));
     }
