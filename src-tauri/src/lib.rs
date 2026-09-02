@@ -50,6 +50,15 @@ struct StorageInfo {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RestoreOutcome {
+    storage: StorageInfo,
+    /// Nome do backup de seguranca criado antes da sobrescrita.
+    /// `None` apenas quando o cofre alvo ainda nao existia.
+    safety_backup: Option<String>,
+}
+
+#[derive(Serialize)]
 struct WindowsHelloStatus {
     available: bool,
     /// Compatibilidade: verdadeiro apenas quando `state == "configured"`.
@@ -292,6 +301,96 @@ fn create_backup(backup_dir: &Path, safe_vault_name: &str, payload: &str) -> Res
     create_labeled_backup(backup_dir, safe_vault_name, None, payload).map(|_| ())
 }
 
+/// Nucleo FAIL-CLOSED da restauracao de backup.
+///
+/// Defeito corrigido (reproduzido nas Fases 5.1 e 5.2): a copia de seguranca do
+/// cofre alvo vivia no frontend, sob `if (vault && masterPassword)`. Restaurando
+/// pela tela BLOQUEADA, `vault` e null -- a salvaguarda era pulada e o alvo era
+/// sobrescrito sem nenhuma copia. O conteudo anterior ficava irrecuperavel.
+///
+/// Aqui a copia deixa de ser best-effort e passa a ser PRE-CONDICAO da escrita,
+/// no mesmo comando: se o backup nao for criado E verificado byte a byte, nada
+/// e gravado e o arquivo original permanece intacto.
+///
+/// Preserva os BYTES CIFRADOS existentes: nunca decifra nem recifra, e por isso
+/// nao depende de senha mestra nem de cofre destravado.
+///
+/// Funcao pura sobre caminhos, para permitir teste deterministico sem AppHandle.
+///
+/// Devolve o nome do backup de seguranca criado, ou `None` quando o alvo ainda
+/// nao existia (nada a preservar).
+fn perform_safe_restore(
+    vault_path: &Path,
+    backup_dir: &Path,
+    safe_vault_name: &str,
+    payload: &str,
+) -> Result<Option<String>, String> {
+    let safety_backup = if vault_path.exists() {
+        let current = fs::read(vault_path).map_err(|error| {
+            format!("Restauracao abortada: nao foi possivel ler o cofre atual para backup: {error}")
+        })?;
+
+        let current_text = String::from_utf8(current.clone()).map_err(|_| {
+            "Restauracao abortada: o cofre atual nao e UTF-8 valido; nada foi sobrescrito."
+                .to_string()
+        })?;
+
+        let backup_path =
+            create_labeled_backup(backup_dir, safe_vault_name, Some("pre-restore"), &current_text)
+                .map_err(|error| format!("Restauracao abortada: {error}"))?;
+
+        // FAIL-CLOSED: so prossegue se o backup existir e conferir byte a byte.
+        let written = fs::read(&backup_path).map_err(|error| {
+            format!("Restauracao abortada: backup de seguranca nao pode ser lido de volta: {error}")
+        })?;
+
+        if written != current {
+            let _ = fs::remove_file(&backup_path);
+            return Err(
+                "Restauracao abortada: backup de seguranca nao confere byte a byte com o cofre atual."
+                    .to_string(),
+            );
+        }
+
+        Some(
+            backup_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default()
+                .to_string(),
+        )
+    } else {
+        // Alvo inexistente: nao ha conteudo anterior a preservar.
+        None
+    };
+
+    // Escrita atomica, mesmo padrao de save_vault_file.
+    let temp_path = vault_path.with_extension("kpvault.tmp");
+
+    fs::write(&temp_path, payload.as_bytes())
+        .map_err(|error| format!("Erro ao gravar arquivo temporario do cofre: {error}"))?;
+
+    fs::rename(&temp_path, vault_path)
+        .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))?;
+
+    Ok(safety_backup)
+}
+
+/// Compara a identidade confirmada pelo usuario com a resolvida agora.
+///
+/// Guard rail contra estado obsoleto: o nome do cofre vive no `localStorage`
+/// (perfil do WebView2), separado dos arquivos. Se o cofre ativo mudar enquanto
+/// a confirmacao esta pendente, a restauracao tem de abortar em vez de gravar
+/// no cofre errado.
+fn restore_target_matches(expected: Option<&str>, resolved: &str) -> Result<(), String> {
+    match expected {
+        Some(expected) if expected != resolved => Err(format!(
+            "Restauracao abortada: o cofre alvo mudou durante a confirmacao (confirmado: {expected}, atual: {resolved}). Refaca a operacao."
+        )),
+        _ => Ok(()),
+    }
+}
+
 fn build_storage_info(app: &AppHandle, vault_name: Option<String>) -> Result<StorageInfo, String> {
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(app, vault_name)?;
     let backups = get_backups_from_dir(&backup_dir)?;
@@ -472,6 +571,36 @@ fn save_vault_file(
     }
 
     build_storage_info(&app, Some(safe_vault_name))
+}
+
+/// Restaura um backup sobre um cofre, criando a copia de seguranca do conteudo
+/// atual ANTES de sobrescrever -- numa unica operacao de backend.
+///
+/// Substitui a coordenacao de duas operacoes destrutivas separadas no frontend,
+/// que era onde o defeito HIGH vivia. Nao decifra nada e nao exige senha, entao
+/// funciona igualmente na tela bloqueada e com o cofre destravado.
+#[tauri::command]
+fn restore_vault_file(
+    app: AppHandle,
+    payload: String,
+    vault_name: Option<String>,
+    expected_vault_name: Option<String>,
+) -> Result<RestoreOutcome, String> {
+    let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
+
+    // Identidade estavel: o alvo resolvido tem de ser o que o usuario confirmou.
+    let expected = match expected_vault_name {
+        Some(name) => Some(sanitize_vault_name(Some(name))?),
+        None => None,
+    };
+    restore_target_matches(expected.as_deref(), &safe_vault_name)?;
+
+    let safety_backup = perform_safe_restore(&vault_path, &backup_dir, &safe_vault_name, &payload)?;
+
+    Ok(RestoreOutcome {
+        storage: build_storage_info(&app, Some(safe_vault_name))?,
+        safety_backup,
+    })
 }
 
 #[tauri::command]
@@ -1258,6 +1387,153 @@ async fn unlock_with_windows_hello(
 
 #[cfg(test)]
 mod storage_tests {
+    /// Regressao do defeito HIGH das Fases 5.1/5.2.
+    ///
+    /// Antes do fix a salvaguarda vivia no frontend, sob `vault && masterPassword`.
+    /// Restaurando pela tela bloqueada, `vault` era null: o cofre alvo era
+    /// sobrescrito sem copia e o conteudo anterior se perdia.
+    ///
+    /// `perform_safe_restore` nao recebe senha nem estado de sessao, entao os
+    /// casos destravado e bloqueado percorrem a mesma chamada -- e esse e o ponto.
+    fn restore_dirs(tag: &str) -> (PathBuf, PathBuf) {
+        let base = std::env::temp_dir().join(format!(
+            "kpassword-restore-test-{}-{}",
+            tag,
+            now_epoch_millis()
+        ));
+        let backup_dir = base.join("backups");
+        fs::create_dir_all(&backup_dir).unwrap();
+        (base.join("beta.kpvault"), backup_dir)
+    }
+
+    fn backups_em(dir: &Path) -> Vec<String> {
+        let mut v: Vec<String> = fs::read_dir(dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn a_restore_com_cofre_destravado_cria_backup_e_grava() {
+        let (vault_path, backup_dir) = restore_dirs("a-unlocked");
+        fs::write(&vault_path, "CONTEUDO-BETA-ANTIGO").unwrap();
+
+        let criado = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1").unwrap();
+
+        assert!(criado.is_some(), "deveria criar backup de seguranca");
+        assert_eq!(fs::read_to_string(&vault_path).unwrap(), "CONTEUDO-A1");
+        let backups = backups_em(&backup_dir);
+        assert_eq!(backups.len(), 1);
+        assert_eq!(
+            fs::read_to_string(backup_dir.join(&backups[0])).unwrap(),
+            "CONTEUDO-BETA-ANTIGO"
+        );
+    }
+
+    #[test]
+    fn b_restore_com_cofre_bloqueado_cria_backup_e_grava() {
+        // O nucleo nao conhece sessao: sem senha, sem cofre em memoria, sem modo.
+        let (vault_path, backup_dir) = restore_dirs("b-locked");
+        fs::write(&vault_path, "CONTEUDO-BETA-ANTIGO").unwrap();
+
+        let criado = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1").unwrap();
+
+        assert!(criado.is_some());
+        assert_eq!(fs::read_to_string(&vault_path).unwrap(), "CONTEUDO-A1");
+        assert_eq!(backups_em(&backup_dir).len(), 1);
+    }
+
+    #[test]
+    fn c_falha_ao_criar_backup_aborta_e_preserva_o_alvo() {
+        let (vault_path, backup_dir) = restore_dirs("c-fail");
+        fs::write(&vault_path, "CONTEUDO-BETA-ANTIGO").unwrap();
+
+        // Torna a criacao do backup impossivel: o diretorio deixa de existir.
+        fs::remove_dir_all(&backup_dir).unwrap();
+
+        let resultado = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1");
+
+        assert!(resultado.is_err(), "deveria abortar");
+        assert!(resultado.unwrap_err().contains("Restauracao abortada"));
+        assert_eq!(
+            fs::read_to_string(&vault_path).unwrap(),
+            "CONTEUDO-BETA-ANTIGO",
+            "o alvo tem de permanecer byte a byte intacto"
+        );
+    }
+
+    #[test]
+    fn d_backup_de_alpha_sobre_beta_preserva_o_beta_anterior() {
+        let (vault_path, backup_dir) = restore_dirs("d-cross");
+        fs::write(&vault_path, "MARCADOR-BETA").unwrap();
+
+        let criado =
+            perform_safe_restore(&vault_path, &backup_dir, "beta", "MARCADOR-ALPHA").unwrap();
+
+        assert_eq!(fs::read_to_string(&vault_path).unwrap(), "MARCADOR-ALPHA");
+        let nome = criado.unwrap();
+        assert!(nome.starts_with("beta-pre-restore-"), "nome: {nome}");
+        assert_eq!(
+            fs::read_to_string(backup_dir.join(&nome)).unwrap(),
+            "MARCADOR-BETA"
+        );
+    }
+
+    #[test]
+    fn e_troca_de_cofre_durante_a_confirmacao_aborta() {
+        assert!(restore_target_matches(Some("beta"), "beta").is_ok());
+        assert!(restore_target_matches(None, "beta").is_ok());
+
+        let erro = restore_target_matches(Some("beta"), "alpha").unwrap_err();
+        assert!(erro.contains("Restauracao abortada"));
+        assert!(erro.contains("beta") && erro.contains("alpha"));
+    }
+
+    #[test]
+    fn f_alvo_inexistente_grava_sem_backup() {
+        let (vault_path, backup_dir) = restore_dirs("f-novo");
+        assert!(!vault_path.exists());
+
+        let criado = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1").unwrap();
+
+        assert!(criado.is_none(), "nao ha conteudo anterior a preservar");
+        assert_eq!(fs::read_to_string(&vault_path).unwrap(), "CONTEUDO-A1");
+        assert!(backups_em(&backup_dir).is_empty());
+    }
+
+    #[test]
+    fn g_o_backup_de_seguranca_preserva_os_bytes_exatos() {
+        let (vault_path, backup_dir) = restore_dirs("g-verify");
+        let original = "CONTEUDO-BETA-COM-BYTES-NAO-ASCII-cao-acentuacao";
+        fs::write(&vault_path, original).unwrap();
+
+        let nome = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1")
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            fs::read(backup_dir.join(&nome)).unwrap(),
+            original.as_bytes(),
+            "o backup preserva os bytes exatos, sem recodificar"
+        );
+    }
+
+    #[test]
+    fn h_alvo_so_muda_por_chamada_explicita_de_restore() {
+        // Cancelamento do usuario nunca alcanca esta funcao.
+        let (vault_path, backup_dir) = restore_dirs("h-cancel");
+        fs::write(&vault_path, "CONTEUDO-BETA-ANTIGO").unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&vault_path).unwrap(),
+            "CONTEUDO-BETA-ANTIGO"
+        );
+        assert!(backups_em(&backup_dir).is_empty());
+    }
+
     use super::*;
 
     // --- HELLO-2 / STATUS: classificacao de estado do registro Windows Hello ---
@@ -2227,6 +2503,7 @@ pub fn run() {
             set_startup_enabled,
             load_vault_file,
             save_vault_file,
+            restore_vault_file,
             get_storage_info,
             list_vault_files,
             list_backup_files,
