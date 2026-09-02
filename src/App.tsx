@@ -5518,13 +5518,13 @@ export default function App() {
               <p className="eyebrow">{t("auth.firstAccess")}</p>
               <h1>{t("auth.createMasterTitle")}</h1>
               <p>{t("auth.createMasterDescription")}</p>
+            </div>
 
-              <div className="firstUseGuide refinedFirstUseGuide">
-                <strong>{t("onboarding.title")}</strong>
-                <span>{t("onboarding.step1")}</span>
-                <span>{t("onboarding.step2")}</span>
-                <span>{t("onboarding.step3")}</span>
-              </div>
+            <div className="firstUseGuide refinedFirstUseGuide">
+              <strong>{t("onboarding.title")}</strong>
+              <span>{t("onboarding.step1")}</span>
+              <span>{t("onboarding.step2")}</span>
+              <span>{t("onboarding.step3")}</span>
             </div>
 
             <section className="authPanel">
