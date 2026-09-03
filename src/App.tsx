@@ -31,6 +31,7 @@ import {
   canOfferHelloUnlock,
   masterPasswordChangePlan,
 } from "./windows-hello-policy";
+import { createVaultSlug, validateNewVaultName } from "./vault-name-policy";
 import { decodeQrFromImageFile } from "./totp-qr-reader";
 import {
   createPreArgon2Backup,
@@ -595,17 +596,6 @@ function getStoredValue<T extends string>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
-}
-
-function createVaultSlug(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
 }
 
 function getVaultDisplayName(vaultName: string, vaultFiles: VaultFileInfo[]) {
@@ -1888,6 +1878,9 @@ export default function App() {
   const [appDiagnosticsOpen, setAppDiagnosticsOpen] = useState(false);
   const [vaultFiles, setVaultFiles] = useState<VaultFileInfo[]>([]);
   const [newVaultName, setNewVaultName] = useState("");
+  const [newVaultDialogOpen, setNewVaultDialogOpen] = useState(false);
+  const [newVaultDialogName, setNewVaultDialogName] = useState("");
+  const [newVaultDialogError, setNewVaultDialogError] = useState("");
   const [totpTick, setTotpTick] = useState(Date.now());
   const [detailTotpCode, setDetailTotpCode] = useState("");
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
@@ -2734,6 +2727,37 @@ export default function App() {
     setActiveDiagnosticFilter("all");
     setWindowsHelloStatus({ ...DEFAULT_WINDOWS_HELLO_STATUS, vault_name: nextVaultName });
     setActiveVaultName(nextVaultName);
+  }
+
+  function openNewVaultDialog() {
+    // O diálogo nasce sempre limpo: nome e erro da abertura anterior não
+    // podem reaparecer quando o usuário volta a criar um cofre.
+    setNewVaultDialogName("");
+    setNewVaultDialogError("");
+    setNewVaultDialogOpen(true);
+  }
+
+  function closeNewVaultDialog() {
+    setNewVaultDialogOpen(false);
+    setNewVaultDialogName("");
+    setNewVaultDialogError("");
+  }
+
+  async function handleNewVaultDialogSubmit(event: FormEvent) {
+    event.preventDefault();
+
+    const validation = validateNewVaultName(
+      newVaultDialogName,
+      vaultFiles.map((item) => item.name),
+    );
+
+    if (!validation.ok) {
+      setNewVaultDialogError(t(validation.errorKey));
+      return;
+    }
+
+    closeNewVaultDialog();
+    await handleCreateNewVault(validation.slug);
   }
 
   async function handleCreateNewVault(nameOverride?: string) {
@@ -4886,17 +4910,7 @@ export default function App() {
       </div>
 
       <div className="authVaultActions" aria-label={t("auth.quickVault")}>
-        <button
-          type="button"
-          className="authToolButton"
-          onClick={() => {
-            const typedName = window.prompt(t("vault.newNamePlaceholder"), newVaultName);
-
-            if (typedName === null) return;
-
-            void handleCreateNewVault(typedName);
-          }}
-        >
+        <button type="button" className="authToolButton" onClick={openNewVaultDialog}>
           {t("vault.create")}
         </button>
 
@@ -5239,6 +5253,72 @@ export default function App() {
     </div>
   ) : null;
 
+  const newVaultDialog = newVaultDialogOpen ? (
+    <div className="popupOverlay" onMouseDown={closeNewVaultDialog}>
+      <form
+        className="restoreDialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="newVaultDialogTitle"
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            closeNewVaultDialog();
+          }
+        }}
+        onSubmit={(event) => void handleNewVaultDialogSubmit(event)}
+      >
+        <div className="detailHeader">
+          <div>
+            <span>{t("vault.title")}</span>
+            <h2 id="newVaultDialogTitle">{t("vault.createTitle")}</h2>
+          </div>
+          <button
+            type="button"
+            className="iconButton"
+            aria-label={t("dialog.cancel")}
+            onClick={closeNewVaultDialog}
+          >
+            ×
+          </button>
+        </div>
+
+        <p>{t("vault.createMessage")}</p>
+
+        <label>
+          {t("vault.newNamePlaceholder")}
+          <input
+            value={newVaultDialogName}
+            onChange={(event) => {
+              setNewVaultDialogName(event.target.value);
+              setNewVaultDialogError("");
+            }}
+            placeholder={t("vault.newNamePlaceholder")}
+            aria-invalid={newVaultDialogError ? true : undefined}
+            aria-describedby={newVaultDialogError ? "newVaultDialogError" : undefined}
+            autoFocus
+          />
+        </label>
+
+        {newVaultDialogError && (
+          <div id="newVaultDialogError" className="message error" role="alert">
+            {newVaultDialogError}
+          </div>
+        )}
+
+        <div className="confirmActions">
+          <button type="button" className="ghostButton" onClick={closeNewVaultDialog}>
+            {t("dialog.cancel")}
+          </button>
+          <button type="submit" className="primaryButton">
+            {t("vault.create")}
+          </button>
+        </div>
+      </form>
+    </div>
+  ) : null;
+
   const csvImportDialog = csvImportPreview ? (
     <div className="modalOverlay csvImportOverlay" onMouseDown={cancelCsvImportPreview}>
       <section className="csvImportModal" role="dialog" aria-modal="true" aria-labelledby="csvImportTitle" onMouseDown={(event) => event.stopPropagation()}>
@@ -5493,6 +5573,7 @@ export default function App() {
         </main>
         {confirmDialogElement}
         {restoreBackupDialog}
+        {newVaultDialog}
       </>
     );
   }
@@ -5576,6 +5657,7 @@ export default function App() {
         </main>
         {confirmDialogElement}
         {restoreBackupDialog}
+        {newVaultDialog}
       </>
     );
   }
@@ -5643,6 +5725,7 @@ export default function App() {
         </main>
         {confirmDialogElement}
         {restoreBackupDialog}
+        {newVaultDialog}
       </>
     );
   }
