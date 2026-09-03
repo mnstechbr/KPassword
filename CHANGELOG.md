@@ -1,5 +1,59 @@
 # Changelog
 
+## v1.4.1
+
+Versão de correção focada em consistência de interface. Não há mudança de
+criptografia, de formato de cofre nem de comportamento do updater.
+
+### Primeiro acesso
+
+- A composição da tela de primeiro acesso passou a seguir a mesma estrutura da
+  tela de desbloqueio, eliminando o salto visual entre as duas.
+- Corrigido o alinhamento da barra de utilidades superior.
+- O card de criação passou a usar coluna única.
+- Corrigidos glifos que apareciam corrompidos na interface.
+
+### Novo cofre
+
+- O `window.prompt()` nativo do WebView2 foi removido do fluxo "Novo cofre". O
+  diálogo era bloqueante e destoava da identidade visual do aplicativo.
+- Em seu lugar entra um modal próprio do KPassword, que reaproveita o padrão de
+  diálogo já usado na restauração de backup.
+- A validação do nome passou a ser feita dentro do próprio modal, em vez de
+  aparecer no banner da tela.
+- Enter confirma apenas quando o nome é válido.
+- Escape e o cancelamento fecham o modal sem efeito colateral. O campo e o erro
+  são limpos ao abrir e ao fechar.
+- Nome vazio, inválido ou já existente é tratado no modal, sem chegar ao
+  backend.
+- A regra de nome de cofre foi extraída para um módulo próprio, coberto por
+  testes. Ela permanece um subconjunto estrito do que `sanitize_vault_name()`
+  aceita no lado Rust.
+
+### Temas e modais
+
+- O botão de fechar dos diálogos que usam `restoreDialog` ficava praticamente
+  invisível nos temas claro e misto. Passa a usar o mesmo tratamento de
+  contraste já aplicado aos modais de credencial. A correção alcança também o
+  diálogo "Restaurar backup".
+- A mensagem de erro dentro desses diálogos ficava ilegível nos temas claro e
+  misto, com texto claro sobre fundo claro. Recebeu o mesmo tratamento.
+
+### Qualidade
+
+- A suíte de frontend passou de 113 para 124 testes.
+- A suíte Rust permanece com 37 testes.
+
+### Compatibilidade
+
+- **Nenhuma alteração no formato do cofre.** O `.kpvault` da v1.4.0 abre
+  normalmente.
+- **Nenhuma alteração na criptografia do cofre.** Argon2id, AES-256-GCM, os
+  parâmetros de derivação, o AAD e o `cryptoVersion` permanecem os mesmos.
+- **Nenhuma alteração no Windows Hello**, no updater nem nos backups.
+- O backup de segurança obrigatório antes de restaurar, introduzido na v1.4.0,
+  permanece inalterado.
+
 ## v1.4.0
 
 Versão de segurança e qualidade. Concentra a correção do gerador de senhas, um
