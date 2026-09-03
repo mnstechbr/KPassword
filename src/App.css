@@ -7449,15 +7449,23 @@ select option {
   box-shadow: none !important;
 }
 
+/* .restoreDialog recebe o mesmo tratamento do .credentialModal: sem ele o "x"
+   herda a cor clara do tema escuro e some sobre o fundo branco. Vale para o
+   dialogo de restauracao e para o modal de novo cofre, os dois unicos usos
+   dessa classe. */
 :root[data-theme="light"] .credentialModal .iconButton,
-:root[data-theme="mixed"] .credentialModal .iconButton {
+:root[data-theme="mixed"] .credentialModal .iconButton,
+:root[data-theme="light"] .restoreDialog .iconButton,
+:root[data-theme="mixed"] .restoreDialog .iconButton {
   background: #e2e8f0 !important;
   color: #0f172a !important;
   border: 1px solid rgba(15, 23, 42, 0.10) !important;
 }
 
 :root[data-theme="light"] .credentialModal .iconButton:hover,
-:root[data-theme="mixed"] .credentialModal .iconButton:hover {
+:root[data-theme="mixed"] .credentialModal .iconButton:hover,
+:root[data-theme="light"] .restoreDialog .iconButton:hover,
+:root[data-theme="mixed"] .restoreDialog .iconButton:hover {
   background: #cbd5e1 !important;
 }
 
@@ -7466,8 +7474,13 @@ select option {
   color: #0f172a !important;
 }
 
+/* O erro de validacao do modal de novo cofre e a primeira .message dentro de
+   um .restoreDialog; sem esta regra o texto claro fica ilegivel no fundo
+   claro. */
 :root[data-theme="light"] .credentialModal .message.error,
-:root[data-theme="mixed"] .credentialModal .message.error {
+:root[data-theme="mixed"] .credentialModal .message.error,
+:root[data-theme="light"] .restoreDialog .message.error,
+:root[data-theme="mixed"] .restoreDialog .message.error {
   background: #fee2e2 !important;
   color: #7f1d1d !important;
   border-color: rgba(185, 28, 28, 0.20) !important;
