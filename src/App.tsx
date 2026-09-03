@@ -5284,8 +5284,6 @@ export default function App() {
           </button>
         </div>
 
-        <p>{t("vault.createMessage")}</p>
-
         <label>
           {t("vault.newNamePlaceholder")}
           <input
@@ -5312,7 +5310,7 @@ export default function App() {
             {t("dialog.cancel")}
           </button>
           <button type="submit" className="primaryButton">
-            {t("vault.create")}
+            {t("vault.createConfirm")}
           </button>
         </div>
       </form>
