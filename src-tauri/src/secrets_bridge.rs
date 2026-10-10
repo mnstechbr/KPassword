@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs, path::Path, sync::Mutex, time::{Duration, In
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use zeroize::Zeroizing;
 
 const DENIED: &str = "Secrets Bridge: acesso negado ou sessão expirada.";
@@ -19,6 +19,39 @@ struct Session { generation: u64, expires: Instant, vault_name: String, file_has
 struct Core { generation: u64, session: Option<Session> }
 #[derive(Default)]
 pub struct BridgeState(Mutex<Core>);
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchRequest { key_id: String, integration_id: String }
+#[derive(Default)]
+pub struct BridgeRequests(Mutex<Option<(LaunchRequest, Instant)>>);
+fn request_from_args(args: &[String]) -> Option<LaunchRequest> {
+    fn id(s: &str) -> bool { !s.is_empty() && s.len() <= 128 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') }
+    if args.len() != 4 || args[1] != "--bridge-request" || !id(&args[2]) || !id(&args[3]) { return None; }
+    Some(LaunchRequest { key_id: args[2].clone(), integration_id: args[3].clone() })
+}
+/// Untrusted requests contain IDs only and never return a secret. A request
+/// can only ask the UI to launch an already approved consumer, after a popup.
+pub fn queue_request(app: &AppHandle, args: &[String]) {
+    #[cfg(target_os = "linux")]
+    if let Some(request) = request_from_args(args) {
+        if let Some(state) = app.try_state::<BridgeRequests>() {
+            if let Ok(mut pending) = state.0.lock() {
+                // One outstanding request prevents queues of approval popups.
+                if pending.as_ref().is_some_and(|(_, deadline)| *deadline > Instant::now()) { return; }
+                *pending = Some((request, Instant::now() + Duration::from_secs(30)));
+                let _ = app.emit("kpassword:bridge-request", ());
+            }
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (app, args);
+}
+#[tauri::command]
+pub fn bridge_take_request(state: State<BridgeRequests>) -> Option<LaunchRequest> {
+    let (request, deadline) = state.0.lock().ok()?.take()?;
+    (deadline > Instant::now()).then_some(request)
+}
 
 impl Core {
     fn close(&mut self) { self.generation = self.generation.wrapping_add(1); self.session = None; }
@@ -37,6 +70,9 @@ impl Core {
 }
 
 pub fn close(app: &AppHandle) {
+    if let Some(state) = app.try_state::<BridgeRequests>() {
+        if let Ok(mut pending) = state.0.lock() { *pending = None; }
+    }
     if let Some(state) = app.try_state::<BridgeState>() {
         if let Ok(mut core) = state.0.lock() { core.close(); }
     }
@@ -222,7 +258,7 @@ pub fn child() -> Result<(), String> {
     let mut command = Command::new("/usr/bin/konsole");
     clean_environment(&mut command);
     command.env(&delivery.identifier, &delivery.secret)
-        .args(["--separate", "--hold", "-e", &delivery.executable])
+        .args(["--separate", "-e", &delivery.executable])
         .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     if delivery.kind == "codex" {
         if delivery.identifier != "OPENAI_API_KEY" { return Err(DENIED.into()); }
@@ -308,6 +344,15 @@ pub async fn bridge_launch(app: AppHandle, state: State<'_, BridgeState>, key_id
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test] fn external_requests_accept_ids_only() {
+        let args = vec!["kpassword", "--bridge-request", "key-a", "tool-a"].into_iter().map(String::from).collect::<Vec<_>>();
+        assert!(request_from_args(&args).is_some());
+        for value in ["", "../secret", "key\nsecret", "key with space"] {
+            let mut bad = args.clone(); bad[2] = value.into(); assert!(request_from_args(&bad).is_none());
+        }
+        let mut extra = args.clone(); extra.push("secret-value".into()); assert!(request_from_args(&extra).is_none());
+        let mut short = args; short.pop(); assert!(request_from_args(&short).is_none());
+    }
     fn plain() -> Value { json!({"settings":{"secretsBridgeEnabled":true},"credentials":[{"id":"key-a","itemType":"api_key","password":"fake-key-a","apiIdentifier":"OPENAI_API_KEY","apiApplications":[{"id":"tool-a","name":"Test","executable":"/usr/bin/true","sha256":"fake"}]},{"id":"key-b","itemType":"api_key","password":"fake-key-b","apiIdentifier":"ANTHROPIC_API_KEY"}]}) }
     fn core() -> Core { Core { generation: 1, session: Some(Session { generation: 1, expires: Instant::now() + Duration::from_secs(60), vault_name:"vault".into(),file_hash:vec![],keys:parse_keys(&plain()).unwrap() }) } }
     #[test] fn disabled_by_default() { assert!(Core::default().authorize(0,"key-a","tool-a").is_err()); let mut p=plain();p["settings"]=json!({});assert!(parse_keys(&p).is_err()); }

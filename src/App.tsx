@@ -9,6 +9,7 @@ import {
   type MouseEvent,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { linuxTranslation, readClipboard, writeClipboard } from "./platform";
 import { validateApiKey } from "./api-key";
@@ -129,7 +130,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.4.1";
+const APP_VERSION = "1.5.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -1828,6 +1829,24 @@ export default function App() {
   const [bridgeName, setBridgeName] = useState("");
   const [bridgeKind, setBridgeKind] = useState("custom");
   const [bridgeAudit, setBridgeAudit] = useState<Array<{ at: number; outcome: string; integration_id: string }>>([]);
+  const bridgeRequestHandler = useRef<(request: { keyId: string; integrationId: string }) => void>(() => {});
+  const externalBridgeBusy = useRef(false);
+
+  useEffect(() => {
+    if (!isLinux) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    const take = async () => {
+      try {
+        const request = await invoke<{ keyId: string; integrationId: string } | null>("bridge_take_request");
+        if (!disposed && request) bridgeRequestHandler.current(request);
+      } catch { /* No secret or request contents are logged. */ }
+    };
+    void listen("kpassword:bridge-request", () => { void take(); }).then((stop) => {
+      if (disposed) stop(); else { unlisten = stop; void take(); }
+    }).catch(() => {});
+    return () => { disposed = true; unlisten?.(); };
+  }, [isLinux]);
   useEffect(() => {
     void invoke<string>("platform_name").then((name) => {
       document.documentElement.dataset.platform = name;
@@ -3176,7 +3195,11 @@ export default function App() {
 
   async function handleCheckUpdates() {
     setUpdateStatus(t("updates.checking"));
-    if (isLinux) return;
+    if (isLinux) {
+      try { await openExternalUrl("https://github.com/mnstechbr/KPassword/releases/latest"); }
+      catch { setUpdateStatus(t("updates.error", { detail: "GitHub Releases" })); }
+      return;
+    }
 
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
@@ -3857,6 +3880,17 @@ export default function App() {
     } catch { setMessage(t("bridge.denied")); }
     finally { setBridgeBusy(false); }
   }
+
+  bridgeRequestHandler.current = (request) => {
+    const credential = vault?.credentials.find((c) => c.id === request.keyId && c.itemType === "api_key" && !c.deletedAt);
+    const integration = credential?.apiApplications?.find((a) => a.id === request.integrationId);
+    if (externalBridgeBusy.current || bridgeBusy || confirmDialog || mode !== "unlocked" || bridgeGeneration === null || !credential || !integration) {
+      setMessage(t("bridge.denied"));
+      return;
+    }
+    externalBridgeBusy.current = true;
+    void launchBridge(credential, integration).finally(() => { externalBridgeBusy.current = false; });
+  };
 
   async function handleSaveCredential(event: FormEvent) {
     event.preventDefault();
@@ -7278,7 +7312,7 @@ export default function App() {
                   <label>{t("bridge.consumer")}<select value={bridgeKind} onChange={(e) => setBridgeKind(e.target.value)}><option value="claude">Claude Code CLI</option><option value="codex">Codex CLI</option><option value="custom">{t("bridge.custom")}</option></select></label>
                   <label>{t("bridge.executable")}<input value={bridgeExecutable} onChange={(e) => setBridgeExecutable(e.target.value)} placeholder="/home/usuario/.local/bin/claude" /></label>
                   <button type="button" disabled={bridgeBusy || !bridgeExecutable || !bridgeName} onClick={() => void changeBridgeGrant(detailCredential)}>{t("bridge.authorize")}</button>
-                  {(detailCredential.apiApplications ?? []).map((a) => <article key={a.id} className="historyItem"><div><strong>{a.name}</strong><span>{a.executable}</span></div><div className="historyActions"><button type="button" disabled={bridgeBusy || bridgeGeneration === null} onClick={() => void launchBridge(detailCredential, a)}>{t("bridge.launch")}</button><button type="button" disabled={bridgeBusy} onClick={() => void changeBridgeGrant(detailCredential, a.id)}>{t("bridge.revoke")}</button></div></article>)}
+                  {(detailCredential.apiApplications ?? []).map((a) => <article key={a.id} className="historyItem"><div><strong>{a.name}</strong><span>{a.executable}</span><code>kpassword --bridge-request {detailCredential.id} {a.id}</code></div><div className="historyActions"><button type="button" disabled={bridgeBusy || bridgeGeneration === null} onClick={() => void launchBridge(detailCredential, a)}>{t("bridge.launch")}</button><button type="button" disabled={bridgeBusy} onClick={() => void changeBridgeGrant(detailCredential, a.id)}>{t("bridge.revoke")}</button></div></article>)}
                   <button type="button" onClick={() => { void invoke<typeof bridgeAudit>("bridge_history", { keyId: detailCredential.id }).then(setBridgeAudit).catch(() => setMessage(t("bridge.denied"))); }}>{t("bridge.history")}</button>
                   {bridgeAudit.map((event, i) => <p key={`${event.at}-${i}`}>{formatDate(new Date(event.at).toISOString(), appLanguage)} · {t(`bridge.outcome.${event.outcome}`)} · {event.integration_id}</p>)}
                 </div>}

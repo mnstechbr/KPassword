@@ -32,3 +32,4 @@ backups/
 **/*.kpvault
 **/*.kphello
 KPassword-backup-*/
+__pycache__/

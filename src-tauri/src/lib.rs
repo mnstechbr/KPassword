@@ -2505,13 +2505,16 @@ mod qr_safety_tests {
 pub fn run() {
     tauri::Builder::default()
         .manage(secrets_bridge::BridgeState::default())
+        .manage(secrets_bridge::BridgeRequests::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             show_main_window(app);
+            secrets_bridge::queue_request(app, &args);
         }))
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
+            secrets_bridge::queue_request(app.handle(), &std::env::args().collect::<Vec<_>>());
             let open_full_item =
                 MenuItem::with_id(app, "open_full", "Abrir APP Completo", true, None::<&str>)?;
             let open_compact_item = MenuItem::with_id(
@@ -2575,6 +2578,7 @@ pub fn run() {
             secrets_bridge::bridge_prepare,
             secrets_bridge::bridge_launch,
             secrets_bridge::bridge_history,
+            secrets_bridge::bridge_take_request,
             platform_name,
             linux_clipboard,
             linux_capture_qr,

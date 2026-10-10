@@ -1,12 +1,23 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
-    "targets": ["rpm"],
+    "targets": [
+      "rpm"
+    ],
     "createUpdaterArtifacts": false,
     "linux": {
       "rpm": {
-        "release": "3",
-        "depends": ["gtk3", "webkit2gtk4.1", "libappindicator-gtk3", "xdg-utils", "konsole", "xdg-desktop-portal", "xdg-desktop-portal-kde", "xorg-x11-server-Xwayland"]
+        "release": "1",
+        "depends": [
+          "gtk3",
+          "webkit2gtk4.1",
+          "libappindicator-gtk3",
+          "xdg-utils",
+          "konsole",
+          "xdg-desktop-portal",
+          "xdg-desktop-portal-kde",
+          "xorg-x11-server-Xwayland"
+        ]
       }
     }
   }
