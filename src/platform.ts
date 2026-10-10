@@ -26,7 +26,9 @@ const linuxText: Record<string, [string, string]> = {
   "totp.easy.selectScreenHint": ["O desktop pedirá autorização para capturar a área do QR.", "The desktop will ask permission to capture the QR area."],
   "totp.easy.screenIntroText": ["Deixe o QR visível e selecione a área no portal do desktop. O KPassword volta após a captura.", "Keep the QR visible and select its area in the desktop portal. KPassword returns after capture."],
   "totp.easy.screenIntroStep2": ["Autorize a captura e selecione a área do QR no desktop.", "Approve capture and select the QR area in the desktop."],
-  "updates.checking": ["No Fedora, atualize o RPM com o gestor de pacotes: sudo dnf upgrade k-password.", "On Fedora, update the RPM with your package manager: sudo dnf upgrade k-password."],
+  "preferences.checkUpdate": ["Abrir versões para Fedora", "Open Fedora releases"],
+  "preferences.updatesDescription": ["Abra o GitHub Releases, baixe o RPM mais recente e instale pelo gestor de pacotes. A instalação requer sua autorização de administrador.", "Open GitHub Releases, download the latest RPM and install it with your package manager. Installation requires your administrator authorization."],
+  "updates.checking": ["Abrindo GitHub Releases. Baixe o RPM e atualize com: sudo dnf upgrade ./arquivo.rpm", "Opening GitHub Releases. Download the RPM and update with: sudo dnf upgrade ./file.rpm"],
   "appDiagnostics.updaterValue": ["Atualização RPM pelo gestor de pacotes", "RPM updates through the package manager"],
 };
 

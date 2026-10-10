@@ -24,6 +24,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  local-signing:
+    name: Local release signatures (fake keys only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --locked --release --manifest-path tools/release-signer/Cargo.toml
+      - run: python3 tools/release-signer.test.py
+
   frontend:
     name: Frontend (tsc + vitest + build)
     runs-on: ubuntu-latest
