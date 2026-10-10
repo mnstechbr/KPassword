@@ -108,7 +108,9 @@ Só o registro autorizado é entregue; nenhuma senha mestra é transmitida pelo 
 UID/PID/nome/caminho não autenticam um cliente externo: não existe endpoint
 genérico para processos arbitrários pedirem segredos. O inicializador recebe a
 capacidade privada do app e todas as entregas exigem confirmação visual. SHA-256
-detecta mudanças do executável aprovado; não prova identidade de seus scripts,
+detecta mudanças do executável aprovado. Executáveis de até 512 MiB são verificados
+em blocos de 16 KiB, com limite também durante a leitura; isso comporta os binários
+nativos atuais do Claude e do Codex. O hash não prova identidade de seus scripts,
 bibliotecas, plugins, intérpretes ou descendentes. Há corrida residual entre
 verificar o arquivo e executá-lo se malware do mesmo usuário o substituir.
 Não prometer isolamento contra malware com privilégios do usuário, ptrace,
@@ -140,9 +142,9 @@ integração automaticamente. Backup/exportação criptografada preserva os camp
 ## Validação e pendências
 
 - Frontend: 137 testes aprovados, TypeScript e Vite aprovados.
-- Rust Fedora: 57 testes aprovados, incluindo vetores independentes, backups,
+- Rust Fedora: 58 testes aprovados (17 específicos do Bridge), incluindo vetores independentes, backups,
   restauração, integridade, permissões, geração/expiração/revogação, IPC truncado/
-  excessivo, chave exclusiva, ambiente limpo, substituição de executável e auditoria.
+  excessivo, chave exclusiva, ambiente limpo, substituição/tamanho de executável e auditoria.
 - RPM nativo gerado e conteúdo/dependências/scripts inspecionados.
 - Teste de inicialização em Wayland com XDG temporário e D-Bus isolado: permaneceu
   ativo até timeout deliberado de 15 s. Avisos GTK de scale factor e indisponibilidade
