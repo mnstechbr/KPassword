@@ -8,9 +8,10 @@ name: CI
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main", "master", "feature/fedora-native"]
   pull_request:
     branches: ["main", "master"]
+  workflow_dispatch:
 
 # Least privilege: nenhum job precisa escrever no repositorio.
 permissions:
@@ -51,8 +52,8 @@ jobs:
 
   rust:
     name: Rust (cargo test)
-    # windows-latest e obrigatorio: lib.rs contem modulos sob #[cfg(windows)]
-    # e faz #[link(name = "Crypt32")], que nao compilam em Linux.
+    # Manter o runner Windows para verificar os modulos sob #[cfg(windows)],
+    # inclusive Windows Hello/DPAPI, enquanto o suporte Fedora e adicionado.
     runs-on: windows-latest
     permissions:
       contents: read
@@ -75,6 +76,24 @@ jobs:
       # o binario Tauri completo. Verificado localmente: 29 testes.
       - name: cargo test --lib
         run: cargo test --lib
+
+      # O frontend compilado e necessario para generate_context! em release.
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install frontend (lockfile exato)
+        working-directory: .
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: .
+        run: npm run build
+
+      - name: Check Windows release binary
+        run: cargo check --locked --release --bin kpassword
 
   release-consistency:
     name: Release consistency (version:check)

@@ -31,9 +31,11 @@ selecionados. Instaladores não entram no histórico.
 - Windows Hello: UserConsentVerifier + DPAPI, sob `cfg(windows)`. Preservar esse
   caminho. Não transportar o registro DPAPI para Linux.
 - NSIS, ferramentas PowerShell, updater assinado e workflows Windows existentes.
-- CI atual: frontend, Rust em Windows e consistência de versões. Push no branch
-  Fedora ainda não dispara esse workflow; validação Windows exige ampliar os
-  gatilhos sem retirar os jobs existentes.
+- CI da base: frontend, Rust em Windows e consistência de versões. O workflow
+  foi ampliado para push em `feature/fedora-native` e execução manual, preservando
+  os jobs existentes. O job Windows também compila o frontend e verifica o binário
+  Rust em release com lockfile. YAML e invariantes dos jobs validados localmente;
+  resultado no runner remoto ainda pendente.
 
 ## Matriz de compatibilidade inicial
 
