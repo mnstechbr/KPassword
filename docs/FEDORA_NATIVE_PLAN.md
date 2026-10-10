@@ -1,5 +1,8 @@
 # Fedora nativo e Secrets Bridge — diagnóstico e plano
 
+Este é o diagnóstico inicial. Implementação, comandos, testes concluídos e
+limitações atuais estão em [FEDORA_NATIVE.md](FEDORA_NATIVE.md).
+
 ## Base e preservação
 
 Auditoria em 10/10/2026. Base local: KPassword **1.4.1**, commit
