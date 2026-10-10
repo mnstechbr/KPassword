@@ -142,9 +142,10 @@ integração automaticamente. Backup/exportação criptografada preserva os camp
 ## Validação e pendências
 
 - Frontend: 137 testes aprovados, TypeScript e Vite aprovados.
-- Rust Fedora: 58 testes aprovados (17 específicos do Bridge), incluindo vetores independentes, backups,
+- Rust Fedora: 59 testes aprovados (18 específicos do Bridge), incluindo vetores independentes, backups,
   restauração, integridade, permissões, geração/expiração/revogação, IPC truncado/
-  excessivo, chave exclusiva, ambiente limpo, substituição/tamanho de executável e auditoria.
+  excessivo, chave exclusiva, ambiente limpo, substituição/tamanho de executável,
+  cancelamento de ativação pendente por bloqueio e auditoria.
 - RPM nativo gerado e conteúdo/dependências/scripts inspecionados.
 - Teste de inicialização em Wayland com XDG temporário e D-Bus isolado: permaneceu
   ativo até timeout deliberado de 15 s. Avisos GTK de scale factor e indisponibilidade

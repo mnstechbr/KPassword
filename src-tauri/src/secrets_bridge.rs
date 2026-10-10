@@ -22,6 +22,11 @@ pub struct BridgeState(Mutex<Core>);
 
 impl Core {
     fn close(&mut self) { self.generation = self.generation.wrapping_add(1); self.session = None; }
+    fn install_session(&mut self, generation: u64, session: Session) -> Result<(), String> {
+        if self.generation != generation || session.generation != generation { return Err(DENIED.into()); }
+        self.session = Some(session);
+        Ok(())
+    }
     fn authorize(&self, generation: u64, key_id: &str, integration_id: &str) -> Result<(&Key, &Integration), String> {
         let session = self.session.as_ref().ok_or(DENIED)?;
         if session.generation != generation || session.expires <= Instant::now() { return Err(DENIED.into()); }
@@ -80,7 +85,11 @@ pub fn bridge_close(app: AppHandle) { close(&app); }
 
 #[tauri::command]
 pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String, master_password: String) -> Result<u64, String> {
-    close(&app);
+    let generation = {
+        let mut core = state.0.lock().map_err(|_| DENIED)?;
+        core.close();
+        core.generation
+    };
     let password = Zeroizing::new(master_password);
     let (path, _, name) = super::storage_paths(&app, Some(vault_name))?;
     let raw = fs::read(&path).map_err(|_| DENIED)?;
@@ -92,8 +101,7 @@ pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String
     erase_json(&mut plain);
     let keys = result?;
     let mut core = state.0.lock().map_err(|_| DENIED)?;
-    let generation = core.generation;
-    core.session = Some(Session { generation, expires: Instant::now() + Duration::from_secs(minutes * 60), vault_name: name, file_hash: Sha256::digest(&raw).to_vec(), keys });
+    core.install_session(generation, Session { generation, expires: Instant::now() + Duration::from_secs(minutes * 60), vault_name: name, file_hash: Sha256::digest(&raw).to_vec(), keys })?;
     #[cfg(target_os="linux")]
     {
         let app = app.clone();
@@ -283,6 +291,7 @@ pub async fn bridge_launch(app: AppHandle, state: State<'_, BridgeState>, key_id
             core.authorize(generation, &key_id, &integration_id)?;
             // Audit is durable before any secret is delivered. Failure denies access.
             append_audit(&app, "approved", &key_id, &integration_id)?;
+            core.authorize(generation, &key_id, &integration_id)?;
             server.write_all(&(data.len() as u32).to_be_bytes()).and_then(|_| server.write_all(&data)).map_err(|_| DENIED)?;
             Ok(())
         })();
@@ -304,6 +313,14 @@ mod tests {
     #[test] fn disabled_by_default() { assert!(Core::default().authorize(0,"key-a","tool-a").is_err()); let mut p=plain();p["settings"]=json!({});assert!(parse_keys(&p).is_err()); }
     #[test] fn only_explicit_record_and_tool_are_authorized() { let c=core();assert!(c.authorize(1,"key-a","tool-a").is_ok());assert!(c.authorize(1,"key-b","tool-a").is_err());assert!(c.authorize(1,"key-a","spoofed").is_err()); }
     #[test] fn close_revokes_pending_requests() { let mut c=core();c.close();assert!(c.authorize(1,"key-a","tool-a").is_err()); }
+    #[test] fn close_cancels_an_activation_that_is_still_decrypting() {
+        let mut c=core();let pending=c.session.take().unwrap();c.close();
+        assert!(c.install_session(1,pending).is_err());
+        assert!(c.session.is_none());assert!(c.authorize(c.generation,"key-a","tool-a").is_err());
+        let mut fresh=core().session.take().unwrap();fresh.generation=c.generation;
+        assert!(c.install_session(c.generation,fresh).is_ok());
+        assert!(c.authorize(c.generation,"key-a","tool-a").is_ok());
+    }
     #[test] fn stale_generation_and_expiry_fail_closed() { let mut c=core();assert!(c.authorize(0,"key-a","tool-a").is_err());c.session.as_mut().unwrap().expires=Instant::now();assert!(c.authorize(1,"key-a","tool-a").is_err()); }
     #[test] fn revoking_grant_blocks_delivery() { let mut c=core();c.session.as_mut().unwrap().keys.get_mut("key-a").unwrap().integrations.clear();assert!(c.authorize(1,"key-a","tool-a").is_err()); }
     #[test] fn trashed_keys_are_not_available() { let mut p=plain();p["credentials"][0]["deletedAt"]=json!("2026-01-01");assert!(!parse_keys(&p).unwrap().contains_key("key-a")); }
