@@ -4115,7 +4115,38 @@ const apiTranslations: Record<string, [string, string]> = {
   "api.identifierInvalid": ["Use um identificador em maiúsculas terminado em _API_KEY, _TOKEN ou _SECRET.", "Use an uppercase identifier ending in _API_KEY, _TOKEN or _SECRET."],
 };
 
+const vaultRemovalTranslations: Record<AppLanguage, Record<string, string>> = {
+  pt: {
+    "vault.delete": "Excluir cofre",
+    "vault.deleteWarning": "Excluir o cofre “{name}” deste computador? Uma cópia criptografada será preservada na pasta de backups. Informe a senha mestra deste cofre.",
+    "vault.deleteFailed": "Exclusão cancelada. Confira a senha mestra e o cofre selecionado. O cofre é preservado se a cópia de recuperação falhar.",
+    "vault.deleted": "Cofre excluído. Cópia criptografada de recuperação: {path}",
+  },
+  en: {
+    "vault.delete": "Delete vault",
+    "vault.deleteWarning": "Delete vault “{name}” from this computer? An encrypted recovery copy will remain in the backups folder. Enter this vault’s master password.",
+    "vault.deleteFailed": "Deletion cancelled. Check the master password and selected vault. The vault is preserved if the recovery copy fails.",
+    "vault.deleted": "Vault deleted. Encrypted recovery copy: {path}",
+  },
+  es: {
+    "vault.delete": "Eliminar bóveda",
+    "vault.deleteWarning": "¿Eliminar la bóveda «{name}» de este equipo? Se conservará una copia cifrada en la carpeta de copias de seguridad. Introduzca su contraseña maestra.",
+    "vault.deleteFailed": "Eliminación cancelada. Compruebe la contraseña maestra y la bóveda seleccionada. Si falla la copia, la bóveda se conserva.",
+    "vault.deleted": "Bóveda eliminada. Copia cifrada para recuperación: {path}",
+  },
+  tr: {
+    "vault.delete": "Kasayı sil",
+    "vault.deleteWarning": "“{name}” kasası bu bilgisayardan silinsin mi? Yedekler klasöründe şifrelenmiş bir kurtarma kopyası tutulacaktır. Bu kasanın ana parolasını girin.",
+    "vault.deleteFailed": "Silme iptal edildi. Ana parolayı ve seçili kasayı kontrol edin. Kurtarma kopyası başarısız olursa kasa korunur.",
+    "vault.deleted": "Kasa silindi. Şifrelenmiş kurtarma kopyası: {path}",
+  },
+};
+
 export function translate(language: AppLanguage, key: TranslationKey, values: TranslationValues = {}) {
+  if (vaultRemovalTranslations[language][key]) {
+    return vaultRemovalTranslations[language][key].replace(/\{(\w+)\}/g, (_, name: string) =>
+      values[name] === undefined ? `{${name}}` : String(values[name]));
+  }
   if (apiTranslations[key]) return apiTranslations[key][language === "pt" ? 0 : 1];
   const template = v134Translations[language]?.[key] ?? v134Translations.en[key] ?? v134Translations.pt[key] ?? v133Translations[language]?.[key] ?? v133Translations.en[key] ?? v133Translations.pt[key] ?? v132Translations[language]?.[key] ?? v132Translations.en[key] ?? v132Translations.pt[key] ?? v130Translations[language]?.[key] ?? v130Translations.en[key] ?? v130Translations.pt[key] ?? v100Translations[language]?.[key] ?? v100Translations.en[key] ?? v100Translations.pt[key] ?? v095Translations[language]?.[key] ?? v095Translations.en[key] ?? v095Translations.pt[key] ?? v094Translations[language]?.[key] ?? v094Translations.en[key] ?? v094Translations.pt[key] ?? v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
 

@@ -14817,3 +14817,32 @@ textarea {
   z-index: 1100;
 }
 
+/* Let the setup form grow with password validation; the guide owns its row. */
+:root[data-platform="linux"] .authCard.authExperience.authSetup {
+  height: auto !important;
+  grid-template-rows: auto minmax(min-content, 1fr) auto auto !important;
+  grid-template-areas: "bar bar" "logo panel" "guide guide" "footer footer" !important;
+  align-content: stretch !important;
+  row-gap: 24px !important;
+}
+:root[data-platform="linux"] .authSetup .firstUseGuide {
+  grid-area: guide !important;
+  margin-top: 0 !important;
+}
+:root[data-platform="linux"] .authSetupShell {
+  height: 100dvh !important;
+  overflow: auto !important;
+}
+@media (max-width: 900px) {
+  :root[data-platform="linux"] .authCard.authExperience.authSetup {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto auto auto auto !important;
+    grid-template-areas: "bar" "logo" "panel" "guide" "footer" !important;
+  }
+}
+@media (max-width: 600px) {
+  :root[data-platform="linux"] .authSetup .firstUseGuide {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
