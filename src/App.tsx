@@ -31,6 +31,7 @@ import {
   canOfferHelloUnlock,
   masterPasswordChangePlan,
 } from "./windows-hello-policy";
+import { createVaultSlug, validateNewVaultName } from "./vault-name-policy";
 import { decodeQrFromImageFile } from "./totp-qr-reader";
 import {
   createPreArgon2Backup,
@@ -45,6 +46,8 @@ import {
   loadVaultFile,
   openBackupFolder,
   openVaultFolder,
+  readActiveVaultName,
+  restoreVaultFile,
   saveVaultFile,
   unlockWithWindowsHello,
 } from "./vault-storage";
@@ -123,7 +126,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.3.5";
+const APP_VERSION = "1.4.1";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -593,17 +596,6 @@ function getStoredValue<T extends string>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
-}
-
-function createVaultSlug(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
 }
 
 function getVaultDisplayName(vaultName: string, vaultFiles: VaultFileInfo[]) {
@@ -1886,6 +1878,9 @@ export default function App() {
   const [appDiagnosticsOpen, setAppDiagnosticsOpen] = useState(false);
   const [vaultFiles, setVaultFiles] = useState<VaultFileInfo[]>([]);
   const [newVaultName, setNewVaultName] = useState("");
+  const [newVaultDialogOpen, setNewVaultDialogOpen] = useState(false);
+  const [newVaultDialogName, setNewVaultDialogName] = useState("");
+  const [newVaultDialogError, setNewVaultDialogError] = useState("");
   const [totpTick, setTotpTick] = useState(Date.now());
   const [detailTotpCode, setDetailTotpCode] = useState("");
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
@@ -2734,6 +2729,37 @@ export default function App() {
     setActiveVaultName(nextVaultName);
   }
 
+  function openNewVaultDialog() {
+    // O diálogo nasce sempre limpo: nome e erro da abertura anterior não
+    // podem reaparecer quando o usuário volta a criar um cofre.
+    setNewVaultDialogName("");
+    setNewVaultDialogError("");
+    setNewVaultDialogOpen(true);
+  }
+
+  function closeNewVaultDialog() {
+    setNewVaultDialogOpen(false);
+    setNewVaultDialogName("");
+    setNewVaultDialogError("");
+  }
+
+  async function handleNewVaultDialogSubmit(event: FormEvent) {
+    event.preventDefault();
+
+    const validation = validateNewVaultName(
+      newVaultDialogName,
+      vaultFiles.map((item) => item.name),
+    );
+
+    if (!validation.ok) {
+      setNewVaultDialogError(t(validation.errorKey));
+      return;
+    }
+
+    closeNewVaultDialog();
+    await handleCreateNewVault(validation.slug);
+  }
+
   async function handleCreateNewVault(nameOverride?: string) {
     const sourceName = typeof nameOverride === "string" ? nameOverride : newVaultName;
     const slug = createVaultSlug(sourceName);
@@ -2958,10 +2984,14 @@ export default function App() {
       const { file: parsed, plainVault } = await validateEncryptedVaultBackup(raw, password);
       const restoredVault = normalizeVault(plainVault);
 
+      // Alvo capturado ANTES da confirmacao e mantido ate o fim da operacao.
+      // A identidade do cofre vive no localStorage, separada dos arquivos: se ela
+      // mudar enquanto o dialogo estiver aberto, o backend recusa a escrita.
+      const targetVaultName = activeVaultName;
+
       const confirmed = await askConfirmation({
         title: t("dialog.restoreBackupTitle"),
-        message:
-          t("dialog.restoreBackupMessage"),
+        message: t("dialog.restoreBackupMessageNamed", { vault: targetVaultName }),
         confirmText: t("dialog.restoreBackupTitle"),
         cancelText: t("dialog.cancel"),
         tone: "danger",
@@ -2969,11 +2999,27 @@ export default function App() {
 
       if (!confirmed) return;
 
-      if (vault && masterPassword) {
-        await persistVault(vault, undefined, true);
+      // A copia de seguranca do conteudo atual deixou de ser responsabilidade
+      // daqui. Ela e pre-condicao da escrita, dentro do proprio comando: o
+      // backend preserva os bytes cifrados do alvo antes de sobrescrever e
+      // aborta se nao conseguir. Isso vale tambem com o cofre bloqueado, caso em
+      // que `vault` e null e a antiga salvaguarda era simplesmente pulada.
+      // `activeVaultName` aqui dentro e um snapshot do closure: nao enxerga troca
+      // ocorrida durante o dialogo. A fonte viva da identidade e o localStorage,
+      // entao e ele que resolve o alvo agora; o backend compara com o que foi
+      // confirmado e recusa a escrita se divergirem.
+      const liveVaultName = readActiveVaultName() ?? targetVaultName;
+
+      let outcome;
+      try {
+        outcome = await restoreVaultFile(raw, liveVaultName, targetVaultName);
+      } catch (error) {
+        secureLogError("restaurar backup", error);
+        setMessage(t("errors.restoreAborted"));
+        return;
       }
 
-      const info = await saveVaultFile(raw, activeVaultName, false);
+      const info = outcome.storage;
 
       setEncryptedVault(parsed);
       setVault(restoredVault);
@@ -2984,7 +3030,14 @@ export default function App() {
       setBackups(info.backups);
       setScreen("credentials");
       setMode("unlocked");
-      setMessage(t("success.backupRestored"));
+      setMessage(
+        outcome.safetyBackup
+          ? t("success.backupRestoredNamed", {
+              vault: targetVaultName,
+              backup: outcome.safetyBackup,
+            })
+          : t("success.backupRestored"),
+      );
     } catch {
       setMessage(t("errors.restoreBackup"));
     }
@@ -4857,17 +4910,7 @@ export default function App() {
       </div>
 
       <div className="authVaultActions" aria-label={t("auth.quickVault")}>
-        <button
-          type="button"
-          className="authToolButton"
-          onClick={() => {
-            const typedName = window.prompt(t("vault.newNamePlaceholder"), newVaultName);
-
-            if (typedName === null) return;
-
-            void handleCreateNewVault(typedName);
-          }}
-        >
+        <button type="button" className="authToolButton" onClick={openNewVaultDialog}>
           {t("vault.create")}
         </button>
 
@@ -5210,6 +5253,70 @@ export default function App() {
     </div>
   ) : null;
 
+  const newVaultDialog = newVaultDialogOpen ? (
+    <div className="popupOverlay" onMouseDown={closeNewVaultDialog}>
+      <form
+        className="restoreDialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="newVaultDialogTitle"
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            closeNewVaultDialog();
+          }
+        }}
+        onSubmit={(event) => void handleNewVaultDialogSubmit(event)}
+      >
+        <div className="detailHeader">
+          <div>
+            <span>{t("vault.title")}</span>
+            <h2 id="newVaultDialogTitle">{t("vault.createTitle")}</h2>
+          </div>
+          <button
+            type="button"
+            className="iconButton"
+            aria-label={t("dialog.cancel")}
+            onClick={closeNewVaultDialog}
+          >
+            ×
+          </button>
+        </div>
+
+        <label>
+          {t("vault.newNamePlaceholder")}
+          <input
+            value={newVaultDialogName}
+            onChange={(event) => {
+              setNewVaultDialogName(event.target.value);
+              setNewVaultDialogError("");
+            }}
+            placeholder={t("vault.newNamePlaceholder")}
+            aria-invalid={newVaultDialogError ? true : undefined}
+            aria-describedby={newVaultDialogError ? "newVaultDialogError" : undefined}
+            autoFocus
+          />
+        </label>
+
+        {newVaultDialogError && (
+          <div id="newVaultDialogError" className="message error" role="alert">
+            {newVaultDialogError}
+          </div>
+        )}
+
+        <div className="confirmActions">
+          <button type="button" className="ghostButton" onClick={closeNewVaultDialog}>
+            {t("dialog.cancel")}
+          </button>
+          <button type="submit" className="primaryButton">
+            {t("vault.createConfirm")}
+          </button>
+        </div>
+      </form>
+    </div>
+  ) : null;
+
   const csvImportDialog = csvImportPreview ? (
     <div className="modalOverlay csvImportOverlay" onMouseDown={cancelCsvImportPreview}>
       <section className="csvImportModal" role="dialog" aria-modal="true" aria-labelledby="csvImportTitle" onMouseDown={(event) => event.stopPropagation()}>
@@ -5464,6 +5571,7 @@ export default function App() {
         </main>
         {confirmDialogElement}
         {restoreBackupDialog}
+        {newVaultDialog}
       </>
     );
   }
@@ -5489,13 +5597,13 @@ export default function App() {
               <p className="eyebrow">{t("auth.firstAccess")}</p>
               <h1>{t("auth.createMasterTitle")}</h1>
               <p>{t("auth.createMasterDescription")}</p>
+            </div>
 
-              <div className="firstUseGuide refinedFirstUseGuide">
-                <strong>{t("onboarding.title")}</strong>
-                <span>{t("onboarding.step1")}</span>
-                <span>{t("onboarding.step2")}</span>
-                <span>{t("onboarding.step3")}</span>
-              </div>
+            <div className="firstUseGuide refinedFirstUseGuide">
+              <strong>{t("onboarding.title")}</strong>
+              <span>{t("onboarding.step1")}</span>
+              <span>{t("onboarding.step2")}</span>
+              <span>{t("onboarding.step3")}</span>
             </div>
 
             <section className="authPanel">
@@ -5547,6 +5655,7 @@ export default function App() {
         </main>
         {confirmDialogElement}
         {restoreBackupDialog}
+        {newVaultDialog}
       </>
     );
   }
@@ -5614,6 +5723,7 @@ export default function App() {
         </main>
         {confirmDialogElement}
         {restoreBackupDialog}
+        {newVaultDialog}
       </>
     );
   }
