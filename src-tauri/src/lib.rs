@@ -12,6 +12,11 @@ use tauri_plugin_notification::NotificationExt;
 use zeroize::Zeroize;
 
 mod crypto_vault;
+#[cfg(test)]
+mod vault_compatibility_tests;
+mod secrets_bridge;
+#[cfg(target_os = "linux")]
+pub fn secrets_bridge_child() -> Result<(), String> { secrets_bridge::child() }
 #[cfg(target_os = "linux")]
 mod linux_platform;
 
@@ -568,6 +573,7 @@ fn save_vault_file(
     vault_name: Option<String>,
     force_backup: Option<bool>,
 ) -> Result<StorageInfo, String> {
+    secrets_bridge::close(&app);
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
     let temp_path = vault_path.with_extension("kpvault.tmp");
 
@@ -607,6 +613,7 @@ fn restore_vault_file(
     vault_name: Option<String>,
     expected_vault_name: Option<String>,
 ) -> Result<RestoreOutcome, String> {
+    secrets_bridge::close(&app);
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
 
     // Identidade estavel: o alvo resolvido tem de ser o que o usuario confirmou.
@@ -2472,6 +2479,7 @@ mod qr_safety_tests {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(secrets_bridge::BridgeState::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -2537,6 +2545,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            secrets_bridge::bridge_open,
+            secrets_bridge::bridge_close,
+            secrets_bridge::bridge_prepare,
+            secrets_bridge::bridge_launch,
+            secrets_bridge::bridge_history,
             platform_name,
             linux_clipboard,
             linux_capture_qr,

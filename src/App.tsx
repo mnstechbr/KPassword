@@ -11,6 +11,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { linuxTranslation, readClipboard, writeClipboard } from "./platform";
+import { validateApiKey } from "./api-key";
 import {
   createEmptyVault,
   decryptVault,
@@ -56,6 +57,7 @@ import type {
   ActionHistoryEntry,
   ActionHistoryType,
   BackupFile,
+  BridgeIntegration,
   BackupVerificationReport,
   CredentialCategory,
   CredentialRecord,
@@ -158,7 +160,7 @@ const DEFAULT_STARTUP_STATUS: StartupStatus = {
 
 type Screen = "credentials" | "dashboard" | "trash" | "settings" | "preferences";
 
-const ITEM_TYPES: VaultItemType[] = ["credential", "secure_note", "card", "identity", "license"];
+const ITEM_TYPES: VaultItemType[] = ["credential", "secure_note", "card", "identity", "license", "api_key"];
 
 type AppTheme = "dark" | "light" | "mixed";
 type FontScale = "normal" | "large";
@@ -973,6 +975,7 @@ function getItemTypeIcon(itemType: VaultItemType) {
     card: "💳",
     identity: "🪪",
     license: "📜",
+    api_key: "🗝️",
   };
 
   return icons[itemType];
@@ -988,6 +991,8 @@ function getItemSubtitle(item: CredentialRecord, language: AppLanguage) {
   if (itemType === "credential") {
     return item.username || translate(language, "credential.noUser");
   }
+
+  if (itemType === "api_key") return item.apiProvider || item.apiIdentifier || "API Key";
 
   if (itemType === "secure_note") {
     return item.notes ? translate(language, "item.secureNoteWithContent") : translate(language, "item.secureNoteEmpty");
@@ -1008,7 +1013,7 @@ function getItemSubtitle(item: CredentialRecord, language: AppLanguage) {
 function getItemPrimarySecret(item: CredentialRecord) {
   const itemType = getItemType(item);
 
-  if (itemType === "credential") return item.password;
+  if (itemType === "credential" || itemType === "api_key") return item.password;
   if (itemType === "card") return item.cardNumber ?? "";
   if (itemType === "license") return item.licenseKey ?? "";
 
@@ -1144,6 +1149,8 @@ function buildCsv(items: CredentialRecord[]) {
     "licenseKey",
     "licenseOwner",
     "licenseExpiresAt",
+    "apiProvider",
+    "apiIdentifier",
     "passwordChangedAt",
     "passwordExpiresInDays",
     "passwordExpiryNoticeDays",
@@ -1152,7 +1159,7 @@ function buildCsv(items: CredentialRecord[]) {
   ];
 
   const rows = items.map((item) =>
-    headers.map((header) => escapeCsvValue(header === "tags" ? getCredentialTags(item).join("; ") : (item as unknown as Record<string, unknown>)[header])).join(","),
+    headers.map((header) => escapeCsvValue(header === "type" ? getItemType(item) : header === "tags" ? getCredentialTags(item).join("; ") : (item as unknown as Record<string, unknown>)[header])).join(","),
   );
 
   return [headers.join(","), ...rows].join("\r\n");
@@ -1400,6 +1407,7 @@ function normalizeImportedItemType(value: string): VaultItemType {
   if (["card", "cartao", "cartão", "tarjeta"].includes(normalized)) return "card";
   if (["identity", "identidade", "identidad", "kimlik"].includes(normalized)) return "identity";
   if (["license", "licenca", "licença", "licencia", "lisans"].includes(normalized)) return "license";
+  if (["api_key", "api key"].includes(normalized)) return "api_key";
 
   return "credential";
 }
@@ -1473,7 +1481,10 @@ function rowToImportedCredential(row: Record<string, string>, now: string, mappi
     tags: normalizeCredentialTags(getMappedCsvValue(row, "tags", mapping)),
     favorite: ["true", "1", "sim", "yes"].includes(getMappedCsvValue(row, "favorite", mapping).toLowerCase()),
     username: itemType === "credential" ? getMappedCsvValue(row, "username", mapping) : "",
-    password: itemType === "credential" ? getMappedCsvValue(row, "password", mapping) : "",
+    password: itemType === "credential" || itemType === "api_key" ? getMappedCsvValue(row, "password", mapping) : "",
+    apiProvider: itemType === "api_key" ? getCsvValue(row, ["apiprovider", "provider"]) : "",
+    apiIdentifier: itemType === "api_key" ? getCsvValue(row, ["apiidentifier", "identifier"]) : "",
+    apiApplications: [],
     url: itemType === "credential" ? normalizeUrl(getMappedCsvValue(row, "url", mapping)) : "",
     notes: getMappedCsvValue(row, "notes", mapping),
     passwordChangedAt: getCsvValue(row, ["passwordchangedat", "password_changed_at", "alterada_em"]) || now,
@@ -1803,6 +1814,7 @@ function normalizeVault(vault: PlainVault): PlainVault {
       lockOnInactive: vault.settings?.lockOnInactive ?? true,
       notifyOnTray: vault.settings?.notifyOnTray ?? true,
       soundOnTray: vault.settings?.soundOnTray ?? true,
+      secretsBridgeEnabled: vault.settings?.secretsBridgeEnabled ?? false,
     },
   };
 }
@@ -1810,6 +1822,12 @@ function normalizeVault(vault: PlainVault): PlainVault {
 export default function App() {
   const [platform, setPlatform] = useState("unknown");
   const isLinux = platform === "linux";
+  const [bridgeGeneration, setBridgeGeneration] = useState<number | null>(null);
+  const [bridgeBusy, setBridgeBusy] = useState(false);
+  const [bridgeExecutable, setBridgeExecutable] = useState("");
+  const [bridgeName, setBridgeName] = useState("");
+  const [bridgeKind, setBridgeKind] = useState("custom");
+  const [bridgeAudit, setBridgeAudit] = useState<Array<{ at: number; outcome: string; integration_id: string }>>([]);
   useEffect(() => {
     void invoke<string>("platform_name").then(setPlatform).catch(() => {});
   }, []);
@@ -2239,6 +2257,11 @@ export default function App() {
   }, [activeVaultName, refreshStorageInfo, refreshVaultFiles, refreshWindowsHelloStatus]);
 
   const lockVault = useCallback(() => {
+    void invoke("bridge_close").catch(() => {});
+    setBridgeGeneration(null);
+    setBridgeExecutable("");
+    setBridgeName("");
+    setBridgeAudit([]);
     teardownStrengthEngine();
     setVault(null);
     setMasterPassword("");
@@ -2266,6 +2289,13 @@ export default function App() {
     setMessage("");
     setMode((current) => (current === "setup" ? "setup" : "locked"));
   }, [teardownStrengthEngine]);
+
+  useEffect(() => {
+    setBridgeGeneration(null);
+    void invoke("bridge_close").catch(() => {});
+  }, [mode, activeVaultName, encryptedVault]);
+
+  useEffect(() => { setBridgeAudit([]); }, [detailCredentialId]);
 
   useEffect(() => {
     const handler = () => lockVault();
@@ -3745,6 +3775,48 @@ export default function App() {
     await applyAssistantTagSuggestions([suggestion]);
   }
 
+  async function changeBridgeGrant(credential: CredentialRecord, removeId?: string) {
+    if (!vault || !isLinux || bridgeBusy) return;
+    setBridgeBusy(true);
+    try {
+      let applications = credential.apiApplications ?? [];
+      if (removeId) {
+        applications = applications.filter((a) => a.id !== removeId);
+      } else {
+        const integration = await invoke<BridgeIntegration>("bridge_prepare", { executable: bridgeExecutable, name: bridgeName, kind: bridgeKind });
+        const ok = await askConfirmation({ title: t("bridge.authorize"), message: `${t("bridge.consumerWarning")}\n${integration.name}\n${integration.executable}\nSHA-256: ${integration.sha256}`, confirmText: t("bridge.authorize"), cancelText: t("dialog.cancel") });
+        if (!ok) return;
+        applications = [...applications, integration];
+      }
+      await persistVaultWithHistory({ ...vault, credentials: vault.credentials.map((c) => c.id === credential.id ? { ...c, apiApplications: applications, updatedAt: new Date().toISOString() } : c) }, createActionHistoryEntry(removeId ? "bridge_revoked" : "bridge_authorized", credential.id));
+      setBridgeGeneration(null);
+      setBridgeExecutable(""); setBridgeName("");
+    } catch { setMessage(t("bridge.denied")); }
+    finally { setBridgeBusy(false); }
+  }
+
+  async function activateBridgeSession() {
+    if (!isLinux || !vault?.settings.secretsBridgeEnabled || mode !== "unlocked" || bridgeBusy) return;
+    setBridgeBusy(true);
+    try { setBridgeGeneration(await invoke<number>("bridge_open", { vaultName: activeVaultName, masterPassword })); }
+    catch { setMessage(t("bridge.denied")); }
+    finally { setBridgeBusy(false); }
+  }
+
+  async function launchBridge(credential: CredentialRecord, integration: BridgeIntegration) {
+    if (bridgeGeneration === null || bridgeBusy || mode !== "unlocked") return;
+    const generation = bridgeGeneration;
+    setBridgeBusy(true);
+    try {
+      const ok = await askConfirmation({ title: t("bridge.launch"), message: `${t("bridge.consumerWarning")}\n${credential.title} → ${integration.name}\n${credential.apiIdentifier}\n${integration.executable}\nSHA-256: ${integration.sha256}`, confirmText: t("bridge.launch"), cancelText: t("dialog.cancel") });
+      if (!ok) return;
+      await invoke("bridge_launch", { keyId: credential.id, integrationId: integration.id, generation });
+      setBridgeAudit(await invoke("bridge_history", { keyId: credential.id }));
+      setMessage(t("bridge.sent"));
+    } catch { setMessage(t("bridge.denied")); }
+    finally { setBridgeBusy(false); }
+  }
+
   async function handleSaveCredential(event: FormEvent) {
     event.preventDefault();
 
@@ -3756,6 +3828,11 @@ export default function App() {
     }
 
     const itemType = credentialForm.itemType ?? "credential";
+
+    if (itemType === "api_key") {
+      const error = validateApiKey(credentialForm.password, credentialForm.apiIdentifier ?? "");
+      if (error) { setMessage(t(error)); return; }
+    }
 
     if (itemType === "credential" && !credentialForm.password.trim()) {
       setMessage(t("errors.credentialPasswordRequired"));
@@ -3806,7 +3883,10 @@ export default function App() {
       itemType,
       title: credentialForm.title.trim(),
       username: itemType === "credential" ? credentialForm.username.trim() : "",
-      password: itemType === "credential" ? credentialForm.password : "",
+      password: itemType === "credential" || itemType === "api_key" ? credentialForm.password : "",
+      apiProvider: itemType === "api_key" ? (credentialForm.apiProvider ?? "").trim() : "",
+      apiIdentifier: itemType === "api_key" ? (credentialForm.apiIdentifier ?? "").trim() : "",
+      apiApplications: itemType === "api_key" ? credentialForm.apiApplications ?? [] : [],
       url: itemType === "credential" ? normalizeUrl(credentialForm.url) : "",
       tags: normalizeCredentialTags(credentialTagsInput),
       notes: credentialForm.notes.trim(),
@@ -4597,6 +4677,8 @@ export default function App() {
         getCredentialTags(credential).join(" "),
         credential.password,
         credential.totpIssuer,
+        credential.apiProvider,
+        credential.apiIdentifier,
         getItemTypeLabel(getItemType(credential), appLanguage),
         credential.cardholderName,
         credential.cardNumber,
@@ -6676,6 +6758,17 @@ export default function App() {
               <div className="settingsAccordionBody">
                 <p>{t("security.localThreatModel")}</p>
 
+              {isLinux && (
+                <div className="windowsHelloPanel">
+                  <div className="windowsHelloPanelText">
+                    <strong>Secrets Bridge</strong><span>{t("bridge.description")}</span>
+                    <label className="toggleRow"><span>{t("bridge.enable")}</span><input type="checkbox" checked={vault?.settings.secretsBridgeEnabled ?? false} disabled={busy || bridgeBusy} onChange={(e) => void updateVaultSettings({ secretsBridgeEnabled: e.target.checked })} /></label>
+                    <small>{bridgeGeneration === null ? t("bridge.inactive") : t("bridge.active")}</small>
+                  </div>
+                  <button type="button" className="secondaryButton" disabled={!vault?.settings.secretsBridgeEnabled || bridgeBusy} onClick={() => { if (bridgeGeneration !== null) { void invoke("bridge_close");setBridgeGeneration(null); } else void activateBridgeSession(); }}>{bridgeGeneration === null ? t("bridge.activate") : t("bridge.stop")}</button>
+                </div>
+              )}
+
               <div className={windowsHelloStatus.enabled ? "windowsHelloPanel enabled" : "windowsHelloPanel"}>
                 <div className="windowsHelloPanelText">
                   <strong>{t("windowsHello.title")}</strong>
@@ -7103,6 +7196,26 @@ export default function App() {
                 </div>
               )}
 
+              {itemType === "api_key" && (
+                <>
+                <div className="detailGrid">
+                  <div><span>{t("api.provider")}</span><strong>{detailCredential.apiProvider || "—"}</strong></div>
+                  <div><span>{t("api.identifier")}</span><strong>{detailCredential.apiIdentifier || "—"}</strong></div>
+                  <div><span>{t("api.secret")}</span><strong>{visiblePasswords[detailCredential.id] ? detailCredential.password : "••••••••"}</strong></div>
+                </div>
+                {isLinux && <div className="historyBox">
+                  <h3>Secrets Bridge</h3><p>{t("bridge.consumerWarning")}</p>
+                  <label>{t("bridge.name")}<input value={bridgeName} onChange={(e) => setBridgeName(e.target.value)} /></label>
+                  <label>{t("bridge.consumer")}<select value={bridgeKind} onChange={(e) => setBridgeKind(e.target.value)}><option value="claude">Claude Code CLI</option><option value="codex">Codex CLI</option><option value="custom">{t("bridge.custom")}</option></select></label>
+                  <label>{t("bridge.executable")}<input value={bridgeExecutable} onChange={(e) => setBridgeExecutable(e.target.value)} placeholder="/home/usuario/.local/bin/claude" /></label>
+                  <button type="button" disabled={bridgeBusy || !bridgeExecutable || !bridgeName} onClick={() => void changeBridgeGrant(detailCredential)}>{t("bridge.authorize")}</button>
+                  {(detailCredential.apiApplications ?? []).map((a) => <article key={a.id} className="historyItem"><div><strong>{a.name}</strong><span>{a.executable}</span></div><div className="historyActions"><button type="button" disabled={bridgeBusy || bridgeGeneration === null} onClick={() => void launchBridge(detailCredential, a)}>{t("bridge.launch")}</button><button type="button" disabled={bridgeBusy} onClick={() => void changeBridgeGrant(detailCredential, a.id)}>{t("bridge.revoke")}</button></div></article>)}
+                  <button type="button" onClick={() => { void invoke<typeof bridgeAudit>("bridge_history", { keyId: detailCredential.id }).then(setBridgeAudit).catch(() => setMessage(t("bridge.denied"))); }}>{t("bridge.history")}</button>
+                  {bridgeAudit.map((event, i) => <p key={`${event.at}-${i}`}>{formatDate(new Date(event.at).toISOString(), appLanguage)} · {t(`bridge.outcome.${event.outcome}`)} · {event.integration_id}</p>)}
+                </div>}
+                </>
+              )}
+
               {itemType === "credential" && (
                 <div className="detailGrid">
                   <div>
@@ -7445,7 +7558,7 @@ export default function App() {
                   </button>
                 )}
 
-                {(itemType === "credential" || itemType === "card" || itemType === "license") && (
+                {(itemType === "credential" || itemType === "api_key" || itemType === "card" || itemType === "license") && (
                   <button
                     onClick={() =>
                       setVisiblePasswords((current) => ({
@@ -7568,6 +7681,14 @@ export default function App() {
                 <small className="tagInputHint">{t("tags.hint")}</small>
               </label>
 
+              {credentialForm.itemType === "api_key" && (
+                <>
+                  <label>{t("api.provider")}<input value={credentialForm.apiProvider ?? ""} onChange={(e) => setCredentialForm((c) => ({ ...c, apiProvider: e.target.value }))} placeholder="Anthropic / OpenAI" /></label>
+                  <label>{t("api.identifier")}<input value={credentialForm.apiIdentifier ?? ""} onChange={(e) => setCredentialForm((c) => ({ ...c, apiIdentifier: e.target.value }))} placeholder="ANTHROPIC_API_KEY" /></label>
+                  <label className="full">{t("api.secret")}<input type="password" autoComplete="off" value={credentialForm.password} onChange={(e) => setCredentialForm((c) => ({ ...c, password: e.target.value }))} /></label>
+                  <p className="full">{t("api.scope")}</p>
+                </>
+              )}
               {(credentialForm.itemType ?? "credential") === "credential" && (
                 <>
                   <label>
