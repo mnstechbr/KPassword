@@ -7,6 +7,8 @@ use tauri::{AppHandle, Manager, State};
 use zeroize::Zeroizing;
 
 const DENIED: &str = "Secrets Bridge: acesso negado ou sessão expirada.";
+#[cfg(target_os = "linux")]
+const MAX_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Integration { pub id: String, pub name: String, pub executable: String, pub sha256: String, #[serde(default="custom_kind")] pub kind: String }
@@ -114,10 +116,11 @@ fn fingerprint(path: &str) -> Result<(String, String), String> {
     let canonical = fs::canonicalize(path).map_err(|_| DENIED)?;
     let mut file = fs::File::open(&canonical).map_err(|_| DENIED)?;
     let meta = file.metadata().map_err(|_| DENIED)?;
-    if !meta.is_file() || meta.len() > 128 * 1024 * 1024 || meta.mode() & 0o111 == 0 || meta.mode() & 0o022 != 0 { return Err(DENIED.into()); }
+    if !meta.is_file() || meta.len() > MAX_EXECUTABLE_BYTES || meta.mode() & 0o111 == 0 || meta.mode() & 0o022 != 0 { return Err(DENIED.into()); }
     let mut hash = Sha256::new();
     let mut buf = [0; 16_384];
-    loop { let n = file.read(&mut buf).map_err(|_| DENIED)?; if n == 0 { break; } hash.update(&buf[..n]); }
+    let mut total = 0u64;
+    loop { let n = file.read(&mut buf).map_err(|_| DENIED)?; if n == 0 { break; } total += n as u64; if total > MAX_EXECUTABLE_BYTES { return Err(DENIED.into()); } hash.update(&buf[..n]); }
     Ok((canonical.to_str().ok_or(DENIED)?.into(), format!("{:x}", hash.finalize())))
 }
 
@@ -326,6 +329,21 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let p=std::env::temp_dir().join(format!("kpassword-bridge-executable-{}-{}",std::process::id(),super::super::now_epoch_millis()));
         fs::write(&p,b"#!/bin/sh\nexit 0\n").unwrap();fs::set_permissions(&p,fs::Permissions::from_mode(0o700)).unwrap();let first=fingerprint(p.to_str().unwrap()).unwrap();fs::write(&p,b"#!/bin/sh\nexit 1\n").unwrap();let second=fingerprint(p.to_str().unwrap()).unwrap();assert_ne!(first.1,second.1);fs::remove_file(p).unwrap();
+    }
+    #[cfg(target_os="linux")]
+    #[test] fn large_native_executables_are_supported_with_a_bounded_limit() {
+        use std::os::unix::fs::PermissionsExt;
+        let p=std::env::temp_dir().join(format!("kpassword-bridge-large-{}-{}",std::process::id(),super::super::now_epoch_millis()));
+        let file=fs::File::create(&p).unwrap();
+        fs::set_permissions(&p,fs::Permissions::from_mode(0o700)).unwrap();
+        // Sparse synthetic executable: exercise the actual streaming hash above the old limit.
+        file.set_len(140 * 1024 * 1024).unwrap();
+        assert!(fingerprint(p.to_str().unwrap()).is_ok());
+        assert!(246_107_320 <= MAX_EXECUTABLE_BYTES); // Current native Claude binary size.
+        assert!(294_451_848 <= MAX_EXECUTABLE_BYTES); // Current native Codex binary size.
+        file.set_len(MAX_EXECUTABLE_BYTES + 1).unwrap();
+        assert!(fingerprint(p.to_str().unwrap()).is_err());
+        drop(file);fs::remove_file(p).unwrap();
     }
     #[cfg(target_os="linux")]
     #[test] fn child_environment_does_not_inherit_unrelated_keys_or_loader_options() {
