@@ -2109,6 +2109,7 @@ dependencies = [
  "gtk",
  "image",
  "libc",
+ "notify-rust",
  "pbkdf2",
  "quircs",
  "rqrr",

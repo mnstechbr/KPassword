@@ -14806,3 +14806,14 @@ textarea {
 }
 /* === KPassword v1.3.5 unified loading/login layout END === */
 
+/* WebKitGTK: keep dialogs above the language/menu controls (z-index 80/500).
+   QR capture overlays retain their existing higher layer. Windows is unchanged. */
+:root[data-platform="linux"] .popupOverlay,
+:root[data-platform="linux"] .modalOverlay {
+  z-index: 1000;
+}
+
+:root[data-platform="linux"] .confirmOverlay {
+  z-index: 1100;
+}
+

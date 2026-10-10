@@ -1829,7 +1829,10 @@ export default function App() {
   const [bridgeKind, setBridgeKind] = useState("custom");
   const [bridgeAudit, setBridgeAudit] = useState<Array<{ at: number; outcome: string; integration_id: string }>>([]);
   useEffect(() => {
-    void invoke<string>("platform_name").then(setPlatform).catch(() => {});
+    void invoke<string>("platform_name").then((name) => {
+      document.documentElement.dataset.platform = name;
+      setPlatform(name);
+    }).catch(() => {});
   }, []);
   const [screen, setScreen] = useState<Screen>("credentials");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);

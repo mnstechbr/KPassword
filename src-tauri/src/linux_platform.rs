@@ -2,6 +2,22 @@
 use std::{fs, path::{Path, PathBuf}, io::{Read, Write}, os::unix::fs::OpenOptionsExt};
 use tauri::AppHandle;
 
+/// Called from main before GTK/WebKit or any worker starts. Keep this profile
+/// local to KPassword; never change the desktop or the user's environment files.
+pub fn configure_graphics() {
+    if !Path::new("/sys/module/nvidia").exists()
+        || std::env::var_os("KPASSWORD_GRAPHICS_PROFILE").as_deref() == Some(std::ffi::OsStr::new("native"))
+    { return; }
+    // WebKitGTK 2.54 + NVIDIA/KWin fails explicit sync on native Wayland.
+    // Disabling DMA-BUF alone opens a slow/broken window. XWayland + the
+    // DMA-BUF SHM transport + CPU Skia painting was exercised on the visible
+    // form, including native frame capture during scrolling.
+    std::env::set_var("GDK_BACKEND", "x11");
+    for name in ["WEBKIT_DMABUF_RENDERER_FORCE_SHM", "WEBKIT_SKIA_ENABLE_CPU_RENDERING"] {
+        if std::env::var_os(name).is_none() { std::env::set_var(name, "1"); }
+    }
+}
+
 pub fn autostart_path() -> Result<PathBuf, String> {
     let root = std::env::var_os("XDG_CONFIG_HOME")
         .filter(|p| Path::new(p).is_absolute())
