@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["rpm"],
+    "createUpdaterArtifacts": false,
+    "linux": {
+      "rpm": {
+        "release": "1",
+        "depends": ["gtk3", "webkit2gtk4.1", "libappindicator-gtk3", "xdg-utils"]
+      }
+    }
+  }
+}
