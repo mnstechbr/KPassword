@@ -12,6 +12,27 @@ use tauri_plugin_notification::NotificationExt;
 use zeroize::Zeroize;
 
 mod crypto_vault;
+#[cfg(target_os = "linux")]
+mod linux_platform;
+
+#[tauri::command]
+fn platform_name() -> &'static str { std::env::consts::OS }
+
+#[tauri::command]
+async fn linux_clipboard(app: AppHandle, value: Option<String>) -> Result<String, String> {
+    #[cfg(target_os = "linux")]
+    { return linux_platform::clipboard(app, value).await; }
+    #[cfg(not(target_os = "linux"))]
+    { let _ = (app, value); Err("Clipboard Linux indisponível.".into()) }
+}
+
+#[tauri::command]
+async fn linux_capture_qr() -> Result<String, String> {
+    #[cfg(target_os = "linux")]
+    { return linux_platform::capture_qr().await; }
+    #[cfg(not(target_os = "linux"))]
+    { Err("Portal Linux indisponível.".into()) }
+}
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
@@ -1330,6 +1351,7 @@ async fn enable_windows_hello(
         Ok(WindowsHelloStatus {
             available: false,
             enabled: false,
+            state: HELLO_STATE_DISABLED.to_string(),
             reason: "not_windows".to_string(),
             vault_name: safe_vault_name,
         })
@@ -1355,6 +1377,7 @@ async fn disable_windows_hello(
         Ok(WindowsHelloStatus {
             available: false,
             enabled: false,
+            state: HELLO_STATE_DISABLED.to_string(),
             reason: "not_windows".to_string(),
             vault_name: safe_vault_name,
         })
@@ -1673,7 +1696,7 @@ fn is_startup_enabled_impl() -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "linux")))]
 fn is_startup_enabled_impl() -> bool {
     false
 }
@@ -1700,7 +1723,7 @@ fn set_startup_enabled_impl(enabled: bool) -> Result<(), String> {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "linux")))]
 fn set_startup_enabled_impl(_enabled: bool) -> Result<(), String> {
     Err("Inicialização com Windows disponível apenas no Windows.".to_string())
 }
@@ -1708,6 +1731,23 @@ fn set_startup_enabled_impl(_enabled: bool) -> Result<(), String> {
 #[tauri::command]
 fn is_startup_enabled() -> bool {
     is_startup_enabled_impl()
+}
+
+#[cfg(target_os = "linux")]
+fn is_startup_enabled_impl() -> bool { linux_platform::startup_enabled() }
+
+#[cfg(target_os = "linux")]
+fn set_startup_enabled_impl(enabled: bool) -> Result<(), String> { linux_platform::set_startup(enabled) }
+
+#[cfg(target_os = "linux")]
+fn get_startup_status_impl() -> StartupStatus {
+    StartupStatus {
+        enabled: is_startup_enabled_impl(),
+        registry_key: linux_platform::autostart_path().map(|p| p.display().to_string()).unwrap_or_default(),
+        value_name: "KPassword".into(),
+        command_line: std::env::current_exe().map(|p| format!("{} --startup", p.display())).unwrap_or_default(),
+        startup_argument: "--startup".into(),
+    }
 }
 
 #[cfg(windows)]
@@ -1721,7 +1761,7 @@ fn get_startup_status_impl() -> StartupStatus {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "linux")))]
 fn get_startup_status_impl() -> StartupStatus {
     StartupStatus {
         enabled: false,
@@ -2497,6 +2537,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            platform_name,
+            linux_clipboard,
+            linux_capture_qr,
             hide_to_tray,
             is_startup_enabled,
             get_startup_status,

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { linuxTranslation, readClipboard, writeClipboard } from "./platform";
 import {
   createEmptyVault,
   decryptVault,
@@ -1807,6 +1808,11 @@ function normalizeVault(vault: PlainVault): PlainVault {
 }
 
 export default function App() {
+  const [platform, setPlatform] = useState("unknown");
+  const isLinux = platform === "linux";
+  useEffect(() => {
+    void invoke<string>("platform_name").then(setPlatform).catch(() => {});
+  }, []);
   const [screen, setScreen] = useState<Screen>("credentials");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [sidebarHorizontal, setSidebarHorizontal] = useState(false);
@@ -1932,8 +1938,8 @@ export default function App() {
 
   const t = useCallback(
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
-      translate(appLanguage, key, values),
-    [appLanguage],
+      (isLinux ? linuxTranslation(key, appLanguage) : undefined) ?? translate(appLanguage, key, values),
+    [appLanguage, isLinux],
   );
 
   const csvImportAnalysis = useMemo(
@@ -3099,6 +3105,7 @@ export default function App() {
 
   async function handleCheckUpdates() {
     setUpdateStatus(t("updates.checking"));
+    if (isLinux) return;
 
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
@@ -3472,6 +3479,12 @@ export default function App() {
     const appWindow = getCurrentWindow();
 
     try {
+      if (isLinux) {
+        const dataUrl = await invoke<string>("linux_capture_qr");
+        const content = await decodeQrFromDataUrlBestEffort(dataUrl);
+        await applyTotpFromRawValue(content, "screen", credentialForm.totpIssuer || credentialForm.title);
+        return;
+      }
       // Fluxo novo e mais previsível:
       // 1. Esconde/minimiza o KPassword.
       // 2. Aciona Win + Shift + S via comando nativo.
@@ -4182,7 +4195,7 @@ export default function App() {
       clipboardCleanupRef.current = null;
     }
 
-    await navigator.clipboard.writeText(value);
+    await writeClipboard(value, isLinux);
     setCopiedField(label);
 
     if (historyEntry && vault) {
@@ -4193,10 +4206,10 @@ export default function App() {
 
     clipboardCleanupRef.current = window.setTimeout(async () => {
       try {
-        const current = await navigator.clipboard.readText();
+        const current = await readClipboard(isLinux);
 
         if (current === copiedValue) {
-          await navigator.clipboard.writeText("");
+          await writeClipboard("", isLinux);
         }
       } catch {
         // Sem permissão de leitura: não limpa para evitar apagar conteúdo novo do usuário.
