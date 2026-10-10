@@ -8,10 +8,12 @@ use std::{
 
 use base64::{engine::general_purpose, Engine as _};
 use serde::Serialize;
+#[cfg(not(target_os = "linux"))]
 use tauri_plugin_notification::NotificationExt;
 use zeroize::Zeroize;
 
 mod crypto_vault;
+mod vault_removal;
 #[cfg(test)]
 mod vault_compatibility_tests;
 mod secrets_bridge;
@@ -636,6 +638,18 @@ fn restore_vault_file(
 #[tauri::command]
 fn get_storage_info(app: AppHandle, vault_name: Option<String>) -> Result<StorageInfo, String> {
     build_storage_info(&app, vault_name)
+}
+
+#[tauri::command]
+fn delete_vault_file(app: AppHandle, vault_name: String, expected_vault_name: String, master_password: String) -> Result<String, String> {
+    let password = zeroize::Zeroizing::new(master_password);
+    let (path, backups, safe_name) = storage_paths(&app, Some(vault_name))?;
+    if safe_name != sanitize_vault_name(Some(expected_vault_name))? {
+        return Err("Cofre selecionado mudou; exclusão cancelada.".into());
+    }
+    let (_, hello, _) = vault_and_hello_paths(&app, Some(safe_name))?;
+    secrets_bridge::close(&app);
+    vault_removal::remove(&path, &hello, &backups, &password)
 }
 
 #[tauri::command]
@@ -2573,6 +2587,7 @@ pub fn run() {
             restore_vault_file,
             get_storage_info,
             list_vault_files,
+            delete_vault_file,
             list_backup_files,
             read_backup_file,
             create_pre_argon2_backup,

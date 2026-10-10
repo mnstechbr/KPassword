@@ -21,13 +21,13 @@ cargo test --locked --lib --manifest-path src-tauri/Cargo.toml
 npm run tauri -- build --ci --bundles rpm -- --locked
 ```
 
-RPM: `src-tauri/target/release/bundle/rpm/KPassword-1.4.1-2.x86_64.rpm`.
+RPM: `src-tauri/target/release/bundle/rpm/KPassword-1.4.1-3.x86_64.rpm`.
 O nome do pacote RPM é **k-password**, e o executável é `/usr/bin/kpassword`.
 No ambiente desta implementação o cache Cargo temporário foi selecionado por
 `CARGO_HOME=/tmp/kpassword-cargo-home`; o usuário pode usar seu cache normal.
 
 ```bash
-sudo dnf install ./src-tauri/target/release/bundle/rpm/KPassword-1.4.1-2.x86_64.rpm
+sudo dnf install ./src-tauri/target/release/bundle/rpm/KPassword-1.4.1-3.x86_64.rpm
 ```
 
 Para atualizar a partir de um RPM futuro validado, instalar o novo arquivo com
@@ -65,6 +65,31 @@ essa revisão com as tentativas anteriores de desativar DMA-BUF/composição.
 
 Formulários e confirmações Linux também recebem camadas acima dos controles de
 idioma/menu, preservando o visual e as camadas originais do Windows.
+Na revisão 3, a criação de cofre usa linhas que crescem conforme o conteúdo e
+no mínimo 24 px entre o formulário e o guia; a margem negativa anterior causava sobreposição
+quando os avisos de senha apareciam. O layout estreito usa linhas separadas.
+O diálogo “Novo cofre” passa a ser renderizado também no aplicativo desbloqueado.
+O header permanece no topo, na mesma posição da tela de desbloqueio. Quando os
+avisos aumentam a altura, a criação permite rolar; o header não é centralizado
+junto com todo o conjunto. O botão das configurações abre o diálogo quando o
+campo do novo nome está vazio e mantém o fluxo anterior quando já está preenchido.
+
+### Exclusão de cofre
+
+Em **Configurações → Cofres → Excluir cofre**, a senha mestra do cofre selecionado
+e uma confirmação são necessárias. O backend verifica a autenticação do arquivo,
+grava uma cópia criptografada com os bytes originais, sincroniza e confere a cópia
+antes de excluir o arquivo ativo. Falhas de autenticação ou backup preservam o
+cofre. O Secrets Bridge é revogado. Um registro Hello existente fica desativado
+junto da cópia, para não desbloquear um cofre futuro com o mesmo nome.
+
+Os backups anteriores são mantidos. A cópia adicional fica em uma subpasta
+`deleted-<data>-<contador>` da pasta de backups desse cofre; seu caminho é devolvido
+após a exclusão. Para recuperar, use **Restaurar backup** e selecione o `.kpvault`
+nessa subpasta, com a senha mestra original. A cópia não aparece na lista plana
+de backups automáticos. Excluir não significa apagar definitivamente todas as
+cópias: esse botão mantém a recuperação criptografada. Testes interativos usam
+exclusivamente cofres fictícios em `/tmp`, nunca cofres pessoais.
 
 ## Cofres e autenticação
 
@@ -158,7 +183,7 @@ integração automaticamente. Backup/exportação criptografada preserva os camp
 ## Validação e pendências
 
 - Frontend: 137 testes aprovados, TypeScript e Vite aprovados.
-- Rust Fedora: 59 testes aprovados (18 específicos do Bridge), incluindo vetores independentes, backups,
+- Rust Fedora: 63 testes aprovados (18 específicos do Bridge e 4 de exclusão segura), incluindo vetores independentes, backups,
   restauração, integridade, permissões, geração/expiração/revogação, IPC truncado/
   excessivo, chave exclusiva, ambiente limpo, substituição/tamanho de executável,
   cancelamento de ativação pendente por bloqueio e auditoria.
@@ -172,6 +197,12 @@ integração automaticamente. Backup/exportação criptografada preserva os camp
   o cofre fictício. A notificação Linux foi chamada diretamente em uma thread
   comum: o plugin iniciava um runtime bloqueante dentro do Tokio e produzia panic.
   Depois da correção esse fluxo não produziu panic no teste nativo.
+- Revisão 3 no binário nativo, sem injeção de CSS: criação com avisos de senha,
+  header da criação/desbloqueio medido na mesma altura, guia separado e rolagem
+  disponível; janela estreita com áreas separadas. “Novo cofre” abriu o diálogo
+  na tela desbloqueada. Exclusão fictícia com senha errada foi recusada; com senha
+  correta, preservou bytes exatos do backup e o outro cofre. Excluir o último
+  cofre fictício retornou à criação.
 - Instalação/upgrade da revisão 1 para revisão 2/remoção em banco RPM e prefixo temporários preservaram
   um arquivo sentinela de dados pessoais sintéticos. Dependências e scripts foram
   desabilitados nesse teste isolado; instalação real por DNF ainda precisa de QA.

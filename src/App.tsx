@@ -1908,6 +1908,14 @@ export default function App() {
   const [newVaultDialogOpen, setNewVaultDialogOpen] = useState(false);
   const [newVaultDialogName, setNewVaultDialogName] = useState("");
   const [newVaultDialogError, setNewVaultDialogError] = useState("");
+  const [deleteVaultTarget, setDeleteVaultTarget] = useState<string | null>(null);
+  const [deleteVaultPassword, setDeleteVaultPassword] = useState("");
+  const [deleteVaultError, setDeleteVaultError] = useState("");
+  useEffect(() => {
+    setDeleteVaultTarget(null);
+    setDeleteVaultPassword("");
+    setDeleteVaultError("");
+  }, [mode, activeVaultName]);
   const [totpTick, setTotpTick] = useState(Date.now());
   const [detailTotpCode, setDetailTotpCode] = useState("");
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
@@ -2774,6 +2782,36 @@ export default function App() {
     setNewVaultDialogName("");
     setNewVaultDialogError("");
     setNewVaultDialogOpen(true);
+  }
+
+  async function handleDeleteVault(event: FormEvent) {
+    event.preventDefault();
+    const target = deleteVaultTarget;
+    if (!target || busy || mode !== "unlocked") return;
+    const confirmed = await askConfirmation({
+      title: t("vault.delete"), message: t("vault.deleteWarning", { name: getVaultDisplayName(target, vaultFiles) }),
+      confirmText: t("vault.delete"), cancelText: t("dialog.cancel"), tone: "danger",
+    });
+    if (!confirmed) return;
+    if (readActiveVaultName() !== target) {
+      setDeleteVaultPassword(""); setDeleteVaultError(t("vault.deleteFailed")); return;
+    }
+    setBusy(true);
+    try {
+      const backup = await invoke<string>("delete_vault_file", {
+        vaultName: target, expectedVaultName: target, masterPassword: deleteVaultPassword,
+      });
+      setDeleteVaultPassword(""); setDeleteVaultTarget(null);
+      lockVault();
+      const files = await listVaultFiles();
+      setVaultFiles(files);
+      const next = files[0]?.name ?? DEFAULT_VAULT_NAME;
+      setActiveVaultName(next);
+      if (next === target) { setEncryptedVault(null); setMode("setup"); await refreshStorageInfo(next); }
+      setMessage(t("vault.deleted", { path: backup }));
+    } catch {
+      setDeleteVaultPassword(""); setDeleteVaultError(t("vault.deleteFailed"));
+    } finally { setBusy(false); }
   }
 
   function closeNewVaultDialog() {
@@ -4961,12 +4999,20 @@ export default function App() {
           onChange={(event) => setNewVaultName(event.target.value)}
           placeholder={t("vault.newNamePlaceholder")}
         />
-        <button type="button" className="secondaryButton" onClick={() => void handleCreateNewVault()}>
+        <button type="button" className="secondaryButton" onClick={() => {
+          if (newVaultName.trim()) void handleCreateNewVault();
+          else openNewVaultDialog();
+        }}>
           {t("vault.create")}
         </button>
       </div>
 
       <small>{t("vault.currentFile", { name: getVaultDisplayName(activeVaultName, vaultFiles) })}</small>
+      {mode === "unlocked" && vaultFiles.some((item) => item.name === activeVaultName) && (
+        <button type="button" className="dangerConfirmButton" disabled={busy} onClick={() => {
+          setDeleteVaultPassword(""); setDeleteVaultError(""); setDeleteVaultTarget(activeVaultName);
+        }}>{t("vault.delete")}</button>
+      )}
     </div>
   );
 
@@ -5415,6 +5461,26 @@ export default function App() {
     </div>
   ) : null;
 
+  const deleteVaultDialog = deleteVaultTarget && mode === "unlocked" ? (
+    <div className="popupOverlay">
+      <form className="restoreDialog" role="dialog" aria-modal="true" aria-labelledby="deleteVaultTitle" onSubmit={(event) => void handleDeleteVault(event)}>
+        <h2 id="deleteVaultTitle">{t("vault.delete")}</h2>
+        <p>{t("vault.deleteWarning", { name: getVaultDisplayName(deleteVaultTarget, vaultFiles) })}</p>
+        <label>{t("auth.masterPassword")}
+          <input type="password" autoComplete="off" autoFocus required value={deleteVaultPassword}
+            onChange={(event) => setDeleteVaultPassword(event.target.value)} disabled={busy} />
+        </label>
+        {deleteVaultError && <div className="message error" role="alert">{deleteVaultError}</div>}
+        <div className="confirmActions">
+          <button type="button" className="ghostButton" disabled={busy} onClick={() => {
+            setDeleteVaultTarget(null); setDeleteVaultPassword(""); setDeleteVaultError("");
+          }}>{t("dialog.cancel")}</button>
+          <button type="submit" className="dangerConfirmButton" disabled={busy || !deleteVaultPassword}>{t("vault.delete")}</button>
+        </div>
+      </form>
+    </div>
+  ) : null;
+
   const csvImportDialog = csvImportPreview ? (
     <div className="modalOverlay csvImportOverlay" onMouseDown={cancelCsvImportPreview}>
       <section className="csvImportModal" role="dialog" aria-modal="true" aria-labelledby="csvImportTitle" onMouseDown={(event) => event.stopPropagation()}>
@@ -5677,7 +5743,7 @@ export default function App() {
   if (mode === "setup") {
     return (
       <>
-        <main className="authShell authDesktopShell">
+        <main className="authShell authDesktopShell authSetupShell">
           <section className="authCard authExperience authSetup">
             <div className="authUtilityBar">
               <div className="authProductMark">
@@ -8039,6 +8105,8 @@ export default function App() {
       )}
 
       {totpSetupDialog}
+      {newVaultDialog}
+      {deleteVaultDialog}
       {csvExportDialog}
       {csvImportDialog}
       {actionHistoryDialog}
