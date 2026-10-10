@@ -11,7 +11,16 @@ export type VaultItemType =
   | "secure_note"
   | "card"
   | "identity"
-  | "license";
+  | "license"
+  | "api_key";
+
+export type BridgeIntegration = {
+  id: string;
+  name: string;
+  executable: string;
+  sha256: string;
+  kind?: "claude" | "codex" | "custom";
+};
 
 export type PasswordHistoryEntry = {
   id: string;
@@ -41,7 +50,9 @@ export type ActionHistoryType =
   | "attachment_removed"
   | "encrypted_exported"
   | "csv_exported"
-  | "csv_imported";
+  | "csv_imported"
+  | "bridge_authorized"
+  | "bridge_revoked";
 
 export type ActionHistoryEntry = {
   id: string;
@@ -105,6 +116,10 @@ export type CredentialRecord = {
   licenseOwner?: string;
   licenseExpiresAt?: string;
 
+  apiProvider?: string;
+  apiIdentifier?: string;
+  apiApplications?: BridgeIntegration[];
+
   createdAt: string;
   updatedAt: string;
 };
@@ -120,6 +135,7 @@ export type VaultSettings = {
   lockOnInactive?: boolean;
   notifyOnTray?: boolean;
   soundOnTray?: boolean;
+  secretsBridgeEnabled?: boolean;
 };
 
 export type PlainVault = {

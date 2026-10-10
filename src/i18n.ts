@@ -4083,7 +4083,40 @@ const v134Translations: Record<AppLanguage, Record<string, string>> = {
 };
 
 
+const apiTranslations: Record<string, [string, string]> = {
+  "bridge.description": ["Inicializador local opcional, com confirmação por lançamento. Configure as aplicações nos detalhes de uma API Key.", "Optional local launcher with confirmation on every launch. Configure applications in API Key details."],
+  "bridge.consumerWarning": ["Você autoriza este executável, uma janela dedicada do Konsole e seus descendentes a ler a chave. Eles podem copiá-la ou registrá-la. Não há isolamento contra malware do mesmo usuário.", "You authorize this executable, a dedicated Konsole window and their descendants to read the key. They may copy or log it. This does not isolate against malware running as your user."],
+  "bridge.enable": ["Permitir Secrets Bridge neste cofre", "Allow Secrets Bridge for this vault"],
+  "bridge.activate": ["Ativar nesta sessão", "Activate for this session"],
+  "bridge.stop": ["Encerrar sessão do Bridge", "Stop Bridge session"],
+  "bridge.inactive": ["Sessão inativa; bloqueio, salvamento e troca de cofre revogam o acesso.", "Session inactive; locking, saving and switching vaults revoke access."],
+  "bridge.active": ["Sessão ativada; expira no prazo de auto-bloqueio do cofre.", "Session activated; expires within the vault auto-lock period."],
+  "bridge.name": ["Nome da integração", "Integration name"],
+  "bridge.consumer": ["Tipo de consumidor", "Consumer type"],
+  "bridge.custom": ["Executável / script autorizado", "Authorized executable / script"],
+  "bridge.executable": ["Caminho absoluto do executável", "Absolute executable path"],
+  "bridge.authorize": ["Autorizar aplicação", "Authorize application"],
+  "bridge.revoke": ["Revogar", "Revoke"],
+  "bridge.launch": ["Iniciar com esta chave", "Launch with this key"],
+  "bridge.history": ["Histórico de acesso", "Access history"],
+  "bridge.denied": ["Bridge indisponível, sessão expirada ou acesso negado. Verifique permissões e reative a sessão.", "Bridge unavailable, session expired or access denied. Check permissions and reactivate the session."],
+  "bridge.sent": ["Chave entregue ao inicializador autorizado.", "Key delivered to the authorized launcher."],
+  "bridge.outcome.approved": ["Entrega autorizada", "Delivery approved"],
+  "bridge.outcome.delivered": ["Entregue ao inicializador", "Delivered to launcher"],
+  "bridge.outcome.denied": ["Acesso negado", "Access denied"],
+  "actionHistory.type.bridge_authorized": ["Integração autorizada", "Integration authorized"],
+  "actionHistory.type.bridge_revoked": ["Integração revogada", "Integration revoked"],
+  "itemType.api_key": ["Chave de API", "API Key"],
+  "api.provider": ["Provedor / serviço", "Provider / service"],
+  "api.identifier": ["Identificador do segredo", "Secret identifier"],
+  "api.secret": ["Segredo", "Secret"],
+  "api.scope": ["A chave fica cifrada neste cofre. Integrações precisam de autorização explícita.", "The key is encrypted in this vault. Integrations require explicit authorization."],
+  "api.secretInvalid": ["Informe um segredo válido, sem NUL e com no máximo 16 KiB.", "Enter a valid secret, without NUL and at most 16 KiB."],
+  "api.identifierInvalid": ["Use um identificador em maiúsculas terminado em _API_KEY, _TOKEN ou _SECRET.", "Use an uppercase identifier ending in _API_KEY, _TOKEN or _SECRET."],
+};
+
 export function translate(language: AppLanguage, key: TranslationKey, values: TranslationValues = {}) {
+  if (apiTranslations[key]) return apiTranslations[key][language === "pt" ? 0 : 1];
   const template = v134Translations[language]?.[key] ?? v134Translations.en[key] ?? v134Translations.pt[key] ?? v133Translations[language]?.[key] ?? v133Translations.en[key] ?? v133Translations.pt[key] ?? v132Translations[language]?.[key] ?? v132Translations.en[key] ?? v132Translations.pt[key] ?? v130Translations[language]?.[key] ?? v130Translations.en[key] ?? v130Translations.pt[key] ?? v100Translations[language]?.[key] ?? v100Translations.en[key] ?? v100Translations.pt[key] ?? v095Translations[language]?.[key] ?? v095Translations.en[key] ?? v095Translations.pt[key] ?? v094Translations[language]?.[key] ?? v094Translations.en[key] ?? v094Translations.pt[key] ?? v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
 
   return String(template).replace(/\{(\w+)\}/g, (_, name: string) =>
