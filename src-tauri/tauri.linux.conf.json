@@ -6,7 +6,7 @@
     "linux": {
       "rpm": {
         "release": "1",
-        "depends": ["gtk3", "webkit2gtk4.1", "libappindicator-gtk3", "xdg-utils"]
+        "depends": ["gtk3", "webkit2gtk4.1", "libappindicator-gtk3", "xdg-utils", "konsole", "xdg-desktop-portal", "xdg-desktop-portal-kde"]
       }
     }
   }

@@ -26,7 +26,7 @@ const linuxText: Record<string, [string, string]> = {
   "totp.easy.selectScreenHint": ["O desktop pedirá autorização para capturar a área do QR.", "The desktop will ask permission to capture the QR area."],
   "totp.easy.screenIntroText": ["Deixe o QR visível e selecione a área no portal do desktop. O KPassword volta após a captura.", "Keep the QR visible and select its area in the desktop portal. KPassword returns after capture."],
   "totp.easy.screenIntroStep2": ["Autorize a captura e selecione a área do QR no desktop.", "Approve capture and select the QR area in the desktop."],
-  "updates.checking": ["No Fedora, atualize o RPM com o gestor de pacotes: sudo dnf upgrade kpassword.", "On Fedora, update the RPM with your package manager: sudo dnf upgrade kpassword."],
+  "updates.checking": ["No Fedora, atualize o RPM com o gestor de pacotes: sudo dnf upgrade k-password.", "On Fedora, update the RPM with your package manager: sudo dnf upgrade k-password."],
   "appDiagnostics.updaterValue": ["Atualização RPM pelo gestor de pacotes", "RPM updates through the package manager"],
 };
 
