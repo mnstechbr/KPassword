@@ -19,6 +19,8 @@ mod secrets_bridge;
 pub fn secrets_bridge_child() -> Result<(), String> { secrets_bridge::child() }
 #[cfg(target_os = "linux")]
 mod linux_platform;
+#[cfg(target_os = "linux")]
+pub fn configure_linux_graphics() { linux_platform::configure_graphics(); }
 
 #[tauri::command]
 fn platform_name() -> &'static str { std::env::consts::OS }
@@ -1814,6 +1816,15 @@ fn hide_to_tray(
         let body = notification_body
             .unwrap_or_else(|| "O KPassword continua protegido na bandeja.".to_string());
 
+        #[cfg(target_os = "linux")]
+        {
+            // The notification plugin itself spawns onto Tokio. Call the
+            // blocking Linux backend directly on a regular thread instead.
+            std::thread::spawn(move || {
+                let _ = notify_rust::Notification::new().summary(&title).body(&body).show();
+            });
+        }
+        #[cfg(not(target_os = "linux"))]
         let _ = app.notification().builder().title(title).body(body).show();
     }
 }

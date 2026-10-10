@@ -21,13 +21,13 @@ cargo test --locked --lib --manifest-path src-tauri/Cargo.toml
 npm run tauri -- build --ci --bundles rpm -- --locked
 ```
 
-RPM: `src-tauri/target/release/bundle/rpm/KPassword-1.4.1-1.x86_64.rpm`.
+RPM: `src-tauri/target/release/bundle/rpm/KPassword-1.4.1-2.x86_64.rpm`.
 O nome do pacote RPM é **k-password**, e o executável é `/usr/bin/kpassword`.
 No ambiente desta implementação o cache Cargo temporário foi selecionado por
 `CARGO_HOME=/tmp/kpassword-cargo-home`; o usuário pode usar seu cache normal.
 
 ```bash
-sudo dnf install ./src-tauri/target/release/bundle/rpm/KPassword-1.4.1-1.x86_64.rpm
+sudo dnf install ./src-tauri/target/release/bundle/rpm/KPassword-1.4.1-2.x86_64.rpm
 ```
 
 Para atualizar a partir de um RPM futuro validado, instalar o novo arquivo com
@@ -39,7 +39,7 @@ Remoção: `sudo dnf remove k-password`.
 O pacote instala binário, ícones, entrada `.desktop` e som em `/usr`; não inclui
 cofres/configurações pessoais, scripts de instalação/remoção, serviço privilegiado
 ou binário setuid. Dependências incluem GTK3, WebKitGTK 4.1, AppIndicator, xdg-utils,
-Konsole e XDG Desktop Portal/KDE. Cofres/backups ficam em
+Konsole, XWayland e XDG Desktop Portal/KDE. Cofres/backups ficam em
 `$XDG_DATA_HOME/com.kpassword.app` (padrão: `~/.local/share/com.kpassword.app`).
 Autostart opcional em `$XDG_CONFIG_HOME/autostart/com.kpassword.app.desktop`;
 a remoção do RPM não apaga configurações pessoais ou essa preferência de autostart.
@@ -49,6 +49,22 @@ atualização via RPM; não tenta tratar o manifest Windows como atualização L
 O RPM de validação não está assinado. Publicação, assinatura e release não foram
 executadas. Um build no Fedora 44 não promete compatibilidade glibc com Fedora
 mais antigo: escolher e testar uma distribuição-base antes da release pública.
+
+### NVIDIA no KDE/Wayland
+
+A revisão 1 falhou na utilização interativa desta máquina (NVIDIA 615.71.09,
+WebKitGTK 2.54.1): encerramento, corrupção visual e lentidão. O teste anterior
+com janela oculta não detectou esses problemas e não serve como aprovação da GUI.
+A revisão 2 seleciona XWayland, transporte SHM e pintura Skia por CPU antes de
+inicializar GTK quando `/sys/module/nvidia` existe. São variáveis apenas do
+processo; nenhuma configuração do desktop ou driver é alterada. Isso pode
+aumentar o uso de CPU e precisa de validação em outras GPUs/configurações.
+`KPASSWORD_GRAPHICS_PROFILE=native kpassword` desativa essa seleção para diagnóstico.
+As variáveis WebKit já definidas pelo usuário têm precedência. Não combinar
+essa revisão com as tentativas anteriores de desativar DMA-BUF/composição.
+
+Formulários e confirmações Linux também recebem camadas acima dos controles de
+idioma/menu, preservando o visual e as camadas originais do Windows.
 
 ## Cofres e autenticação
 
@@ -147,14 +163,21 @@ integração automaticamente. Backup/exportação criptografada preserva os camp
   excessivo, chave exclusiva, ambiente limpo, substituição/tamanho de executável,
   cancelamento de ativação pendente por bloqueio e auditoria.
 - RPM nativo gerado e conteúdo/dependências/scripts inspecionados.
-- Teste de inicialização em Wayland com XDG temporário e D-Bus isolado: permaneceu
-  ativo até timeout deliberado de 15 s. Avisos GTK de scale factor e indisponibilidade
-  do bus de acessibilidade nessa sessão isolada; não equivale a validar toda a GUI.
+- Na máquina real, revisão 2 com XDG temporário/cofre fictício: formulário e geração
+  de senha exercitados, credencial salva e recuperada após reiniciar. Captura da
+  própria janela conferiu fontes e camadas; rolagem automatizada produziu 191
+  mudanças em 240 frames capturados a 60 Hz por quatro segundos. Essa medição
+  limitada não comprova toda a experiência, nem substitui a avaliação do usuário.
+- O fluxo de proteção para bandeja ocultou a janela e permitiu reabrir/desbloquear
+  o cofre fictício. A notificação Linux foi chamada diretamente em uma thread
+  comum: o plugin iniciava um runtime bloqueante dentro do Tokio e produzia panic.
+  Depois da correção esse fluxo não produziu panic no teste nativo.
 - Instalação/upgrade da revisão 1 para revisão 2/remoção em banco RPM e prefixo temporários preservaram
   um arquivo sentinela de dados pessoais sintéticos. Dependências e scripts foram
   desabilitados nesse teste isolado; instalação real por DNF ainda precisa de QA.
-  A revisão 2 foi gerada apenas para esse teste, por override em `/tmp`; o RPM
-  entregue permanece na revisão 1 configurada no repositório.
+  Inicialmente esse teste usou uma revisão temporária; agora a revisão 2 do
+  repositório contém as correções gráficas. Atualização real por DNF e aprovação
+  interativa do usuário ainda precisam de confirmação.
 - CI mantém Windows e acrescenta Fedora 44: testes, build nativo, RPM e NSIS de
   validação. NSIS usa override temporário sem assinatura; configuração original de
   release/updater assinado não muda. Resultado do commit final será registrado
