@@ -133,7 +133,7 @@ uma gravação autenticada somente de histórico é validada no backend sem modi
 O socket Unix fica no diretório privado `secrets-bridge` da pasta de dados do app,
 com diretório 0700 e socket 0600. SO_PEERCRED verifica UID/PID; o executável é
 consultado em `/proc` e seu SHA-256/start time são conferidos antes de chamar.
-Nenhum nome informado pelo cliente é usado como identidade. Scripts identificáveis e diretório passam a compor a permissão na 1.5.1; sem script identificável, interpretadores recebem somente aprovação única. Diretório/script não isolam malware da mesma conta. Não há isolamento contra
+Nenhum nome informado pelo cliente é usado como identidade. Scripts identificáveis e diretório passam a compor a permissão na 1.5.1; a identificação de script suporta Python/Node/Bun/Deno. Interpretadores reconhecidos sem script identificável (incluindo Ruby/Perl/PHP/shell/Java/.NET) recebem somente aprovação única; runtimes desconhecidos não têm garantia de identificação de script. Diretório/script não isolam malware da mesma conta. Não há isolamento contra
 malware da mesma conta, ptrace, root, captura de teclado ou frontend comprometido.
 Copiar um arquivo de cofre criptografado não gera uma notificação.
 

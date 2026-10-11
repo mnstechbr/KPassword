@@ -18,12 +18,19 @@ fn process(pid: i32) -> Result<(i32, String, String, String), String> {
     let (path, hash) = fingerprint(exe.to_str().ok_or(DENIED)?)?;
     Ok((parent, started, path, hash))
 }
-fn interpreter(path: &str) -> bool {
+fn script_runtime(path: &str) -> bool {
     let name = Path::new(path).file_name().unwrap_or_default().to_string_lossy();
     name.starts_with("python") || ["node", "nodejs", "bun", "deno"].contains(&name.as_ref())
 }
+fn interpreter(path: &str) -> bool {
+    let name = Path::new(path).file_name().unwrap_or_default().to_string_lossy();
+    script_runtime(path) || ["ruby", "perl", "php", "lua"].iter().any(|prefix| name.starts_with(prefix))
+        || ["luajit", "java", "dotnet", "Rscript", "pwsh", "powershell", "sh", "bash", "dash", "zsh", "fish"].contains(&name.as_ref())
+}
 fn entry(pid: i32, executable: &str) -> Option<(String, String)> {
-    if !interpreter(executable) { return None; }
+    // Only these command-line grammars can establish a script identity.
+    // Other recognized generic runtimes stay one-time-only, never binary grants.
+    if !script_runtime(executable) { return None; }
     let args = fs::read(format!("/proc/{pid}/cmdline")).ok()?;
     if args.len() > 64 * 1024 { return None; }
     for arg in args.split(|b| *b == 0).skip(1) {
@@ -94,6 +101,11 @@ mod tests {
     }
     #[test] fn generic_interpreters_are_distinguished_from_native_binaries() {
         assert!(interpreter("/usr/bin/python3.14")); assert!(interpreter("/usr/bin/node"));
+        for path in ["/usr/bin/ruby3.4", "/usr/bin/perl", "/usr/bin/php8.5", "/usr/bin/bash", "/usr/bin/java", "/usr/bin/dotnet"] {
+            assert!(interpreter(path));
+            assert!(!script_runtime(path));
+            assert!(entry(std::process::id() as i32, path).is_none());
+        }
         assert!(!interpreter("/usr/bin/my-project"));
     }
 }
