@@ -14817,6 +14817,15 @@ textarea {
   z-index: 1100;
 }
 
+:root[data-platform="linux"] .confirmCard {
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+:root[data-platform="linux"] .confirmCard p {
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
 /* Let the setup form grow with password validation; the guide owns its row. */
 :root[data-platform="linux"] .authCard.authExperience.authSetup {
   height: auto !important;

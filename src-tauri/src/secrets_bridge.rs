@@ -1,4 +1,5 @@
-//! Opt-in, controlled launch. No network listener and no public secret API.
+//! Opt-in local delivery. No TCP listener or public secret API.
+pub mod broker;
 use std::{collections::HashMap, fs, path::Path, sync::Mutex, time::{Duration, Instant}};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -70,6 +71,7 @@ impl Core {
 }
 
 pub fn close(app: &AppHandle) {
+    broker::revoke(app);
     if let Some(state) = app.try_state::<BridgeRequests>() {
         if let Ok(mut pending) = state.0.lock() { *pending = None; }
     }
@@ -121,6 +123,7 @@ pub fn bridge_close(app: AppHandle) { close(&app); }
 
 #[tauri::command]
 pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String, master_password: String) -> Result<u64, String> {
+    broker::revoke(&app);
     let generation = {
         let mut core = state.0.lock().map_err(|_| DENIED)?;
         core.close();
@@ -138,6 +141,8 @@ pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String
     let keys = result?;
     let mut core = state.0.lock().map_err(|_| DENIED)?;
     core.install_session(generation, Session { generation, expires: Instant::now() + Duration::from_secs(minutes * 60), vault_name: name, file_hash: Sha256::digest(&raw).to_vec(), keys })?;
+    drop(core);
+    if broker::start(&app).is_err() { close(&app); return Err(DENIED.into()); }
     #[cfg(target_os="linux")]
     {
         let app = app.clone();
@@ -279,65 +284,9 @@ pub fn child() -> Result<(), String> {
 
 #[tauri::command]
 pub async fn bridge_launch(app: AppHandle, state: State<'_, BridgeState>, key_id: String, integration_id: String, generation: u64) -> Result<(), String> {
-    #[cfg(target_os = "linux")]
-    {
-        use std::{io::{Read, Write}, os::{fd::AsRawFd, unix::{net::UnixStream, process::CommandExt}}, process::{Command, Stdio}};
-        {
-            let core = state.0.lock().map_err(|_| DENIED)?;
-            if core.authorize(generation, &key_id, &integration_id).is_err() {
-                append_audit(&app,"denied",&key_id,&integration_id)?;
-                return Err(DENIED.into());
-            }
-        }
-        let (mut server, client) = UnixStream::pair().map_err(|_| DENIED)?;
-        server.set_read_timeout(Some(Duration::from_secs(5))).map_err(|_| DENIED)?;
-        server.set_write_timeout(Some(Duration::from_secs(2))).map_err(|_| DENIED)?;
-        let fd = client.as_raw_fd();
-        let mut command = Command::new(std::env::current_exe().map_err(|_| DENIED)?);
-        clean_environment(&mut command);
-        command.arg("--secrets-bridge-child").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-        unsafe { command.pre_exec(move || {
-            if libc::dup2(fd, 198) == -1 || libc::fcntl(198, libc::F_SETFD, 0) == -1 { return Err(std::io::Error::last_os_error()); }
-            Ok(())
-        }); }
-        let mut child = command.spawn().map_err(|_| DENIED)?;
-        drop(client);
-        // Wait outside the policy lock; blocking/locking the vault can revoke
-        // while this one-use launcher is negotiating its protocol version.
-        let handshake = tauri::async_runtime::spawn_blocking(move || {
-            let mut hello = [0; 10];
-            server.read_exact(&mut hello).map_err(|_| DENIED)?;
-            if &hello != b"KPBRIDGE1\n" { return Err(DENIED); }
-            Ok(server)
-        }).await.map_err(|_| DENIED)?;
-        let result = (|| {
-            let mut server = handshake.map_err(|_| DENIED)?;
-            let core = state.0.lock().map_err(|_| DENIED)?;
-            let (key, integration) = core.authorize(generation, &key_id, &integration_id)?;
-            let session = core.session.as_ref().ok_or(DENIED)?;
-            let (path, _, _) = super::storage_paths(&app, Some(session.vault_name.clone()))?;
-            if Sha256::digest(fs::read(path).map_err(|_| DENIED)?).as_slice() != session.file_hash { return Err(DENIED.into()); }
-            let (path, hash) = fingerprint(&integration.executable)?;
-            if path != integration.executable || hash != integration.sha256 { return Err(DENIED.into()); }
-            // Only this record is serialized; no master password or other key.
-            if (integration.kind=="claude" && key.identifier!="ANTHROPIC_API_KEY") || (integration.kind=="codex" && key.identifier!="OPENAI_API_KEY") { return Err(DENIED.into()); }
-            let delivery = Delivery { identifier: key.identifier.clone(), secret: key.secret.to_string(), executable: path, kind:integration.kind.clone() };
-            let data = Zeroizing::new(serde_json::to_vec(&delivery).map_err(|_| DENIED)?);
-            if data.len() > 32_768 { return Err(DENIED.into()); }
-            core.authorize(generation, &key_id, &integration_id)?;
-            // Audit is durable before any secret is delivered. Failure denies access.
-            append_audit(&app, "approved", &key_id, &integration_id)?;
-            core.authorize(generation, &key_id, &integration_id)?;
-            server.write_all(&(data.len() as u32).to_be_bytes()).and_then(|_| server.write_all(&data)).map_err(|_| DENIED)?;
-            Ok(())
-        })();
-        if result.is_err() { let _ = child.kill(); let _=append_audit(&app,"denied",&key_id,&integration_id); }
-        else { let _=append_audit(&app,"delivered",&key_id,&integration_id); }
-        std::thread::spawn(move || { let _ = child.wait(); });
-        result
-    }
-    #[cfg(not(target_os = "linux"))]
-    { let _ = (app, state, key_id, integration_id, generation); Err("Inicializador disponível apenas no Linux.".into()) }
+    let _ = (app, state, key_id, integration_id, generation);
+    // The proxy-only mode never exports a key to a consumer process.
+    Err("Entrega de chaves desativada. Use o conector de chamadas do Bridge.".into())
 }
 
 #[cfg(test)]
