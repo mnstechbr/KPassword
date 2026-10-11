@@ -1839,7 +1839,13 @@ export default function App() {
   const [sidebarHorizontal, setSidebarHorizontal] = useState(false);
   const { theme: appTheme, setTheme: setAppTheme, fontScale, setFontScale,
     reduceMotion, setReduceMotion, compactMode, setCompactMode } = useAppearance();
+  const [preferencesSection, setPreferencesSection] = useState<"appearance" | "application" | "maintenance">("appearance");
+  const [backupsSection, setBackupsSection] = useState<"storage" | "backups" | "transfer">("backups");
   const [securitySection, setSecuritySection] = useState<"access" | "locking" | "clipboard" | "integrations">("access");
+  const contentRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0 });
+  }, [screen, preferencesSection, backupsSection, securitySection]);
   const [vault, setVault] = useState<PlainVault | null>(null);
   const [encryptedVault, setEncryptedVault] = useState<EncryptedVaultFile | null>(null);
   const [masterPassword, setMasterPassword] = useState("");
@@ -6362,7 +6368,7 @@ export default function App() {
         </div>
       </aside>
 
-      <section className="content">
+      <section className="content" ref={contentRef}>
         <header className="topbar">
           <div className="topbarTitle">
             <AppLogo size="md" />
@@ -6836,7 +6842,7 @@ export default function App() {
         )}
 
         {screen === "trash" && (
-          <div className="settingsGrid">
+          <div className="trashPage">
             <article className="wideCard">
               <div className="cardTitleRow">
                 <div>
@@ -7048,8 +7054,15 @@ export default function App() {
           </div>
         )}
         {screen === "backups" && (
-          <div className="settingsGrid backupPage">
-            <article className="wideCard storageCard">
+          <div className="sectionPage">
+            <nav className="sectionTabs" aria-label={t("ui.backups")}>
+              {(["storage", "backups", "transfer"] as const).map((section) => (
+                <button type="button" key={section} aria-current={backupsSection === section ? "page" : undefined}
+                  className={backupsSection === section ? "active" : ""} onClick={() => setBackupsSection(section)}>{t(`ui.backups.${section}`)}</button>
+              ))}
+            </nav>
+            <div className="settingsGrid backupPage" data-active-section={backupsSection}>
+            <article className="wideCard storageCard" data-section="storage">
               <div className="cardTitleRow">
                 <div>
                   <h2>{t("settings.localStorage")}</h2>
@@ -7094,7 +7107,7 @@ export default function App() {
                 </button>
               </div>
             </article>
-            <article className="wideCard">
+            <article className="wideCard" data-section="backups">
               <h2>{t("settings.autoBackups")}</h2>
               <p>{t("settings.autoBackupsDescription")}</p>
 
@@ -7149,7 +7162,7 @@ export default function App() {
               >
                 Criar backup agora
               </button>
-            </article><details className="wideCard designDisclosure">
+            </article><details className="wideCard designDisclosure" data-section="backups">
               <summary className="settingsSectionHeader">
                 <span>
                   <strong>{t("backupVerify.title")}</strong>
@@ -7230,7 +7243,7 @@ export default function App() {
                 </div>
               )}
               </div>
-            </details><details className="wideCard designDisclosure">
+            </details><details className="wideCard designDisclosure" data-section="backups">
               <summary className="settingsSectionHeader">
                 <span>
                   <strong>{t("settings.importBackup")}</strong>
@@ -7251,7 +7264,7 @@ export default function App() {
                 />
               </label>
               </div>
-            </details><details className="wideCard designDisclosure">
+            </details><details className="wideCard designDisclosure" data-section="transfer">
               <summary className="settingsSectionHeader">
                 <span>
                   <strong>{t("export.title")}</strong>
@@ -7304,12 +7317,20 @@ export default function App() {
               </div>
               </div>
             </details>
+            </div>
           </div>
         )}
 
         {screen === "preferences" && (
-          <div className="preferencesGrid">
-            <article className="wideCard preferenceCard">
+          <div className="sectionPage">
+            <nav className="sectionTabs" aria-label={t("nav.preferences")}>
+              {(["appearance", "application", "maintenance"] as const).map((section) => (
+                <button type="button" key={section} aria-current={preferencesSection === section ? "page" : undefined}
+                  className={preferencesSection === section ? "active" : ""} onClick={() => setPreferencesSection(section)}>{t(`ui.preferences.${section}`)}</button>
+              ))}
+            </nav>
+            <div className="preferencesGrid" data-active-section={preferencesSection}>
+            <article className="wideCard preferenceCard" data-section="appearance">
               <h2>{t("preferences.theme")}</h2>
               <p>{t("preferences.themeDescription")}</p>
 
@@ -7343,7 +7364,7 @@ export default function App() {
               </div>
             </article>
 
-            <article className="wideCard preferenceCard">
+            <article className="wideCard preferenceCard" data-section="appearance">
               <h2>{t("preferences.accessibility")}</h2>
               <p>{t("preferences.accessibilityDescription")}</p>
 
@@ -7386,7 +7407,7 @@ export default function App() {
               </div>
             </article>
 
-            <article className="wideCard preferenceCard">
+            <article className="wideCard preferenceCard" data-section="appearance">
               <h2>{t("language.title")}</h2>
               <p>{t("language.description")}</p>
               <div className="languagePreferenceBox">
@@ -7395,7 +7416,7 @@ export default function App() {
               </div>
             </article>
 
-            <article className="wideCard designSection"><h2>{t("ui.behavior")}</h2><div className="toggleList"><label className="toggleRow">
+            <article className="wideCard designSection" data-section="application"><h2>{t("ui.behavior")}</h2><div className="toggleList"><label className="toggleRow">
                   <span>
                     <strong>{t("settings.lockOnClose")}</strong>
                     <small>{t("settings.lockOnCloseDescription")}</small>
@@ -7463,7 +7484,7 @@ export default function App() {
                 <span>{t("settings.singleInstance")}</span>
               </div></details></article>
 
-            <article className="wideCard preferenceCard currentVaultCard">
+            <article className="wideCard preferenceCard currentVaultCard" data-section="application">
               <h2>{t("vault.current")}</h2>
               <strong>{getVaultDisplayName(activeVaultName, vaultFiles)}</strong>
               <p>{t("ui.vaultSwitchLocked")}</p>
@@ -7477,7 +7498,7 @@ export default function App() {
               </div>
             </article>
 
-            <article className="wideCard preferenceCard">
+            <article className="wideCard preferenceCard" data-section="maintenance">
               <h2>{t("preferences.updates")}</h2>
               <p>{t("preferences.updatesDescription")}</p>
 
@@ -7499,7 +7520,7 @@ export default function App() {
               {updateStatus && <div className="updateStatus">{updateStatus}</div>}
             </article>
 
-            <article className="wideCard preferenceCard helpAboutCompactCard">
+            <article className="wideCard preferenceCard helpAboutCompactCard" data-section="maintenance">
               <div className="cardTitleRow">
                 <div>
                   <h2>{t("helpAbout.title")}</h2>
@@ -7529,7 +7550,7 @@ export default function App() {
               </div>
             </article>
 
-            <article className="wideCard securityActionCard actionHistorySettingsCard">
+            <article className="wideCard securityActionCard actionHistorySettingsCard" data-section="maintenance">
               <div className="settingsSectionHeader actionHistorySettingsHeader">
                 <span>
                   <strong>{t("actionHistory.settingsTitle")}</strong>
@@ -7546,7 +7567,7 @@ export default function App() {
               </div>
             </article>
 
-            <article className="wideCard securityActionCard appDiagnosticsSettingsCard">
+            <article className="wideCard securityActionCard appDiagnosticsSettingsCard" data-section="maintenance">
               <div className="settingsSectionHeader actionHistorySettingsHeader">
                 <span>
                   <strong>{t("appDiagnostics.settingsTitle")}</strong>
@@ -7563,7 +7584,7 @@ export default function App() {
               </div>
             </article>
 
-            <article className="wideCard preferenceCard">
+            <article className="wideCard preferenceCard" data-section="appearance">
               <h2>{t("preferences.restoreAppearance")}</h2>
               <p>{t("preferences.sensitiveActionsDescription")}</p>
 
@@ -7589,6 +7610,7 @@ export default function App() {
                 {t("preferences.restoreAppearance")}
               </button>
             </article>
+            </div>
           </div>
         )}
 
