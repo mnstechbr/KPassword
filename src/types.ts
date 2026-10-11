@@ -118,6 +118,9 @@ export type CredentialRecord = {
 
   apiProvider?: string;
   apiIdentifier?: string;
+  apiBaseUrl?: string;
+  apiProtocol?: "auto" | "openai" | "anthropic" | "json";
+  apiAuthType?: "bearer" | "x-api-key" | "x-goog-api-key" | "api-key";
   apiApplications?: BridgeIntegration[];
 
   createdAt: string;

@@ -25,11 +25,24 @@ pub struct Request {
 }
 type Grant = (u64, String, String, String, String);
 struct Permit { remaining: u32, minute: Instant, calls: u32, request: Request }
-struct Pending { request: Request, generation: u64, deadline: Instant, reply: mpsc::Sender<bool>, presented: bool }
+struct Pending { request: Request, generation: u64, deadline: Instant, reply: mpsc::Sender<Result<(), &'static str>>, presented: bool }
 #[derive(Default)]
 struct Hub { listening: bool, pending: Option<Pending>, grants: HashMap<Grant, Permit>, policy_revision: u64 }
 #[derive(Default)]
 pub struct BrokerState(Mutex<Hub>);
+
+/// Only stable codes cross IPC; never exception text, paths, URLs or bodies.
+fn public_error_code(error: &str) -> &'static str {
+    match error {
+        "bridge_inactive" => "bridge_inactive", "session_expired" => "session_expired",
+        "key_not_found" => "key_not_found", "user_denied" => "user_denied",
+        "approval_expired" => "approval_expired", "permission_revoked" => "permission_revoked",
+        "quota_exceeded" => "quota_exceeded", "bridge_busy" => "bridge_busy",
+        "unsupported_operation" => "unsupported_operation", "invalid_request" => "invalid_request",
+        "provider_unavailable" => "provider_unavailable", "identity_changed" => "identity_changed",
+        "vault_changed" => "vault_changed", "destination_blocked" => "destination_blocked", _ => "request_failed",
+    }
+}
 
 fn consume(permit: &mut Permit) -> bool {
     if permit.minute.elapsed() >= Duration::from_secs(60) { permit.minute = Instant::now(); permit.calls = 0; }
@@ -61,7 +74,7 @@ pub fn bridge_revoke_grant(window: tauri::WebviewWindow, app: AppHandle, identit
     hub.policy_revision = hub.policy_revision.wrapping_add(1);
     hub.grants.retain(|(_,k,i,o,m),_| !(k == &key_id && i == &identity && o == &operation && m == &model));
     if hub.pending.as_ref().is_some_and(|p| p.request.identity == identity && p.request.key_id == key_id && p.request.operation == operation && p.request.model == model) {
-        if let Some(p) = hub.pending.take() { let _ = p.reply.send(false); }
+        if let Some(p) = hub.pending.take() { let _ = p.reply.send(Err("permission_revoked")); }
     }
     Ok(())
 }
@@ -91,7 +104,7 @@ fn show_approval(app: &AppHandle) -> Result<(),String> {
                     let a = owner.clone(); let w = window.clone();
                     window.on_window_event(move |event| { if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
-                        let state = a.state::<BrokerState>(); if let Ok(mut hub) = state.0.lock() { if let Some(p) = hub.pending.take() { let _ = p.reply.send(false); } }
+                        let state = a.state::<BrokerState>(); if let Ok(mut hub) = state.0.lock() { if let Some(p) = hub.pending.take() { let _ = p.reply.send(Err("user_denied")); } }
                         let _ = w.hide();
                     }});
                     Some(window)
@@ -108,7 +121,7 @@ pub fn revoke(app: &AppHandle) {
         if let Ok(mut hub) = state.0.lock() {
             hub.policy_revision = hub.policy_revision.wrapping_add(1);
             hub.grants.clear();
-            if let Some(p) = hub.pending.take() { let _ = p.reply.send(false); }
+            if let Some(p) = hub.pending.take() { let _ = p.reply.send(Err("permission_revoked")); }
         }
     }
     if let Some(window) = app.get_webview_window("bridge-approval") { let _ = window.hide(); }
@@ -139,12 +152,12 @@ pub fn bridge_answer_access_request(app: AppHandle, window: tauri::WebviewWindow
     if session.generation != p.generation || session.expires <= Instant::now() { return Err(DENIED.into()); }
     let p = hub.pending.take().ok_or(DENIED)?;
     if approve && remember {
-        if !p.request.remember_allowed { let _ = p.reply.send(false); return Err(DENIED.into()); }
-        if hub.grants.len() >= 256 { let _ = p.reply.send(false); return Err(DENIED.into()); }
+        if !p.request.remember_allowed { let _ = p.reply.send(Err("permission_revoked")); return Err(DENIED.into()); }
+        if hub.grants.len() >= 256 { let _ = p.reply.send(Err("permission_revoked")); return Err(DENIED.into()); }
         let grant = (p.generation, p.request.key_id.clone(), p.request.identity.clone(), p.request.operation.clone(), p.request.model.clone());
         hub.grants.insert(grant, Permit { remaining:max_calls.unwrap_or(10_000).clamp(1,100_000), minute:Instant::now(), calls:0, request:p.request.clone() });
     }
-    p.reply.send(approve).map_err(|_| DENIED.into())
+    p.reply.send(if approve { Ok(()) } else { Err("user_denied") }).map_err(|_| DENIED.into())
 }
 
 #[cfg(target_os = "linux")]
@@ -162,7 +175,14 @@ mod linux {
     fn parse_request(raw: &[u8]) -> Result<WireRequest, String> {
         let r: WireRequest = serde_json::from_slice(raw).map_err(|_| DENIED)?;
         if r.version != 1 || r.key_id.is_empty() || r.key_id.len() > 128 || !r.key_id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') { return Err(DENIED.into()); }
-        if !r.body.is_object() || r.body.get("stream").is_some_and(|v| v != false) || !["responses", "chat", "embeddings", "messages"].contains(&r.operation.as_str()) { return Err(DENIED.into()); }
+        if !r.body.is_object() || r.body.get("stream").is_some_and(|v| !v.is_boolean())  { return Err(DENIED.into()); }
+        if !["responses", "chat", "embeddings", "messages"].contains(&r.operation.as_str()) {
+            if r.body.get("stream").is_some() { return Err("invalid_request".into()); }
+            if !["http.get","http.post"].contains(&r.operation.as_str()) { super::super::services::scope(&r.operation,&r.body)?; }
+            if r.operation=="http.get" && !r.body.as_object().is_some_and(|o| o.values().all(|v| v.is_string() || v.is_number() || v.is_boolean())) { return Err("invalid_request".into()); }
+            return Ok(r);
+        }
+        if r.body["stream"] == true && !["chat", "responses", "messages"].contains(&r.operation.as_str()) { return Err(DENIED.into()); }
         if !r.body["model"].as_str().is_some_and(|m| !m.is_empty() && m.len() <= 128 && !m.chars().any(char::is_control)) { return Err(DENIED.into()); }
         for field in ["max_tokens", "max_completion_tokens", "max_output_tokens"] {
             if let Some(value) = r.body.get(field) { if !value.as_u64().is_some_and(|n| (1..=8192).contains(&n)) { return Err(DENIED.into()); } }
@@ -170,13 +190,17 @@ mod linux {
         Ok(r)
     }
     fn endpoint(identifier: &str, operation: &str) -> Result<(&'static str, &'static str), String> {
+        if let Some(provider) = super::super::services::provider(identifier,operation) { return Ok((provider,"")); }
         match (identifier, operation) {
             ("OPENAI_API_KEY", "responses") => Ok(("OpenAI", "https://api.openai.com/v1/responses")),
             ("OPENAI_API_KEY", "chat") => Ok(("OpenAI", "https://api.openai.com/v1/chat/completions")),
             ("OPENAI_API_KEY", "embeddings") => Ok(("OpenAI", "https://api.openai.com/v1/embeddings")),
+            ("ZAI_API_KEY" | "Z_AI_API_KEY", "chat") => Ok(("Z.AI", "https://api.z.ai/api/paas/v4/chat/completions")),
+            ("MIMO_API_KEY" | "XIAOMI_API_KEY", "chat") => Ok(("Xiaomi MiMo", "https://api.xiaomimimo.com/v1/chat/completions")),
+            ("DEEPSEEK_API_KEY", "messages") => Ok(("DeepSeek", "https://api.deepseek.com/anthropic/v1/messages")),
             ("DEEPSEEK_API_KEY", "chat") => Ok(("DeepSeek", "https://api.deepseek.com/chat/completions")),
             ("ANTHROPIC_API_KEY", "messages") => Ok(("Anthropic", "https://api.anthropic.com/v1/messages")),
-            _ => Err(DENIED.into()),
+            _ => Err("unsupported_operation".into()),
         }
     }
     fn sanitize_response(value: &mut serde_json::Value, secret: &str) {
@@ -190,31 +214,96 @@ mod linux {
             _ => {},
         }
     }
-    fn call_provider(url: &str, identifier: &str, secret: &str, body: &serde_json::Value) -> Result<(u16, serde_json::Value), String> {
+    fn authentication<'a>(config: &'a super::super::providers::Config, url: &str) -> (&'a str, bool) {
+        let anthropic = config.protocol == "anthropic" || ((config.protocol.is_empty() || config.protocol=="auto") && url.ends_with("/messages"));
+        let auth_type = if config.auth.is_empty() { if anthropic { "x-api-key" } else { "bearer" } } else { &config.auth };
+        (auth_type,anthropic)
+    }
+    fn provider_request(url: &str, identifier: &str, secret: &str, body: &serde_json::Value, config: &super::super::providers::Config, operation: &str) -> Result<reqwest::blocking::Response, String> {
         let mut body = body.clone();
-        if !url.ends_with("/embeddings") && !["max_tokens", "max_completion_tokens", "max_output_tokens"].iter().any(|f| body.get(*f).is_some()) {
+        if !["http.get", "http.post"].contains(&operation) && !url.ends_with("/embeddings") && !["max_tokens", "max_completion_tokens", "max_output_tokens"].iter().any(|f| body.get(*f).is_some()) {
             let field = if url.ends_with("/responses") { "max_output_tokens" } else if identifier == "OPENAI_API_KEY" { "max_completion_tokens" } else { "max_tokens" };
             body[field] = serde_json::json!(8192);
         }
-        // No redirects, caller URLs, caller headers, environment proxies, debug
-        // logs or cookies. Authentication is attached only to a fixed HTTPS origin.
-        let client = reqwest::blocking::Client::builder().https_only(true).no_proxy()
-            .redirect(reqwest::redirect::Policy::none()).connect_timeout(Duration::from_secs(10))
-            .timeout(Duration::from_secs(60)).build().map_err(|_| DENIED)?;
-        let mut auth = reqwest::header::HeaderValue::from_str(&if identifier == "ANTHROPIC_API_KEY" { secret.to_owned() } else { format!("Bearer {secret}") }).map_err(|_| DENIED)?;
+        let client = super::super::providers::pinned_client(url)?;
+        let (auth_type,anthropic) = authentication(config,url);
+        let mut auth = reqwest::header::HeaderValue::from_str(&if auth_type=="bearer" { format!("Bearer {secret}") } else { secret.to_owned() }).map_err(|_| DENIED)?;
         auth.set_sensitive(true);
-        let mut request = client.post(url).json(&body);
-        if identifier == "ANTHROPIC_API_KEY" { request = request.header("x-api-key", auth).header("anthropic-version", "2023-06-01"); }
-        else { request = request.header(reqwest::header::AUTHORIZATION, auth); }
-        let response = request.send().map_err(|_| DENIED)?;
+        let request = if operation=="http.get" {
+            let mut url=reqwest::Url::parse(url).map_err(|_| "invalid_request")?;
+            { let mut pairs=url.query_pairs_mut();
+              for (key,value) in body.as_object().ok_or("invalid_request")? {
+                let value=value.as_str().map(str::to_string).unwrap_or_else(||value.to_string());
+                pairs.append_pair(key,&value);
+              }
+            }
+            client.get(url)
+        } else { client.post(url).json(&body) };
+        let request = match auth_type {
+            "bearer"=>request.header(reqwest::header::AUTHORIZATION,auth),
+            "x-api-key"=>request.header("x-api-key",auth),
+            "x-goog-api-key"=>request.header("x-goog-api-key",auth),
+            "api-key"=>request.header("api-key",auth),
+            _=>return Err("invalid_request".into()),
+        };
+        let request = if anthropic { request.header("anthropic-version","2023-06-01") } else { request };
+        let response = request.send().map_err(|_| "provider_unavailable")?;
+        if response.status().is_redirection() { return Err("provider_unavailable".into()); }
+        Ok(response)
+    }
+    pub(super) fn read_provider_json(response: reqwest::blocking::Response, secret: &str) -> Result<(u16, serde_json::Value), String> {
         let status = response.status().as_u16();
-        if response.status().is_redirection() { return Err(DENIED.into()); }
         let mut data = Zeroizing::new(Vec::new());
-        response.take(4 * 1024 * 1024 + 1).read_to_end(&mut data).map_err(|_| DENIED)?;
-        if data.len() > 4 * 1024 * 1024 { return Err(DENIED.into()); }
-        let mut body: serde_json::Value = serde_json::from_slice(&data).map_err(|_| DENIED)?;
+        response.take(4 * 1024 * 1024 + 1).read_to_end(&mut data).map_err(|_| "provider_unavailable")?;
+        if data.len() > 4 * 1024 * 1024 { return Err("provider_unavailable".into()); }
+        let mut body: serde_json::Value = serde_json::from_slice(&data).map_err(|_| "provider_unavailable")?;
         sanitize_response(&mut body, secret);
         Ok((status, body))
+    }
+    fn write_json(stream: &mut impl Write, value: &serde_json::Value) -> Result<(), String> {
+        let data = Zeroizing::new(serde_json::to_vec(value).map_err(|_| DENIED)?);
+        stream.write_all(&data).and_then(|_| stream.write_all(b"\n")).map_err(|_| DENIED.into())
+    }
+    /// Bounded SSE parsing: preserve typed tool deltas without forwarding raw
+    /// provider text, headers or credentials. Check revocation before every event.
+    fn relay_sse(source: impl Read, target: &mut impl Write, secret: &str, mut authorized: impl FnMut() -> bool) -> Result<(), String> {
+        use std::io::BufRead;
+        let mut source = std::io::BufReader::new(source);
+        let mut event = String::new();
+        let mut data = Zeroizing::new(String::new());
+        let mut total = 0usize;
+        let mut terminal = false;
+        loop {
+            let mut line = Zeroizing::new(Vec::new());
+            let n = (&mut source).take(4 * 1024 * 1024 + 1).read_until(b'\n', &mut line).map_err(|_| "provider_unavailable")?;
+            total += n;
+            if n > 4 * 1024 * 1024 || total > 128 * 1024 * 1024 { return Err("provider_unavailable".into()); }
+            if !authorized() { return Err("permission_revoked".into()); }
+            if n == 0 { if !terminal || !data.is_empty() { return Err("provider_unavailable".into()); } break; }
+            let line = std::str::from_utf8(&line).map_err(|_| "provider_unavailable")?.trim_end_matches(['\r', '\n']);
+            if line.is_empty() {
+                if data.as_str() == "[DONE]" { terminal = true; break; }
+                if !data.is_empty() {
+                    let mut value: serde_json::Value = serde_json::from_str(&data).map_err(|_| "provider_unavailable")?;
+                    if !value.is_object() { return Err("provider_unavailable".into()); }
+                    terminal |= value["type"]=="message_stop" || value["type"]=="response.completed";
+                    sanitize_response(&mut value, secret);
+                    write_json(target, &serde_json::json!({"event":event,"data":value}))?;
+                    super::super::erase_json(&mut value);
+                }
+                data.clear(); event.clear();
+            } else if let Some(value) = line.strip_prefix("event:") {
+                let value = value.trim();
+                if value.len() > 128 || !value.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.') { return Err("provider_unavailable".into()); }
+                event = value.into();
+            } else if let Some(value) = line.strip_prefix("data:") {
+                if !data.is_empty() { data.push('\n'); }
+                data.push_str(value.trim_start());
+                if data.len() > 4 * 1024 * 1024 { return Err("provider_unavailable".into()); }
+            }
+        }
+        if !terminal { return Err("provider_unavailable".into()); }
+        write_json(target, &serde_json::json!({"done":true}))
     }
     use super::super::identity::peer;
     fn socket_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -244,12 +333,26 @@ mod linux {
         hub.listening = true;
         let app = app.clone();
         std::thread::spawn(move || {
-            // One connection at a time bounds approval queues and worker count.
+            // Bound native workers while allowing a second client during a
+            // provider stream. There is still only one outstanding approval.
+            use std::sync::{Arc,atomic::{AtomicUsize,Ordering}};
+            let workers=Arc::new(AtomicUsize::new(0));
             for stream in listener.incoming() {
                 let Ok(mut stream) = stream else { break; };
                 let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
                 let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
-                if handle(&app, &mut stream).is_err() { let _ = stream.write_all(b"{\"ok\":false}\n"); }
+                if workers.load(Ordering::SeqCst)>=4 {
+                    let _=write_json(&mut stream,&serde_json::json!({"ok":false,"error":{"code":"bridge_busy"}}));
+                    continue;
+                }
+                workers.fetch_add(1,Ordering::SeqCst);
+                let workers=workers.clone(); let app=app.clone();
+                std::thread::spawn(move || {
+                    if let Err(error) = handle(&app, &mut stream) {
+                        let _=write_json(&mut stream,&serde_json::json!({"ok":false,"error":{"code":public_error_code(&error)}}));
+                    }
+                    workers.fetch_sub(1,Ordering::SeqCst);
+                });
             }
         });
         Ok(())
@@ -268,17 +371,22 @@ mod linux {
             if raw.len() == 1024 * 1024 { return Err(DENIED.into()); }
             raw.push(b[0]);
         }
-        let request = parse_request(&raw)?;
+        let request = parse_request(&raw).map_err(|e| if e=="unsupported_operation" { "unsupported_operation" } else { "invalid_request" })?;
         let (generation, provider, url, key_label) = {
             let state = app.state::<BridgeState>();
             let core = state.0.lock().map_err(|_| DENIED)?;
-            let s = core.session.as_ref().ok_or(DENIED)?;
-            if s.expires <= Instant::now() || !s.keys.contains_key(&request.key_id) { return Err(DENIED.into()); }
-            let key = s.keys.get(&request.key_id).ok_or(DENIED)?;
-            let (provider, url) = endpoint(&key.identifier, &request.operation)?;
+            let s = core.session.as_ref().ok_or(if core.close_reason=="session_expired" { "session_expired" } else { "bridge_inactive" })?;
+            if s.expires <= Instant::now() { return Err("session_expired".into()); }
+            let key = s.keys.get(&request.key_id).ok_or("key_not_found")?;
+            let (provider,url) = if let Some(url) = key.config.endpoint(&request.operation)? {
+                let provider=reqwest::Url::parse(&url).map_err(|_| "invalid_request")?.host_str().ok_or("invalid_request")?.to_string();
+                (provider,url)
+            } else {
+                let (p,u)=endpoint(&key.identifier,&request.operation)?; (p.to_string(),u.to_string())
+            };
             (s.generation, provider, url, key.label.clone())
         };
-        let model = request.body["model"].as_str().ok_or(DENIED)?.to_owned();
+        let model = if let Some(model) = request.body["model"].as_str() { model.to_owned() } else if ["http.get","http.post"].contains(&request.operation.as_str()) { "fixed_endpoint".into() } else { super::super::services::scope(&request.operation,&request.body)? };
         let grant = (generation, request.key_id.clone(), identity.identity.clone(), request.operation.clone(), model.clone());
         let mut nonce = [0; 16]; getrandom::fill(&mut nonce).map_err(|_| DENIED)?;
         let request_id = nonce.iter().map(|b| format!("{b:02x}")).collect::<String>();
@@ -287,17 +395,18 @@ mod linux {
             let state = app.state::<BrokerState>();
             let mut hub = state.0.lock().map_err(|_| DENIED)?;
             if let Some(permit) = hub.grants.get_mut(&grant) {
-                if !consume(permit) { return Err(DENIED.into()); }
+                if !consume(permit) { return Err("quota_exceeded".into()); }
                 (true, hub.policy_revision)
             } else {
-                if hub.pending.is_some() { return Err(DENIED.into()); }
+                if hub.pending.is_some() { return Err("bridge_busy".into()); }
                 hub.pending = Some(Pending { request: Request { request_id: request_id.clone(), key_id: request.key_id.clone(), key_label, executable: identity.executable.clone(), sha256: identity.sha256.clone(), pid: identity.pid, provider:provider.into(), operation:request.operation.clone(), timeout_ms: 30_000, application:identity.application.clone(), entry_script:identity.entry_script.clone(), project:identity.project.clone(), model:model.clone(), identity:identity.identity.clone(), remember_allowed:identity.remember_allowed }, generation, deadline: Instant::now() + Duration::from_secs(30), reply: tx, presented: false });
                 (false, hub.policy_revision)
             }
         };
         if !remembered {
             show_approval(app)?;
-            let approved = rx.recv_timeout(Duration::from_secs(30)).unwrap_or(false);
+            let decision = rx.recv_timeout(Duration::from_secs(30)).unwrap_or(Err("approval_expired"));
+            let approved = decision.is_ok();
             {
                 let state = app.state::<BrokerState>();
                 let mut hub = state.0.lock().map_err(|_| DENIED)?;
@@ -307,38 +416,82 @@ mod linux {
             if approved {
                 let state = app.state::<BrokerState>();
                 let mut hub = state.0.lock().map_err(|_| DENIED)?;
-                if let Some(permit) = hub.grants.get_mut(&grant) { if !consume(permit) { return Err(DENIED.into()); } }
+                if let Some(permit) = hub.grants.get_mut(&grant) { if !consume(permit) { return Err("quota_exceeded".into()); } }
             }
-            if !approved { super::super::append_audit(app, "denied", &request.key_id, &identity.identity)?; return Err(DENIED.into()); }
+            if !approved { super::super::append_audit(app, "denied", &request.key_id, &identity.identity)?; return Err(decision.err().unwrap_or("user_denied").into()); }
         }
         // No UI receives the secret. Recheck process identity, session, expiry and
         // encrypted-file digest immediately before the one-record delivery.
-        if peer(stream)? != identity { return Err(DENIED.into()); }
+        if peer(stream)? != identity { return Err("identity_changed".into()); }
         { let state = app.state::<BrokerState>(); let hub = state.0.lock().map_err(|_| DENIED)?;
-          if hub.policy_revision != policy_revision { return Err(DENIED.into()); } }
+          if hub.policy_revision != policy_revision { return Err("permission_revoked".into()); } }
         let state = app.state::<BridgeState>();
         let core = state.0.lock().map_err(|_| DENIED)?;
         let s = core.session.as_ref().ok_or(DENIED)?;
-        if s.generation != generation || s.expires <= Instant::now() { return Err(DENIED.into()); }
+        if s.generation != generation { return Err("permission_revoked".into()); }
+        if s.expires <= Instant::now() { return Err("session_expired".into()); }
         let (path, _, _) = super::super::super::storage_paths(app, Some(s.vault_name.clone()))?;
-        if Sha256::digest(fs::read(path).map_err(|_| DENIED)?).as_slice() != s.file_hash { return Err(DENIED.into()); }
+        if Sha256::digest(fs::read(path).map_err(|_| DENIED)?).as_slice() != s.file_hash { return Err("vault_changed".into()); }
         let key = s.keys.get(&request.key_id).ok_or(DENIED)?;
         let secret = Zeroizing::new(key.secret.to_string());
         let identifier = key.identifier.clone();
+        let config = key.config.clone();
         super::super::append_audit(app, "approved", &request.key_id, &identity.identity)?;
         if s.expires <= Instant::now() { return Err(DENIED.into()); }
         drop(core);
         // Revocation blocks subsequent calls; a provider request already sent
         // cannot be recalled. Never hold the vault lock during network I/O.
-        let (status, body) = call_provider(url, &identifier, &secret, &request.body)?;
-        let data = Zeroizing::new(serde_json::to_vec(&serde_json::json!({"ok":true,"status":status,"body":body})).map_err(|_| DENIED)?);
-        stream.write_all(&data).and_then(|_| stream.write_all(b"\n")).map_err(|_| DENIED)?;
+        if url.is_empty() {
+            let (status,mut body) = super::super::services::call(&identifier,&request.operation,&secret,&request.body)?;
+            sanitize_response(&mut body,&secret);
+            let result=write_json(stream,&serde_json::json!({"ok":true,"status":status,"body":body}));
+            super::super::erase_json(&mut body);
+            result?;
+            return super::super::append_audit(app,"delivered",&request.key_id,&identity.identity);
+        }
+        let response = provider_request(&url, &identifier, &secret, &request.body, &config, &request.operation)?;
+        if request.body["stream"] == true && response.status().is_success() {
+            let is_sse = response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).is_some_and(|v| v.split(';').next() == Some("text/event-stream"));
+            if !is_sse { return Err("provider_unavailable".into()); }
+            write_json(stream, &serde_json::json!({"ok":true,"status":response.status().as_u16(),"stream":true}))?;
+            relay_sse(response, stream, &secret, || {
+                let state = app.state::<BrokerState>();
+                let revision_ok = state.0.lock().is_ok_and(|h| h.policy_revision == policy_revision);
+                let state = app.state::<BridgeState>();
+                revision_ok && state.0.lock().is_ok_and(|c| c.session.as_ref().is_some_and(|s| s.generation == generation && s.expires > Instant::now()))
+            })?;
+        } else {
+            let (status, mut body) = read_provider_json(response, &secret)?;
+            let result = if request.body["stream"] == true {
+                write_json(stream, &serde_json::json!({"ok":true,"status":status,"stream":true}))
+            } else { write_json(stream, &serde_json::json!({"ok":true,"status":status,"body":body})) };
+            super::super::erase_json(&mut body);
+            result?;
+        }
         super::super::append_audit(app, "delivered", &request.key_id, &identity.identity)
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
+        #[test] fn automatic_and_explicit_anthropic_profiles_use_correct_authentication() {
+            let mut c=super::super::super::providers::Config::default();
+            for protocol in ["","auto","anthropic"] { c.protocol=protocol.into();assert_eq!(authentication(&c,"https://api.deepseek.com/anthropic/v1/messages"),("x-api-key",true)); }
+            c.protocol="openai".into();assert_eq!(authentication(&c,"https://example.com/v1/chat/completions"),("bearer",false));
+            c.auth="api-key".into();assert_eq!(authentication(&c,"https://example.com/v1/chat/completions"),("api-key",false));
+        }
+        #[test] fn streams_preserve_tool_deltas_redact_and_detect_truncation() {
+            let input=b"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"fake-key\"}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+            let mut out=Vec::new(); relay_sse(input.as_slice(),&mut out,"fake-key",||true).unwrap();
+            let out=String::from_utf8(out).unwrap(); assert!(out.contains("input_json_delta"));assert!(!out.contains("fake-key"));assert!(out.contains("done"));
+            assert!(relay_sse(b"data: {}\n\n".as_slice(),&mut Vec::new(),"secret",||true).is_err());
+            assert_eq!(relay_sse(input.as_slice(),&mut Vec::new(),"secret",||false).unwrap_err(),"permission_revoked");
+            assert!(relay_sse(b"event: injected\rheader\ndata: {}\n\n".as_slice(),&mut Vec::new(),"secret",||true).is_err());
+        }
+        #[test] fn diagnostic_codes_never_forward_error_payloads() {
+            for code in ["bridge_inactive","session_expired","key_not_found","user_denied","approval_expired","unsupported_operation"] { assert_eq!(public_error_code(code),code); }
+            assert_eq!(public_error_code("https://provider.invalid?secret=fake"),"request_failed");
+        }
         #[test] fn protocol_does_not_accept_claimed_identity_or_path() {
             assert!(parse_request(br#"{"version":1,"key_id":"key-a","operation":"chat","body":{"model":"fictional"}}"#).is_ok());
             for raw in [br#"{"version":1,"key_id":"../secret"}"#.as_slice(), br#"{"version":2,"key_id":"key-a"}"#, br#"{"version":1,"key_id":"key-a","application":"Trusted App"}"#] { assert!(parse_request(raw).is_err()); }
@@ -347,7 +500,7 @@ mod linux {
             assert_eq!(endpoint("OPENAI_API_KEY", "responses").unwrap().1, "https://api.openai.com/v1/responses");
             for op in ["https://evil.invalid", "../secret", "messages"] { assert!(endpoint("OPENAI_API_KEY", op).is_err()); }
             assert!(endpoint("OTHER_API_KEY", "chat").is_err());
-            assert!(parse_request(br#"{"version":1,"key_id":"key-a","operation":"chat","body":{"stream":true}}"#).is_err());
+            assert!(parse_request(br#"{"version":1,"key_id":"key-a","operation":"chat","body":{"model":"m","stream":true}}"#).is_ok());
         }
         #[test] fn replies_redact_keys_in_nested_values_and_field_names() {
             let mut value = serde_json::json!({"fake-key":[{"message":"Bearer fake-key"}]});
@@ -393,4 +546,10 @@ mod linux {
 pub fn start(app: &AppHandle) -> Result<(), String> {
     #[cfg(target_os = "linux")] { linux::start(app) }
     #[cfg(not(target_os = "linux"))] { let _ = app; Ok(()) }
+}
+
+#[cfg(target_os = "linux")]
+pub(super) fn service_response(response: reqwest::blocking::Response, secret: &str) -> Result<(u16,serde_json::Value),String> {
+    if response.status().is_redirection() { return Err("provider_unavailable".into()); }
+    linux::read_provider_json(response,secret)
 }
