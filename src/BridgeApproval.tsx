@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { useAppearance } from "./useAppearance";
+import { UiIcon } from "./UiIcon";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 type Request = { requestId: string; keyId: string; keyLabel: string; application: string; entryScript: string | null; project: string; model: string; operation: string; provider: string; identity: string; timeoutMs: number; rememberAllowed: boolean };
 export default function BridgeApproval() {
+  useAppearance();
   const [request, setRequest] = useState<Request | null>(null);
   const [remember, setRemember] = useState(false);
   const [maxCalls, setMaxCalls] = useState(10000);
@@ -44,23 +47,47 @@ export default function BridgeApproval() {
     catch { /* Expired/revoked requests stay denied. */ }
     finally { setRequest(null); setBusy(false); await getCurrentWindow().hide(); }
   }
+  const filename = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() || path;
   return <main className="bridgeDesktopApproval">
-    <header><strong>KPassword · Secrets Bridge</strong><span>{remaining}s</span></header>
-    <h1>{text("Autorizar chamada de API", "Approve API call")}</h1>
+    <header>
+      <div className="bridgeBrand"><img src="/app-icon.png" alt="" /><strong>Secrets Bridge</strong></div>
+      <span className={remaining <= 10 ? "bridgeCountdown urgent" : "bridgeCountdown"} role="timer" aria-label={text("Tempo restante", "Time remaining")}>{remaining} s</span>
+    </header>
+    <div className="bridgeTitle"><UiIcon name="shield" /><div>
+      <h1>{text("Autorizar chamada de API", "Approve API call")}</h1>
+      <p>{text("Uma aplicação solicita acesso a uma credencial do cofre.", "An application is requesting access to a vault credential.")}</p>
+    </div></div>
     {request ? <>
-      <section className="bridgeApprovalContent">
-      <dl><dt>{text("Aplicação", "Application")}</dt><dd>{request.entryScript ?? request.application}</dd>
-      <dt>{text("Projeto / diretório", "Project / directory")}</dt><dd>{request.project}</dd>
-      <dt>{text("Credencial", "Credential")}</dt><dd>{request.keyLabel}<small>ID: {request.keyId}</small></dd>
-      <dt>{text("Provedor · operação · modelo", "Provider · operation · model")}</dt><dd>{request.provider} · {request.operation} · {request.model}</dd></dl>
-      <details><summary>{text("Identidade verificada pelo sistema", "System-observed identity")}</summary><p>{request.application}</p><p>{request.identity}</p></details>
-      <p>{text("A chave fica no KPassword. A chamada envia dados ao provedor e pode gerar cobrança.", "The key stays in KPassword. The call sends data to the provider and may incur charges.")}</p>
-      <label><input type="checkbox" checked={remember} disabled={!request.rememberAllowed} onChange={e => setRemember(e.target.checked)} />{text("Continuar permitindo durante a sessão da ponte", "Keep allowing during this Bridge session")}</label>
-      {!request.rememberAllowed && <p>{text("Interpretador sem script identificável: somente aprovação única. Integre o conector ao projeto para autorizar uso contínuo.", "Interpreter without an identifiable script: one-time approval only. Integrate the connector into the project for continued access.")}</p>}
-      {remember && <label>{text("Limite de chamadas nesta permissão", "Call limit for this permission")}<input type="number" min={1} max={100000} value={maxCalls} onChange={e=>setMaxCalls(Math.max(1,Math.min(100000,Number(e.target.value)||1)))} /></label>}
-      <small>{text("Máximo de 60 chamadas/minuto. Fechar ou ignorar recusa. A permissão inclui script, diretório, credencial, operação e modelo; não isola malware da sua conta.", "Maximum 60 calls/minute. Closing or ignoring denies. Permission includes script, directory, credential, operation and model; it does not isolate malware under your account.")}</small>
+      <section className="bridgeApprovalContent" aria-label={text("Pedido de acesso", "Access request")}>
+        <dl className="bridgeRequestSummary">
+          <dt>{text("Aplicação", "Application")}</dt><dd title={request.entryScript ?? request.application}>{filename(request.entryScript ?? request.application)}</dd>
+          <dt>{text("Projeto", "Project")}</dt><dd title={request.project}>{filename(request.project)}</dd>
+          <dt>{text("Credencial", "Credential")}</dt><dd>{request.keyLabel}</dd>
+          <dt>{text("Provedor", "Provider")}</dt><dd>{request.provider}</dd>
+          <dt>{text("Operação / modelo", "Operation / model")}</dt><dd>{request.operation} · {request.model}</dd>
+        </dl>
+        <div className="bridgePermissionControls">
+          <label className="toggleRow"><span>{text("Permitir durante esta sessão da ponte", "Allow during this Bridge session")}</span><input type="checkbox" checked={remember} disabled={!request.rememberAllowed} onChange={e => setRemember(e.target.checked)} /></label>
+          {!request.rememberAllowed && <p>{text("Interpretador sem script identificável: somente aprovação única. Integre o conector ao projeto para autorizar uso contínuo.", "Interpreter without an identifiable script: one-time approval only. Integrate the connector into the project for continued access.")}</p>}
+          {remember && <label>{text("Limite de chamadas nesta permissão", "Call limit for this permission")}<input type="number" min={1} max={100000} value={maxCalls} onChange={e => setMaxCalls(Math.max(1, Math.min(100000, Number(e.target.value) || 1)))} /></label>}
+        </div>
+        <details className="technicalDetails">
+          <summary>{text("Identidade e caminhos completos", "Identity and full paths")}</summary>
+          <dl>
+            <dt>{text("Aplicação", "Application")}</dt><dd>{request.application}</dd>
+            {request.entryScript && <><dt>Script</dt><dd>{request.entryScript}</dd></>}
+            <dt>{text("Projeto / diretório", "Project / directory")}</dt><dd>{request.project}</dd>
+            <dt>{text("ID da credencial", "Credential ID")}</dt><dd>{request.keyId}</dd>
+            <dt>{text("Identidade observada pelo sistema", "System-observed identity")}</dt><dd>{request.identity}</dd>
+          </dl>
+        </details>
+        <small>{text("Máximo de 60 chamadas/minuto. A permissão inclui script, diretório, credencial, operação e modelo; não isola malware da sua conta.", "Maximum 60 calls/minute. Permission includes script, directory, credential, operation and model; it does not isolate malware under your account.")}</small>
       </section>
-      <footer><button disabled={busy} onClick={()=>void answer(false)}>{text("Recusar", "Deny")}</button><button className="primaryButton" disabled={busy} onClick={()=>void answer(true)}>{remember ? text("Aprovar e continuar permitindo", "Approve and keep allowing") : text("Aprovar uma vez", "Approve once")}</button></footer>
-    </> : <p>{text("Nenhum pedido pendente.", "No pending request.")}</p>}
+      <div className="bridgeWarning"><span aria-hidden="true">!</span><p>{text("A chave fica no KPassword. A chamada envia dados ao provedor e pode gerar cobrança.", "The key stays in KPassword. The call sends data to the provider and may incur charges.")}</p></div>
+      <footer>
+        <small>{text("Fechar ou ignorar recusa o pedido.", "Closing or ignoring denies the request.")}</small>
+        <div className="bridgeActions"><button className="secondaryButton" disabled={busy} onClick={() => void answer(false)}>{text("Recusar", "Deny")}</button><button className="primaryButton" disabled={busy} onClick={() => void answer(true)}>{remember ? text("Aprovar e continuar permitindo", "Approve and keep allowing") : text("Aprovar uma vez", "Approve once")}</button></div>
+      </footer>
+    </> : <p role="status">{text("Nenhum pedido pendente.", "No pending request.")}</p>}
   </main>;
 }

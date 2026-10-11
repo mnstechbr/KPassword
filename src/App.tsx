@@ -8,6 +8,9 @@ import {
   type FormEvent,
   type MouseEvent,
 } from "react";
+import { useDialogFocus } from "./useDialogFocus";
+import { useAppearance } from "./useAppearance";
+import { UiIcon } from "./UiIcon";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { linuxTranslation, readClipboard, writeClipboard } from "./platform";
@@ -157,12 +160,10 @@ const DEFAULT_STARTUP_STATUS: StartupStatus = {
   startup_argument: "--startup",
 };
 
-type Screen = "credentials" | "dashboard" | "trash" | "settings" | "preferences";
+type Screen = "credentials" | "dashboard" | "trash" | "settings" | "backups" | "preferences";
 
 const ITEM_TYPES: VaultItemType[] = ["credential", "secure_note", "card", "identity", "license", "api_key"];
 
-type AppTheme = "dark" | "light" | "mixed";
-type FontScale = "normal" | "large";
 
 const PASSWORD_EXPIRY_OPTIONS = [0, 30, 60, 90, 180, 365];
 const PASSWORD_NOTICE_OPTIONS = [7, 15, 30, 60];
@@ -968,16 +969,8 @@ function isCredentialItem(credential: CredentialRecord) {
 }
 
 function getItemTypeIcon(itemType: VaultItemType) {
-  const icons: Record<VaultItemType, string> = {
-    credential: "🔑",
-    secure_note: "📝",
-    card: "💳",
-    identity: "🪪",
-    license: "📜",
-    api_key: "🗝️",
-  };
-
-  return icons[itemType];
+  const icons = { credential: "key", secure_note: "note", card: "card", identity: "identity", license: "license", api_key: "key" } as const;
+  return <UiIcon name={icons[itemType]} />;
 }
 
 function getItemTypeLabel(itemType: VaultItemType, language: AppLanguage) {
@@ -1819,6 +1812,7 @@ function normalizeVault(vault: PlainVault): PlainVault {
 }
 
 export default function App() {
+  useDialogFocus();
   const [platform, setPlatform] = useState("unknown");
   const isLinux = platform === "linux";
   const [bridgeGeneration, setBridgeGeneration] = useState<number | null>(null);
@@ -1841,20 +1835,11 @@ export default function App() {
     }).catch(() => {});
   }, []);
   const [screen, setScreen] = useState<Screen>("credentials");
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [sidebarHorizontal, setSidebarHorizontal] = useState(false);
-  const [appTheme, setAppTheme] = useState<AppTheme>(() =>
-    getStoredValue<AppTheme>("kpassword:theme", "dark"),
-  );
-  const [fontScale, setFontScale] = useState<FontScale>(() =>
-    getStoredValue<FontScale>("kpassword:font-scale", "normal"),
-  );
-  const [reduceMotion, setReduceMotion] = useState(() =>
-    getStoredValue<string>("kpassword:reduce-motion", "false") === "true",
-  );
-  const [compactMode, setCompactMode] = useState(() =>
-    getStoredValue<string>("kpassword:compact-mode", "false") === "true",
-  );
+  const { theme: appTheme, setTheme: setAppTheme, fontScale, setFontScale,
+    reduceMotion, setReduceMotion, compactMode, setCompactMode } = useAppearance();
+  const [securitySection, setSecuritySection] = useState<"access" | "locking" | "clipboard" | "integrations">("access");
   const [vault, setVault] = useState<PlainVault | null>(null);
   const [encryptedVault, setEncryptedVault] = useState<EncryptedVaultFile | null>(null);
   const [masterPassword, setMasterPassword] = useState("");
@@ -1880,7 +1865,6 @@ export default function App() {
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [showStoragePaths, setShowStoragePaths] = useState(false);
-  const [securityAdvancedOpen, setSecurityAdvancedOpen] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
   const [visibleHistoryPasswords, setVisibleHistoryPasswords] = useState<Record<string, boolean>>({});
   const [copiedField, setCopiedField] = useState("");
@@ -2136,7 +2120,7 @@ export default function App() {
 
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 980px)");
+    const mediaQuery = window.matchMedia("(max-width: 680px)");
 
     const syncSidebarMode = () => {
       setSidebarHorizontal(mediaQuery.matches);
@@ -2148,17 +2132,6 @@ export default function App() {
     return () => mediaQuery.removeEventListener("change", syncSidebarMode);
   }, []);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = appTheme;
-    document.documentElement.dataset.fontScale = fontScale;
-    document.documentElement.dataset.motion = reduceMotion ? "reduced" : "normal";
-    document.documentElement.dataset.density = compactMode ? "compact" : "normal";
-
-    localStorage.setItem("kpassword:theme", appTheme);
-    localStorage.setItem("kpassword:font-scale", fontScale);
-    localStorage.setItem("kpassword:reduce-motion", String(reduceMotion));
-    localStorage.setItem("kpassword:compact-mode", String(compactMode));
-  }, [appTheme, fontScale, reduceMotion, compactMode]);
 
   useEffect(() => {
     const secret = detailCredentialId && vault
@@ -2911,6 +2884,7 @@ export default function App() {
     });
 
     if (confirmed) {
+      setSecuritySection("access");
       setScreen("settings");
     }
   }
@@ -4973,45 +4947,6 @@ export default function App() {
     return options;
   }, [activeVaultName, vaultFiles]);
 
-  const vaultSelectorElement = (
-    <div className="vaultSwitcher">
-      <label>
-        <span>{t("vault.current")}</span>
-        <select
-          value={activeVaultName}
-          onChange={(event) => void handleSwitchVault(event.target.value)}
-        >
-          {vaultOptions.map((item) => (
-            <option key={item.name} value={item.name}>
-              {item.display_name}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <div className="newVaultRow">
-        <input
-          value={newVaultName}
-          onChange={(event) => setNewVaultName(event.target.value)}
-          placeholder={t("vault.newNamePlaceholder")}
-        />
-        <button type="button" className="secondaryButton" onClick={() => {
-          if (newVaultName.trim()) void handleCreateNewVault();
-          else openNewVaultDialog();
-        }}>
-          {t("vault.create")}
-        </button>
-      </div>
-
-      <small>{t("vault.currentFile", { name: getVaultDisplayName(activeVaultName, vaultFiles) })}</small>
-      {mode === "unlocked" && vaultFiles.some((item) => item.name === activeVaultName) && (
-        <button type="button" className="dangerConfirmButton" disabled={busy} onClick={() => {
-          setDeleteVaultPassword(""); setDeleteVaultError(""); setDeleteVaultTarget(activeVaultName);
-        }}>{t("vault.delete")}</button>
-      )}
-    </div>
-  );
-
   const authLoginToolsElement = (
     <div className="authLoginTools" aria-label={t("auth.quickSettings")}>
       <div className="authThemeSlot">
@@ -5038,13 +4973,13 @@ export default function App() {
           </button>
           <button
             type="button"
-            title={t("preferences.mixed")}
-            aria-label={t("preferences.mixed")}
-            className={appTheme === "mixed" ? "authThemeButton active" : "authThemeButton"}
-            onClick={() => setAppTheme("mixed")}
+            title={t("preferences.system")}
+            aria-label={t("preferences.system")}
+            className={appTheme === "system" ? "authThemeButton active" : "authThemeButton"}
+            onClick={() => setAppTheme("system")}
           >
-            <span className="authThemeIcon" aria-hidden="true">◐</span>
-            <span>{t("preferences.mixed")}</span>
+            <UiIcon name="system" />
+            <span>{t("preferences.system")}</span>
           </button>
         </div>
       </div>
@@ -5691,1561 +5626,25 @@ export default function App() {
     </div>
   ) : null;
 
-  if (mode === "loading") {
-    return (
-      <>
-        <main className="authShell authDesktopShell">
-          <section className="authCard authExperience authLocked authLoadingState">
-            <div className="authUtilityBar">
-              <div className="authProductMark">
-                <AppLogo size="sm" />
-                <div>
-                  <strong>KPassword</strong>
-                  <span>{t("app.localVault")}</span>
-                </div>
-              </div>
-              {authLoginToolsElement}
-            </div>
-
-            <div className="authHeroBlock authLogoStage">
-              <AppLogo size="lg" className="vaultLogo" />
-            </div>
-
-            <section
-              className="authPanel authUnlockPanel authLoadingPanel"
-              aria-live="polite"
-              aria-busy="true"
-            >
-              <span className="authPanelLabel">{t("status.loadingVault")}</span>
-              <div
-                className="authLoadingBar"
-                role="progressbar"
-                aria-label={t("status.loadingVault")}
-              />
-            </section>
-
-            <footer className="authDeveloperCredit">
-              Desenvolvido por <strong>MNSTechbr</strong>
-            </footer>
-          </section>
-        </main>
-        {confirmDialogElement}
-        {restoreBackupDialog}
-        {newVaultDialog}
-      </>
-    );
-  }
-
-  if (mode === "setup") {
-    return (
-      <>
-        <main className="authShell authDesktopShell authSetupShell">
-          <section className="authCard authExperience authSetup">
-            <div className="authUtilityBar">
-              <div className="authProductMark">
-                <AppLogo size="sm" />
-                <div>
-                  <strong>KPassword</strong>
-                  <span>{t("app.localVault")}</span>
-                </div>
-              </div>
-              {authLoginToolsElement}
-            </div>
-
-            <div className="authHeroBlock">
-              <AppLogo size="lg" />
-              <p className="eyebrow">{t("auth.firstAccess")}</p>
-              <h1>{t("auth.createMasterTitle")}</h1>
-              <p>{t("auth.createMasterDescription")}</p>
-            </div>
-
-            <div className="firstUseGuide refinedFirstUseGuide">
-              <strong>{t("onboarding.title")}</strong>
-              <span>{t("onboarding.step1")}</span>
-              <span>{t("onboarding.step2")}</span>
-              <span>{t("onboarding.step3")}</span>
-            </div>
-
-            <section className="authPanel">
-              <span className="authPanelLabel">{t("auth.setupPanelLabel")}</span>
-              <form onSubmit={handleCreateVault} className="authForm">
-                <label>
-                  {t("auth.masterPassword")}
-                  <input
-                    type="password"
-                    value={setupPassword}
-                    onChange={(event) => setSetupPassword(event.target.value)}
-                    placeholder={t("auth.masterPlaceholder")}
-                    autoFocus
-                  />
-                </label>
-
-                <label>
-                  {t("auth.confirmMasterPassword")}
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    placeholder={t("auth.repeatPassword")}
-                  />
-                </label>
-
-                {setupPassword && (
-                  <div className="securityNotes">
-                    {masterIssues.length === 0 ? (
-                      <span>{t("auth.validMasterPassword")}</span>
-                    ) : (
-                      masterIssues.map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
-                    )}
-                  </div>
-                )}
-
-                {message && <div className="message error">{message}</div>}
-
-                <button disabled={busy} className="primaryButton">
-                  {busy ? t("auth.creatingVault") : t("auth.createEncryptedVault")}
-                </button>
-              </form>
-            </section>
-
-            <footer className="authDeveloperCredit">
-              Desenvolvido por <strong>MNSTechbr</strong>
-            </footer>
-          </section>
-        </main>
-        {confirmDialogElement}
-        {restoreBackupDialog}
-        {newVaultDialog}
-      </>
-    );
-  }
-
-  if (mode === "locked") {
-    return (
-      <>
-        <main className="authShell authDesktopShell">
-          <section className={`authCard authExperience authLocked${unlockPassword || busy || windowsHelloBusy ? " authUnlockTyping" : ""}${unlockGateOpen ? " authUnlockSuccess" : ""}`}>
-            <div className="authUtilityBar">
-              <div className="authProductMark">
-                <AppLogo size="sm" />
-                <div>
-                  <strong>KPassword</strong>
-                  <span>{t("app.localVault")}</span>
-                </div>
-              </div>
-              {authLoginToolsElement}
-            </div>
-
-            <div className="authHeroBlock authLogoStage">
-              <AppLogo
-                size="lg"
-                className={unlockPassword || busy || windowsHelloBusy || unlockGateOpen ? "vaultLogo opening" : "vaultLogo"}
-              />
-            </div>
-
-            <section className="authPanel authUnlockPanel">
-              <span className="authPanelLabel">{t("auth.vaultBlockedPanelLabel")}</span>
-              <form onSubmit={handleUnlock} className="authForm authUnlockForm">
-                <label>
-                  {t("auth.masterPassword")}
-                  <input
-                    type="password"
-                    value={unlockPassword}
-                    onChange={(event) => setUnlockPassword(event.target.value)}
-                    placeholder={t("auth.unlockPlaceholder")}
-                    autoFocus
-                  />
-                </label>
-
-                {message && <div className="message error">{message}</div>}
-
-                <button disabled={busy} className="primaryButton">
-                  {busy ? t("auth.unlocking") : t("auth.unlock")}
-                </button>
-
-                {canOfferHelloUnlock(windowsHelloStatus) && (
-                  <button
-                    type="button"
-                    className="windowsHelloButton"
-                    disabled={busy || windowsHelloBusy}
-                    onClick={() => void handleUnlockWithWindowsHello()}
-                  >
-                    {windowsHelloBusy ? t("auth.unlocking") : getPinUnlockLabel(appLanguage)}
-                  </button>
-                )}
-              </form>
-            </section>
-
-            <footer className="authDeveloperCredit">
-              Desenvolvido por <strong>MNSTechbr</strong>
-            </footer>
-          </section>
-        </main>
-        {confirmDialogElement}
-        {restoreBackupDialog}
-        {newVaultDialog}
-      </>
-    );
-  }
-
-  return (
-    <main
-      className={`appShell ${sidebarExpanded ? "sidebarOpen" : "sidebarClosed"}${sidebarHorizontal ? " sidebarHorizontal" : ""}`}
-    >
-      <aside className="sidebar">
-        <div className="sidebarBrand">
-          <button
-            className="sidebarToggle"
-            onClick={() => {
-              if (!sidebarHorizontal) {
-                setSidebarExpanded((current) => !current);
-              }
-            }}
-            title={sidebarHorizontal ? "KPassword" : sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
-            aria-label={sidebarHorizontal ? "KPassword" : sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
-            aria-disabled={sidebarHorizontal}
-            tabIndex={sidebarHorizontal ? -1 : 0}
-          >
-            <AppLogo size="md" />
-          </button>
-
-          <div className="brandText">
-            <strong>KPassword</strong>
-            <span>{t("app.localVault")}</span>
-          </div>
-        </div>
-
-        <nav className="navList"><button
-            className={screen === "credentials" ? "active" : ""}
-            onClick={() => setScreen("credentials")}
-            title={t("nav.credentials")}
-            aria-label={t("nav.credentials")}
-          >
-            <span className="navIcon" aria-hidden="true">🔑</span>
-            <span className="navLabel">{t("nav.credentials")}</span>
-          </button>
-          <button
-            className={screen === "dashboard" ? "active" : ""}
-            onClick={() => setScreen("dashboard")}
-            title={t("nav.dashboard")}
-            aria-label={t("nav.dashboard")}
-          >
-            <span className="navIcon" aria-hidden="true">📊</span>
-            <span className="navLabel">{t("nav.dashboard")}</span>
-          </button>
-          <button
-            className={screen === "trash" ? "active" : ""}
-            onClick={() => setScreen("trash")}
-            title={t("nav.trash")}
-            aria-label={t("nav.trash")}
-          >
-            <span className="navIcon" aria-hidden="true">🗑️</span>
-            <span className="navLabel">{t("nav.trash")}</span>
-          </button>
-          <button
-            className={screen === "settings" ? "active" : ""}
-            onClick={() => setScreen("settings")}
-            title={t("nav.securityBackup")}
-            aria-label={t("nav.securityBackup")}
-          >
-            <span className="navIcon" aria-hidden="true">🛡️</span>
-            <span className="navLabel">{t("nav.securityBackup")}</span>
-          </button>
-          <button
-            className={screen === "preferences" ? "active" : ""}
-            onClick={() => setScreen("preferences")}
-            title={t("nav.preferences")}
-            aria-label={t("nav.preferences")}
-          >
-            <span className="navIcon" aria-hidden="true">⚙️</span>
-            <span className="navLabel">{t("nav.preferences")}</span>
-          </button>
-        </nav>
-
-        <div className="sidebarFooter">
-          <button className="lockButton" onClick={() => lockVault()} title={t("nav.lockVault")} aria-label={t("nav.lockVault")}>
-            <span className="navIcon" aria-hidden="true">🔒</span>
-            <span className="navLabel">{t("nav.lockVault")}</span>
-          </button>
-        </div>
-      </aside>
-
-      <section className="content">
-        <header className="topbar">
-          <div className="topbarTitle">
-            <AppLogo size="md" />
-            <div>
-              <p className="eyebrow">{t("topbar.localProtection")}</p>
-              <h1>
-                {screen === "credentials" && t("nav.credentials")}
-                {screen === "dashboard" && t("nav.dashboard")}
-                {screen === "trash" && t("nav.trash")}
-                {screen === "settings" && t("nav.securityBackup")}
-                {screen === "preferences" && t("nav.preferences")}
-              </h1>
-            </div>
-          </div>
-
-          <div className="topbarActions">
-            <button
-              type="button"
-              className="vaultIndicator"
-              onClick={() => setScreen("preferences")}
-              title={t("vault.current")}
-            >
-              <span>{t("vault.current")}</span>
-              <strong>{getVaultDisplayName(activeVaultName, vaultFiles)}</strong>
-            </button>
-            <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
-            {screen !== "trash" && (
-              <button
-                className="primaryButton addItemIconButton"
-                onClick={openNewCredentialForm}
-                title={t("topbar.addItem")}
-                aria-label={t("topbar.addItem")}
-              >
-                <span aria-hidden="true">+</span>
-              </button>
-            )}
-          </div>
-        </header>
-
-        {message && <div className="message success">{message}</div>}
-
-        {screen === "credentials" && (
-          <>
-            <div className="toolbar vaultSearchToolbar">
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t("search.placeholder")}
-              />
-
-              <div className="quickFilterDropdown" ref={quickFilterMenuRef}>
-                <button
-                  type="button"
-                  className={activeQuickFilter === "all" ? "quickFilterMenuButton" : "quickFilterMenuButton active"}
-                  onClick={() => setQuickFilterMenuOpen((current) => !current)}
-                  aria-haspopup="menu"
-                  aria-expanded={quickFilterMenuOpen}
-                >
-                  <span>{quickFilterButtonLabel}</span>
-                  <strong>{quickFilterButtonCount}</strong>
-                  <span className="quickFilterMenuChevron" aria-hidden="true">⌄</span>
-                </button>
-
-                {quickFilterMenuOpen && (
-                  <div className="quickFilterMenu" role="menu" aria-label={t("quickFilters.title")}>
-                    <div className="quickFilterMenuHeader">
-                      <span>{t("quickFilters.title")}</span>
-                      <small>{t("search.results", { count: filteredCredentials.length })}</small>
-                    </div>
-
-                    {quickFilterOptions.map((item) => (
-                      <button
-                        key={item.filter}
-                        type="button"
-                        role="menuitem"
-                        className={activeQuickFilter === item.filter ? "quickFilterMenuItem active" : "quickFilterMenuItem"}
-                        onClick={() => openQuickVaultFilter(item.filter)}
-                        disabled={item.filter !== "all" && item.count === 0}
-                      >
-                        <span>{item.label}</span>
-                        <strong>{item.count}</strong>
-                      </button>
-                    ))}
-
-                    {activeQuickFilter !== "all" && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="quickFilterMenuClear"
-                        onClick={() => openQuickVaultFilter("all")}
-                      >
-                        {t("quickFilters.clearFilter")}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {allVaultTags.length > 0 && (
-              <div className="tagFilterBar" aria-label={t("tags.title")}>
-                <span>{t("tags.title")}</span>
-                <div className="tagFilterChips">
-                  <button
-                    type="button"
-                    className={activeTagFilter ? "tagFilterChip" : "tagFilterChip active"}
-                    onClick={() => setActiveTagFilter("")}
-                  >
-                    {t("tags.filterAll")}
-                  </button>
-                  {allVaultTags.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      className={activeTagFilter === tag ? "tagFilterChip active" : "tagFilterChip"}
-                      onClick={() => setActiveTagFilter(tag)}
-                    >
-                      #{tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeTagFilter && (
-              <div className="diagnosticFilterBanner tagFilterBanner">
-                <div>
-                  <strong>{t("tags.filteringBy")}</strong>
-                  <span>#{activeTagFilter}</span>
-                </div>
-                <button type="button" className="secondaryButton" onClick={() => setActiveTagFilter("")}>
-                  {t("tags.clearFilter")}
-                </button>
-              </div>
-            )}
-
-            {activeDiagnosticFilter !== "all" && (
-              <div className="diagnosticFilterBanner">
-                <div>
-                  <strong>{t("diagnostic.filteringBy")}</strong>
-                  <span>{getDiagnosticLabel(activeDiagnosticFilter)}</span>
-                </div>
-                <button type="button" className="secondaryButton" onClick={() => setActiveDiagnosticFilter("all")}>
-                  {t("diagnostic.clearFilter")}
-                </button>
-              </div>
-            )}
-
-            <section className="credentialRows">
-              {filteredCredentials.map((credential, index) => {
-                const itemType = getItemType(credential);
-                const credentialStrength = strengthByCredential[credential.id] ?? null;
-                const primarySecret = getItemPrimarySecret(credential);
-                const previousCredential = filteredCredentials[index - 1];
-                const nextCredential = filteredCredentials[index + 1];
-                const canMoveUp =
-                  canReorderCredentials && previousCredential?.favorite === credential.favorite;
-                const canMoveDown =
-                  canReorderCredentials && nextCredential?.favorite === credential.favorite;
-
-                return (
-                  <article
-                    className="credentialRow"
-                    key={credential.id}
-                    onClick={() => setDetailCredentialId(credential.id)}
-                    title={t("credential.clickTitle")}
-                  >
-                    <span className="reorderControls" aria-label={t("credential.reorder")}>
-                      <button
-                        type="button"
-                        disabled={!canMoveUp}
-                        title={canReorderCredentials ? t("credential.moveUp") : t("credential.clearSearchToReorder")}
-                        onClick={(event) => {
-                          stopAction(event);
-                          void moveCredentialByOffset(credential.id, -1);
-                        }}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!canMoveDown}
-                        title={canReorderCredentials ? t("credential.moveDown") : t("credential.clearSearchToReorder")}
-                        onClick={(event) => {
-                          stopAction(event);
-                          void moveCredentialByOffset(credential.id, 1);
-                        }}
-                      >
-                        ↓
-                      </button>
-                    </span>
-                    <span
-                      className={credential.favorite ? "rowStar active" : "rowStar"}
-                      onClick={(event) => {
-                        stopAction(event);
-                        void toggleFavorite(credential.id);
-                      }}
-                      title={credential.favorite ? t("credential.removeFavorite") : t("credential.favorite")}
-                    >
-                      ★
-                    </span>
-
-                    <span className="rowMain">
-                      <strong>{credential.title}</strong>
-                      <small>{getItemSubtitle(credential, appLanguage)}</small>
-                      {getCredentialTags(credential).length > 0 && (
-                        <span className="credentialTags compact">
-                          {getCredentialTags(credential).slice(0, 3).map((tag) => (
-                            <span key={tag} className="tagPill">#{tag}</span>
-                          ))}
-                        </span>
-                      )}
-                    </span>
-
-                    <span className="rowPassword">
-                      {isCredentialItem(credential) ? maskPassword(credential.password) : maskGenericSecret(primarySecret)}
-                    </span>
-
-                    <span className="rowCategory">
-                      {getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)}
-                    </span>
-
-                    <span className="rowHealth">
-                      {isCredentialItem(credential) ? (
-                        <>
-                          <span>
-                            {credentialStrength
-                              ? `${translatePasswordLabel(credentialStrength.label, appLanguage)} · ${credentialStrength.score}%`
-                              : "—"}
-                          </span>
-                          <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
-                            {getExpiryLabel(credential)}
-                          </span>
-                          {getDiagnosticIssuesFor(credential).slice(0, 2).map((issue) => (
-                            <span key={issue} className={`diagnosticMiniBadge issue-${issue}`}>
-                              {getDiagnosticLabel(issue)}
-                            </span>
-                          ))}
-                        </>
-                      ) : (
-                        <>
-                          <span>{getCategoryLabel(credential.category, appLanguage)}</span>
-                          <span className="expiryBadge never">{t("item.encrypted")}</span>
-                        </>
-                      )}
-                    </span>
-
-                    <span className="rowActions">
-                      {isCredentialItem(credential) && credential.username && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            stopAction(event);
-                            void copySecure(
-                              credential.username,
-                              `user-${credential.id}`,
-                              createActionHistoryEntry("username_copied", credential.title),
-                            );
-                          }}
-                        >
-                          {copiedField === `user-${credential.id}` ? t("credential.copied") : t("credential.copyUser")}
-                        </button>
-                      )}
-
-                      {primarySecret && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            stopAction(event);
-                            void copySecure(
-                              primarySecret,
-                              `secret-${credential.id}`,
-                              createActionHistoryEntry("password_copied", credential.title),
-                            );
-                          }}
-                        >
-                          {copiedField === `secret-${credential.id}` ? t("credential.copiedFemale") : t(isCredentialItem(credential) ? "credential.copyPassword" : "item.copySecret")}
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          stopAction(event);
-                          openEditCredentialForm(credential);
-                        }}
-                      >
-                        {t("credential.edit")}
-                      </button>
-                    </span>
-                  </article>
-                );
-              })}
-
-              {filteredCredentials.length === 0 && (
-                <div className="emptyState">
-                  <h2>{t("credential.emptyTitle")}</h2>
-                  <p>{t("credential.emptyDescription")}</p>
-                  <button className="primaryButton" onClick={openNewCredentialForm}>
-                    {t("topbar.addItem")}
-                  </button>
-                </div>
-              )}
-            </section>
-          </>
-        )}
-
-        {screen === "dashboard" && (
-          <div className="assistantPage">
-            <section className={`assistantHero tone-${vaultHealthTone}`}>
-              <div>
-                <p className="eyebrow">{t("assistant.eyebrow")}</p>
-                <h2>{t("assistant.title")}</h2>
-                <p>
-                  {assistantImprovementCount > 0
-                    ? t("assistant.heroWithActions", { count: assistantImprovementCount })
-                    : t("assistant.heroClean")}
-                </p>
-              </div>
-
-              <div className="assistantPulse" aria-label={t("diagnostic.score")}>
-                <span>{t("diagnostic.score")}</span>
-                <strong>{vaultHealthScore}</strong>
-                <small>{t(`diagnostic.health.${vaultHealthTone}`)}</small>
-              </div>
-            </section>
-
-            <section className="assistantDecisionGrid">
-              <article className={`assistantNextCard tone-${assistantMainAction?.tone ?? "neutral"}`}>
-                <div className="assistantCardHeader">
-                  <span className="assistantOrb" aria-hidden="true">✦</span>
-                  <div>
-                    <p className="eyebrow">{t("assistant.nextEyebrow")}</p>
-                    <h2>{assistantMainAction ? t(`assistant.action.title.${assistantMainAction.issue}`, { title: assistantMainAction.credential.title }) : t("assistant.noActionTitle")}</h2>
-                  </div>
-                </div>
-
-                {assistantMainAction ? (
-                  <>
-                    <p className="assistantReason">
-                      {t(`assistant.action.reason.${assistantMainAction.issue}`, { title: assistantMainAction.credential.title })}
-                    </p>
-
-                    <div className="assistantIssueLine">
-                      <span className={`diagnosticMiniBadge issue-${assistantMainAction.issue}`}>{getDiagnosticLabel(assistantMainAction.issue)}</span>
-                      <span>{getItemSubtitle(assistantMainAction.credential, appLanguage)}</span>
-                    </div>
-
-                    <div className="assistantActionButtons">
-                      <button className="primaryButton" type="button" onClick={() => runAssistantPrimaryAction(assistantMainAction)}>
-                        {t(`assistant.primary.${assistantMainAction.kind}`)}
-                      </button>
-                      {assistantMainAction.credential.url.trim() && (
-                        <button className="secondaryButton" type="button" onClick={() => void openAssistantSite(assistantMainAction.credential)}>
-                          {t("assistant.openSite")}
-                        </button>
-                      )}
-                      <button className="ghostButton" type="button" onClick={() => openAssistantCredential(assistantMainAction.credential)}>
-                        {t("assistant.viewCredential")}
-                      </button>
-                      <button className="ghostButton assistantSkipButton" type="button" onClick={() => skipAssistantAction(assistantMainAction)}>
-                        {t("assistant.skipNow")}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="assistantEmptyAction">
-                    <p>{t("assistant.noActionDescription")}</p>
-                    <button className="primaryButton" type="button" onClick={() => setScreen("credentials")}>{t("assistant.goVault")}</button>
-                  </div>
-                )}
-              </article>
-
-              <article className="assistantQueueCard">
-                <div className="assistantCardHeader compact">
-                  <div>
-                    <p className="eyebrow">{t("assistant.queueEyebrow")}</p>
-                    <h2>{t("assistant.queueTitle")}</h2>
-                  </div>
-                  {assistantSkippedCount > 0 && (
-                    <button className="ghostButton" type="button" onClick={() => setAssistantSkippedIds([])}>
-                      {t("assistant.restoreSkipped", { count: assistantSkippedCount })}
-                    </button>
-                  )}
-                </div>
-
-                <div className="assistantQueueList">
-                  {assistantQueue.length > 0 ? (
-                    assistantQueue.map((action, index) => (
-                      <button
-                        key={action.id}
-                        type="button"
-                        className={`assistantQueueItem tone-${action.tone}`}
-                        onClick={() => setAssistantFocusId(action.id)}
-                      >
-                        <span>{index + 1}</span>
-                        <strong>{action.credential.title}</strong>
-                        <small>{getDiagnosticLabel(action.issue)}</small>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="emptyText">{assistantMainAction ? t("assistant.queueEmpty") : t("assistant.noIssuesQueue")}</p>
-                  )}
-                </div>
-              </article>
-            </section>
-
-            <section className="assistantActionColumns">
-              <article className="assistantSafeCard">
-                <div>
-                  <p className="eyebrow">{t("assistant.safeEyebrow")}</p>
-                  <h2>{t("assistant.safeTitle")}</h2>
-                  <p>{assistantSafeActionCount > 0 ? t("assistant.safeDescription", { count: assistantSafeActionCount }) : t("assistant.safeEmpty")}</p>
-                </div>
-
-                {assistantTagSuggestions.length > 0 && (
-                  <>
-                    <div className="assistantTagRail">
-                      {assistantTagSuggestions.slice(0, 5).map((suggestion) => (
-                        <button key={suggestion.id} className="assistantSuggestionButton" type="button" onClick={() => void applyAssistantTagSuggestion(suggestion)} disabled={busy}>
-                          <span>{suggestion.credential.title}</span>
-                          <strong>#{suggestion.tag}</strong>
-                        </button>
-                      ))}
-                    </div>
-
-                    <button className="primaryButton" type="button" onClick={() => void applyAssistantTagSuggestions(assistantTagSuggestions)} disabled={busy}>
-                      {t("assistant.tags.applyCount", { count: assistantTagSuggestions.length })}
-                    </button>
-                  </>
-                )}
-              </article>
-
-              <article className="assistantNeedsYouCard">
-                <div>
-                  <p className="eyebrow">{t("assistant.needsYouEyebrow")}</p>
-                  <h2>{t("assistant.needsYouTitle")}</h2>
-                  <p>{assistantExternalActionCount > 0 ? t("assistant.needsYouDescription", { count: assistantExternalActionCount }) : t("assistant.needsYouEmpty")}</p>
-                </div>
-
-                <div className="assistantIssueChips">
-                  {diagnosticCards
-                    .filter((card) => card.count > 0)
-                    .map((card) => (
-                      <button key={card.filter} type="button" className={`assistantIssueChipButton tone-${card.tone}`} onClick={() => openDiagnosticFilter(card.filter)}>
-                        <strong>{card.count}</strong>
-                        <span>{getDiagnosticLabel(card.filter)}</span>
-                      </button>
-                    ))}
-                </div>
-              </article>
-            </section>
-
-            <section className="assistantRulesCard">
-              <strong>{t("assistant.ruleTitle")}</strong>
-              <span>{t("assistant.ruleText")}</span>
-            </section>
-          </div>
-        )}
-
-        {screen === "trash" && (
-          <div className="settingsGrid">
-            <article className="wideCard">
-              <div className="cardTitleRow">
-                <div>
-                  <h2>{t("trash.title")}</h2>
-                  <p>{t("trash.description")}</p>
-                </div>
-                <button
-                  className="dangerConfirmButton"
-                  disabled={deletedCredentials.length === 0}
-                  onClick={() => void handleEmptyTrash()}
-                >
-                  {t("trash.empty")}
-                </button>
-              </div>
-
-              <div className="trashList">
-                {deletedCredentials.map((credential) => (
-                  <article key={credential.id} className="trashItem">
-                    <div>
-                      <strong>{credential.title}</strong>
-                      <span>
-                        {credential.username || t("credential.noUser")} · {t("trash.deletedAt")} {formatDate(credential.deletedAt, appLanguage)}
-                      </span>
-                    </div>
-                    <div className="trashActions">
-                      <button className="secondaryButton" onClick={() => void handleRestoreCredential(credential.id)}>
-                        {t("trash.restore")}
-                      </button>
-                      <button className="dangerButton" onClick={() => void handlePermanentDeleteCredential(credential.id)}>
-                        {t("trash.deleteForever")}
-                      </button>
-                    </div>
-                  </article>
-                ))}
-
-                {deletedCredentials.length === 0 && (
-                  <div className="emptyState">
-                    <h2>{t("trash.emptyListTitle")}</h2>
-                    <p>{t("trash.emptyListDescription")}</p>
-                  </div>
-                )}
-              </div>
-            </article>
-          </div>
-        )}
-
-        {screen === "settings" && (
-          <div className="settingsGrid">
-            <article className="wideCard storageCard">
-              <div className="cardTitleRow">
-                <div>
-                  <h2>{t("settings.localStorage")}</h2>
-                  <p>{t("settings.localStorageDescription")}</p>
-                </div>
-
-                <button
-                  className="secondaryButton"
-                  onClick={() => {
-                    setShowStoragePaths(true);
-                    window.setTimeout(() => setShowStoragePaths(false), 30000);
-                  }}
-                >
-                  {t("settings.show30s")}
-                </button>
-              </div>
-
-              {showStoragePaths ? (
-                <div className="pathGrid">
-                  <div className="pathBox">
-                    <span>{t("settings.encryptedVault")}</span>
-                    <strong>{storageInfo?.vault_path ?? t("settings.loading")}</strong>
-                  </div>
-                  <div className="pathBox">
-                    <span>{t("settings.encryptedBackups")}</span>
-                    <strong>{storageInfo?.backup_dir ?? t("settings.loading")}</strong>
-                  </div>
-                </div>
-              ) : (
-                <div className="hiddenPathsBox">
-                  <strong>{t("settings.hiddenPaths")}</strong>
-                  <span>{t("settings.hiddenPathsDescription")}</span>
-                </div>
-              )}
-
-              <div className="folderActionGrid">
-                <button className="secondaryButton" type="button" onClick={() => void handleOpenVaultFolder()}>
-                  {t("folders.openVault")}
-                </button>
-                <button className="secondaryButton" type="button" onClick={() => void handleOpenBackupFolder()}>
-                  {t("folders.openBackups")}
-                </button>
-              </div>
-            </article>
-
-            <article className="wideCard">
-              <h2>{t("settings.autoBackups")}</h2>
-              <p>{t("settings.autoBackupsDescription")}</p>
-
-              <div className="backupList">
-                {backups.slice(0, 3).map((backup) => (
-                  <div key={backup.filename}>
-                    <strong>{backup.filename}</strong>
-                    <span>
-                      {formatDate(backup.modified_epoch_ms)} · {(backup.size_bytes / 1024).toFixed(1)} KB
-                    </span>
-                  </div>
-                ))}
-
-                {backups.length === 0 && <p className="emptyText">{t("settings.noBackups")}</p>}
-              </div>
-
-              {backups.length > 3 && (
-                <p className="backupListHint">
-                  Exibindo os 3 backups mais recentes. Para ver todos, use Abrir pasta de backups.
-                </p>
-              )}
-
-              <button
-                className="secondaryButton"
-                onClick={() => {
-                  if (!vault) return;
-
-                  void askConfirmation({
-                    title: "Criar backup",
-                    message: "Criar um novo backup criptografado agora?",
-                    confirmText: "Criar backup",
-                    cancelText: t("dialog.cancel"),
-                  }).then((confirmed) => {
-                    if (!confirmed) return;
-
-                    void persistVault(vault, undefined, true)
-                      .then(() => refreshStorageInfo())
-                      .then(() => setMessage("Backup criptografado atualizado."))
-                      .catch(() => setMessage("Erro ao criar backup."));
-                  });
-                }}
-              >
-                Criar backup agora
-              </button>
-            </article>
-
-            <article className="wideCard securityActionCard settingsAdvancedToggleCard">
-              <div>
-                <h2>{t("settings.advancedOptionsTitle")}</h2>
-                <p>{t("settings.advancedOptionsDescription")}</p>
-              </div>
-              <button
-                className="secondaryButton"
-                type="button"
-                onClick={() => setSecurityAdvancedOpen((open) => !open)}
-                aria-expanded={securityAdvancedOpen}
-              >
-                {securityAdvancedOpen ? t("settings.hideAdvancedOptions") : t("settings.showAdvancedOptions")}
-              </button>
-            </article>
-
-            {securityAdvancedOpen && (
-              <div className="settingsAdvancedStack">
-            <article className="wideCard securityActionCard settingsAdvancedCard">
-              <div className="settingsSectionHeader">
-                <span>
-                  <strong>{t("settings.masterPasswordTitle")}</strong>
-                  <small>{t("settings.masterPasswordDescription")}</small>
-                </span>
-              </div>
-
-              <div className="settingsAccordionBody">
-                <p>
-                  Não existe recuperação da senha mestra atual. Se ela for perdida, o cofre e os backups criptografados não podem ser descriptografados. Troque a senha periodicamente e guarde-a em local seguro.
-                </p>
-
-                <form className="changePasswordForm" onSubmit={handleChangeMasterPassword}>
-                  <label>
-                    Senha atual
-                    <input
-                      type="password"
-                      value={currentMasterPassword}
-                      onChange={(event) => setCurrentMasterPassword(event.target.value)}
-                      placeholder="Digite a senha atual"
-                    />
-                  </label>
-                  <label>
-                    Nova senha mestra
-                    <input
-                      type="password"
-                      value={newMasterPassword}
-                      onChange={(event) => setNewMasterPassword(event.target.value)}
-                      placeholder={t("auth.masterPlaceholder")}
-                    />
-                  </label>
-                  <label>
-                    Confirmar nova senha
-                    <input
-                      type="password"
-                      value={newMasterConfirm}
-                      onChange={(event) => setNewMasterConfirm(event.target.value)}
-                      placeholder="Repita a nova senha"
-                    />
-                  </label>
-
-                  {newMasterPassword && (
-                    <div className="securityNotes inlineNotes">
-                      {validateMasterPassword(newMasterPassword).length === 0 ? (
-                        <span>{t("settings.newPasswordValid")}</span>
-                      ) : (
-                        validateMasterPassword(newMasterPassword).map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
-                      )}
-                    </div>
-                  )}
-
-                  <button className="primaryButton" disabled={busy}>
-                    Alterar senha mestra
-                  </button>
-                </form>
-              </div>
-            </article>
-
-            <article className="wideCard securityActionCard backupVerifyCard settingsAdvancedCard">
-              <div className="settingsSectionHeader">
-                <span>
-                  <strong>{t("backupVerify.title")}</strong>
-                  <small>{t("backupVerify.description")}</small>
-                </span>
-              </div>
-
-              <div className="settingsAccordionBody">
-              <div className="backupVerifyPanel">
-                <label>
-                  {t("backupVerify.passwordLabel")}
-                  <input
-                    type="password"
-                    value={backupVerifyPassword}
-                    onChange={(event) => setBackupVerifyPassword(event.target.value)}
-                    placeholder={t("backupVerify.passwordPlaceholder")}
-                  />
-                </label>
-
-                <label className="fileImportButton inlineFileButton backupVerifyButton">
-                  {t("backupVerify.button")}
-                  <input
-                    type="file"
-                    accept=".kpvault,application/json"
-                    onChange={(event) => {
-                      void handleVerifyBackupFile(event.target.files?.[0], backupVerifyPassword);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
-              </div>
-
-              {backupVerifyResult && (
-                <div
-                  className={backupVerifyResult.ok ? "backupVerifyResult success" : "backupVerifyResult failure"}
-                  role="status"
-                >
-                  <strong>
-                    {backupVerifyResult.ok
-                      ? t("backupVerify.successTitle")
-                      : t("backupVerify.failureTitle")}
-                  </strong>
-                  <p>
-                    {backupVerifyResult.ok
-                      ? t("backupVerify.successMessage")
-                      : t("backupVerify.failureMessage")}
-                  </p>
-                  <p>{t("backupVerify.noChanges")}</p>
-
-                  {backupVerifyResult.ok && (
-                    <dl className="backupVerifyMeta">
-                      {backupVerifyResult.backupVersion && (
-                        <div>
-                          <dt>{t("backupVerify.backupVersion")}</dt>
-                          <dd>{backupVerifyResult.backupVersion}</dd>
-                        </div>
-                      )}
-                      {backupVerifyResult.cryptoVersion !== undefined && (
-                        <div>
-                          <dt>{t("backupVerify.cryptoVersion")}</dt>
-                          <dd>{backupVerifyResult.cryptoVersion}</dd>
-                        </div>
-                      )}
-                      {backupVerifyResult.itemCount !== undefined && (
-                        <div>
-                          <dt>{t("backupVerify.itemCount")}</dt>
-                          <dd>{backupVerifyResult.itemCount}</dd>
-                        </div>
-                      )}
-                      {backupVerifyResult.createdAt && (
-                        <div>
-                          <dt>{t("backupVerify.createdAt")}</dt>
-                          <dd>{formatDate(backupVerifyResult.createdAt, appLanguage)}</dd>
-                        </div>
-                      )}
-                    </dl>
-                  )}
-                </div>
-              )}
-              </div>
-            </article>
-
-            <article className="wideCard securityActionCard settingsAdvancedCard">
-              <div className="settingsSectionHeader">
-                <span>
-                  <strong>{t("settings.importBackup")}</strong>
-                  <small>{t("settings.importBackupDescription")}</small>
-                </span>
-              </div>
-
-              <div className="settingsAccordionBody">
-              <label className="fileImportButton inlineFileButton">
-                {t("settings.selectBackup")}
-                <input
-                  type="file"
-                  accept=".kpvault,application/json"
-                  onChange={(event) => {
-                    void handleBackupFileInput(event.target.files?.[0], masterPassword);
-                    event.currentTarget.value = "";
-                  }}
-                />
-              </label>
-              </div>
-            </article>
-
-
-            <article className="wideCard securityActionCard settingsAdvancedCard">
-              <div className="settingsSectionHeader">
-                <span>
-                  <strong>{t("export.title")}</strong>
-                  <small>{t("export.description")}</small>
-                </span>
-              </div>
-
-              <div className="settingsAccordionBody">
-              <div className="exportActionGrid">
-                <div className="exportBox">
-                  <strong>{t("export.encryptedTitle")}</strong>
-                  <span>{t("export.encryptedDescription")}</span>
-                  <button className="secondaryButton" type="button" onClick={() => void handleExportEncryptedJson()}>
-                    {t("export.downloadEncrypted")}
-                  </button>
-                </div>
-
-                <div className="exportBox dangerExportBox csvMigrationExportBox">
-                  <span className="dangerBadge">{t("export.csvDangerBadge")}</span>
-                  <strong>{t("export.csvTitle")}</strong>
-                  <span>{t("export.csvDescription")}</span>
-                  <small>{t("export.csvFilenameHint")}</small>
-                  <button className="dangerConfirmButton" type="button" onClick={openCsvExportDialog}>
-                    {t("export.openCsvDialog")}
-                  </button>
-                </div>
-
-                <div className="exportBox csvImportBox">
-                  <strong>{t("import.csvTitle")}</strong>
-                  <span>{t("import.csvDescription")}</span>
-                  <label className="fileImportButton inlineFileButton">
-                    {t("import.selectCsv")}
-                    <input
-                      type="file"
-                      accept=".csv,text/csv"
-                      onChange={(event) => {
-                        void handleImportCsvFile(event.target.files?.[0]);
-                        event.currentTarget.value = "";
-                      }}
-                    />
-                  </label>
-
-                  {csvImportPreview && (
-                    <div className="csvImportReadyHint" role="status">
-                      <strong>{t("import.previewTitle")}</strong>
-                      <span>{t("import.previewFile", { name: csvImportPreview.filename })}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              </div>
-            </article>
-
-
-            <article className="wideCard securityActionCard settingsAdvancedCard">
-              <div className="settingsSectionHeader">
-                <span>
-                  <strong>{t("settings.securitySettings")}</strong>
-                  <small>{t("settings.securitySettingsDescription")}</small>
-                </span>
-              </div>
-
-              <div className="settingsAccordionBody">
-                <p>{t("security.localThreatModel")}</p>
-
-              {isLinux && (
-                <div className="windowsHelloPanel">
-                  <div className="windowsHelloPanelText">
-                    <strong>Secrets Bridge</strong><span>{t("bridge.description")}</span>
-                    <label className="toggleRow"><span>{t("bridge.enable")}</span><input type="checkbox" checked={vault?.settings.secretsBridgeEnabled ?? false} disabled={busy || bridgeBusy} onChange={(e) => void updateVaultSettings({ secretsBridgeEnabled: e.target.checked })} /></label>
-                    <label>{t("bridge.duration")}<select value={bridgeHours} disabled={bridgeStatus.active} onChange={e=>setBridgeHours(Number(e.target.value))}>{[24,48,72].map(hours=><option key={hours} value={hours}>{hours}h</option>)}</select></label>
-                    <small>{bridgeStatus.active ? t("bridge.backgroundActive") : t("bridge.inactive")}</small>
-                    {bridgeStatus.active && <small>{t("bridge.remaining")}: {Math.floor(bridgeStatus.remainingSeconds / 3600)}h {Math.floor((bridgeStatus.remainingSeconds % 3600) / 60)}min · {bridgeStatus.grants.length} {t("bridge.permissions")}</small>}
-                    <small>{t("bridge.backgroundDescription")}</small>
-                    {bridgeStatus.grants.map(permission=><div className="bridgePermission" key={`${permission.identity}:${permission.keyId}:${permission.operation}:${permission.model}`}>
-                      <strong>{permission.entryScript ?? permission.application}</strong><span>{permission.project}</span><span>{permission.operation} · {permission.model} · {permission.remainingCalls} {t("bridge.callsRemaining")}</span>
-                      <button type="button" onClick={()=>void invoke("bridge_revoke_grant",{identity:permission.identity,keyId:permission.keyId,operation:permission.operation,model:permission.model})}>{t("bridge.revokePermission")}</button>
-                    </div>)}
-                  </div>
-                  <button type="button" className="secondaryButton" disabled={!vault?.settings.secretsBridgeEnabled || bridgeBusy} onClick={() => { if (bridgeStatus.active || bridgeGeneration !== null) { void invoke("bridge_close");setBridgeGeneration(null);setBridgeStatus({active:false,remainingSeconds:0,grants:[]}); } else void activateBridgeSession(); }}>{bridgeStatus.active || bridgeGeneration !== null ? t("bridge.stop") : t("bridge.activate")}</button>
-                </div>
-              )}
-
-              <div className={windowsHelloStatus.enabled ? "windowsHelloPanel enabled" : "windowsHelloPanel"}>
-                <div className="windowsHelloPanelText">
-                  <strong>{t("windowsHello.title")}</strong>
-                  <span>{t("windowsHello.description")}</span>
-                  <small>
-                    {windowsHelloStatus.enabled
-                      ? t("windowsHello.statusEnabled")
-                      : windowsHelloStatus.available
-                        ? t("windowsHello.statusDisabled")
-                        : t("windowsHello.unavailable")}
-                  </small>
-                </div>
-
-                {windowsHelloStatus.enabled ? (
-                  <button
-                    type="button"
-                    className="dangerConfirmButton"
-                    disabled={busy || windowsHelloBusy}
-                    onClick={() => void handleDisableWindowsHello()}
-                  >
-                    {windowsHelloBusy ? t("windowsHello.processing") : t("windowsHello.disable")}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="secondaryButton"
-                    disabled={busy || windowsHelloBusy || !windowsHelloStatus.available}
-                    onClick={() => void handleEnableWindowsHello()}
-                  >
-                    {windowsHelloBusy ? t("windowsHello.processing") : t("windowsHello.enable")}
-                  </button>
-                )}
-              </div>
-
-              <div className="settingsControlGrid">
-                <label>
-                  {t("settings.autoLockLabel")}
-                  <input
-                    type="number"
-                    min={1}
-                    max={120}
-                    value={vault?.settings.autoLockMinutes ?? 10}
-                    onChange={(event) => void updateVaultSettings({ autoLockMinutes: getBoundedVaultInputValue(event.target.value, 10, 1, 120) })}
-                  />
-                </label>
-
-                <label>
-                  {t("settings.clipboardLabel")}
-                  <input
-                    type="number"
-                    min={10}
-                    max={300}
-                    value={vault?.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS}
-                    onChange={(event) => void updateVaultSettings({ clipboardClearSeconds: getBoundedVaultInputValue(event.target.value, CLIPBOARD_CLEAR_SECONDS, 10, 300) })}
-                  />
-                </label>
-
-                <label>
-                  {t("settings.backupIntervalLabel")}
-                  <input
-                    type="number"
-                    min={1}
-                    max={24}
-                    value={vault?.settings.backupIntervalHours ?? 4}
-                    onChange={(event) => void updateVaultSettings({ backupIntervalHours: getBoundedVaultInputValue(event.target.value, 4, 1, 24) })}
-                  />
-                </label>
-              </div>
-
-              <div className="toggleList">
-                <label className="toggleRow">
-                  <span>
-                    <strong>{t("settings.lockOnInactive")}</strong>
-                    <small>{t("settings.lockOnInactiveDescription")}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={vault?.settings.lockOnInactive ?? true}
-                    onChange={(event) => void updateVaultSettings({ lockOnInactive: event.target.checked })}
-                  />
-                </label>
-
-                <label className="toggleRow">
-                  <span>
-                    <strong>{t("settings.lockOnMinimize")}</strong>
-                    <small>{t("settings.lockOnMinimizeDescription")}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={vault?.settings.lockOnMinimize ?? true}
-                    onChange={(event) => void updateVaultSettings({ lockOnMinimize: event.target.checked })}
-                  />
-                </label>
-
-                <label className="toggleRow">
-                  <span>
-                    <strong>{t("settings.lockOnClose")}</strong>
-                    <small>{t("settings.lockOnCloseDescription")}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={vault?.settings.lockOnClose ?? true}
-                    onChange={(event) => void updateVaultSettings({ lockOnClose: event.target.checked })}
-                  />
-                </label>
-
-                <label className="toggleRow">
-                  <span>
-                    <strong>{t("settings.startupWithWindows")}</strong>
-                    <small>{t("settings.startupWithWindowsDescription")}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={startupEnabled}
-                    disabled={startupBusy}
-                    onChange={(event) => void updateStartupEnabled(event.target.checked)}
-                  />
-                </label>
-
-                <label className="toggleRow">
-                  <span>
-                    <strong>{t("settings.notifyOnTray")}</strong>
-                    <small>{t("settings.notifyOnTrayDescription")}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={vault?.settings.notifyOnTray ?? true}
-                    onChange={(event) => void updateVaultSettings({ notifyOnTray: event.target.checked })}
-                  />
-                </label>
-
-                <label className="toggleRow">
-                  <span>
-                    <strong>{t("settings.soundOnTray")}</strong>
-                    <small>{t("settings.soundOnTrayDescription")}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={vault?.settings.soundOnTray ?? true}
-                    onChange={(event) => void updateVaultSettings({ soundOnTray: event.target.checked })}
-                  />
-                </label>
-              </div>
-
-              <div className="startupStatusBox">
-                <div>
-                  <strong>{startupEnabled ? t("settings.startupStatusOn") : t("settings.startupStatusOff")}</strong>
-                  <span>{t("settings.startupStatusDescription")}</span>
-                </div>
-                <dl>
-                  <div>
-                    <dt>{t("settings.startupRegistry")}</dt>
-                    <dd>{startupStatus.registry_key} / {startupStatus.value_name || "KPassword"}</dd>
-                  </div>
-                  <div>
-                    <dt>{t("settings.startupCommand")}</dt>
-                    <dd>{startupStatus.command_line || t("settings.startupCommandUnavailable")}</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <div className="securityGrid">
-                <span>{t("settings.winV")}</span>
-                <span>{startupEnabled ? t("settings.autostartEnabledStatus") : t("settings.autostartDisabledStatus")}</span>
-                <span>{t("settings.tray")}</span>
-                <span>{t("settings.singleInstance")}</span>
-              </div>
-              </div>
-            </article>
-              </div>
-            )}
-
-            <article className="wideCard securityActionCard actionHistorySettingsCard">
-              <div className="settingsSectionHeader actionHistorySettingsHeader">
-                <span>
-                  <strong>{t("actionHistory.settingsTitle")}</strong>
-                  <small>{t("actionHistory.settingsDescription")}</small>
-                </span>
-                <button type="button" className="secondaryButton" onClick={() => setActionHistoryOpen(true)}>
-                  {t("actionHistory.open")}
-                </button>
-              </div>
-
-              <div className="actionHistorySettingsSummary">
-                <span>{t("actionHistory.recentCount", { count: actionHistoryEntries.length })}</span>
-                <small>{t("actionHistory.safeNotice")}</small>
-              </div>
-            </article>
-
-
-            <article className="wideCard securityActionCard appDiagnosticsSettingsCard">
-              <div className="settingsSectionHeader actionHistorySettingsHeader">
-                <span>
-                  <strong>{t("appDiagnostics.settingsTitle")}</strong>
-                  <small>{t("appDiagnostics.settingsDescription")}</small>
-                </span>
-                <button type="button" className="secondaryButton" onClick={() => setAppDiagnosticsOpen(true)}>
-                  {t("appDiagnostics.open")}
-                </button>
-              </div>
-
-              <div className="actionHistorySettingsSummary">
-                <span>{t("appDiagnostics.summary")}</span>
-                <small>{t("appDiagnostics.safeNotice")}</small>
-              </div>
-            </article>
-          </div>
-        )}
-
-        {screen === "preferences" && (
-          <div className="preferencesGrid">
-            <article className="wideCard preferenceCard">
-              <h2>{t("vault.title")}</h2>
-              <p>{t("vault.description")}</p>
-              {vaultSelectorElement}
-            </article>
-
-            <article className="wideCard preferenceCard">
-              <h2>{t("language.title")}</h2>
-              <p>{t("language.description")}</p>
-              <div className="languagePreferenceBox">
-                <span>{t("language.current")}</span>
-                <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} />
-              </div>
-            </article>
-
-            <article className="wideCard preferenceCard helpAboutCompactCard">
-              <div className="cardTitleRow">
-                <div>
-                  <h2>{t("helpAbout.title")}</h2>
-                  <p>{t("helpAbout.description")}</p>
-                </div>
-                <span className="versionBadge">v{APP_VERSION}</span>
-              </div>
-
-              <div className="compactInfoGrid">
-                <div>
-                  <strong>{t("helpAbout.example1Title")}</strong>
-                  <span>{t("helpAbout.example1Text")}</span>
-                </div>
-                <div>
-                  <strong>{t("helpAbout.example2Title")}</strong>
-                  <span>{t("helpAbout.example2Text")}</span>
-                </div>
-                <div>
-                  <strong>{t("helpAbout.example3Title")}</strong>
-                  <span>{t("helpAbout.example3Text")}</span>
-                </div>
-              </div>
-
-              <div className="localSecurityNotice">
-                <strong>{t("helpAbout.securityTitle")}</strong>
-                <span>{t("helpAbout.securityText")}</span>
-              </div>
-            </article>
-
-            <article className="wideCard preferenceCard">
-              <h2>{t("preferences.theme")}</h2>
-              <p>{t("preferences.themeDescription")}</p>
-
-              <div className="optionGrid">
-                <button
-                  className={appTheme === "dark" ? "optionButton active" : "optionButton"}
-                  onClick={() => setAppTheme("dark")}
-                >
-                  <span>🌙</span>
-                  <strong>{t("preferences.dark")}</strong>
-                  <small>{t("preferences.darkDescription")}</small>
-                </button>
-
-                <button
-                  className={appTheme === "light" ? "optionButton active" : "optionButton"}
-                  onClick={() => setAppTheme("light")}
-                >
-                  <span>☀️</span>
-                  <strong>{t("preferences.light")}</strong>
-                  <small>{t("preferences.lightDescription")}</small>
-                </button>
-
-                <button
-                  className={appTheme === "mixed" ? "optionButton active" : "optionButton"}
-                  onClick={() => setAppTheme("mixed")}
-                >
-                  <span>🌓</span>
-                  <strong>{t("preferences.mixed")}</strong>
-                  <small>{t("preferences.mixedDescription")}</small>
-                </button>
-              </div>
-            </article>
-
-            <article className="wideCard preferenceCard">
-              <h2>{t("preferences.accessibility")}</h2>
-              <p>{t("preferences.accessibilityDescription")}</p>
-
-              <div className="toggleList">
-                <label className="toggleRow">
-                  <span>
-                    <strong>{t("preferences.largeFont")}</strong>
-                    <small>{t("preferences.largeFontDescription")}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={fontScale === "large"}
-                    onChange={(event) => setFontScale(event.target.checked ? "large" : "normal")}
-                  />
-                </label>
-
-                <label className="toggleRow">
-                  <span>
-                    <strong>{t("preferences.reduceMotion")}</strong>
-                    <small>{t("preferences.reduceMotionDescription")}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={reduceMotion}
-                    onChange={(event) => setReduceMotion(event.target.checked)}
-                  />
-                </label>
-
-                <label className="toggleRow">
-                  <span>
-                    <strong>{t("preferences.compactList")}</strong>
-                    <small>{t("preferences.compactListDescription")}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={compactMode}
-                    onChange={(event) => setCompactMode(event.target.checked)}
-                  />
-                </label>
-              </div>
-            </article>
-
-            <article className="wideCard preferenceCard">
-              <h2>{t("preferences.updates")}</h2>
-              <p>{t("preferences.updatesDescription")}</p>
-
-              <div className="updateSummary">
-                <div>
-                  <span>{t("preferences.installedVersion")}</span>
-                  <strong>{APP_VERSION}</strong>
-                </div>
-                <div>
-                  <span>{t("preferences.channel")}</span>
-                  <strong>{UPDATE_GITHUB_OWNER && UPDATE_GITHUB_REPO ? t("preferences.githubReleases") : t("preferences.notConfigured")}</strong>
-                </div>
-              </div>
-
-              <button className="secondaryButton" onClick={() => void handleCheckUpdates()}>
-                {t("preferences.checkUpdate")}
-              </button>
-
-              {updateStatus && <div className="updateStatus">{updateStatus}</div>}
-            </article>
-
-            <article className="wideCard preferenceCard">
-              <h2>{t("preferences.sensitiveActions")}</h2>
-              <p>{t("preferences.sensitiveActionsDescription")}</p>
-
-              <button
-                className="dangerConfirmButton"
-                onClick={() => {
-                  void askConfirmation({
-                    title: t("dialog.restoreAppearanceTitle"),
-                    message: t("dialog.restoreAppearanceMessage"),
-                    confirmText: t("dialog.restore"),
-                    cancelText: t("dialog.cancel"),
-                    tone: "danger",
-                  }).then((confirmed) => {
-                    if (!confirmed) return;
-
-                    setAppTheme("dark");
-                    setFontScale("normal");
-                    setReduceMotion(false);
-                    setCompactMode(false);
-                    setMessage(t("success.appearanceRestored"));
-                  });
-                }}
-              >
-                {t("preferences.restoreAppearance")}
-              </button>
-            </article>
-          </div>
-        )}
-
-      </section>
-
-      {detailCredential && (() => {
+  const detailPanelElement = detailCredential ? (() => {
         const itemType = getItemType(detailCredential);
         const primarySecret = getItemPrimarySecret(detailCredential);
         const historyEntries = getPasswordHistory(detailCredential);
 
         return (
           <div className="popupOverlay" onMouseDown={() => setDetailCredentialId(null)}>
-            <aside className="detailPopup" onMouseDown={(event) => event.stopPropagation()}>
+            <aside className="detailPopup" aria-label={detailCredential.title} tabIndex={-1} onMouseDown={(event) => event.stopPropagation()}>
               <div className="detailHeader">
                 <div>
                   <span>{getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)} · {getCategoryLabel(detailCredential.category, appLanguage)}</span>
                   <h2>{detailCredential.title}</h2>
                 </div>
-                <button className="iconButton" onClick={() => setDetailCredentialId(null)}>
+                <button className="iconButton" aria-label={t("ui.closeDetail")} onClick={() => setDetailCredentialId(null)}>
                   ×
                 </button>
               </div>
 
+              <div className="detailBody">
               {getCredentialTags(detailCredential).length > 0 && (
                 <div className="detailTagList">
                   <span>{t("detail.tags")}</span>
@@ -7605,6 +6004,7 @@ export default function App() {
                 </div>
               )}
 
+              </div>
               <div className="detailActions">
                 {itemType === "credential" && detailCredential.username && (
                   <button onClick={() => void copySecure(
@@ -7665,7 +6065,1536 @@ export default function App() {
             </aside>
           </div>
         );
-      })()}
+        })() : null;
+
+  if (mode === "loading") {
+    return (
+      <>
+        <main className="authShell authDesktopShell">
+          <section className="authCard authExperience authLocked authLoadingState">
+            <div className="authUtilityBar">
+              <div className="authProductMark">
+                <AppLogo size="sm" />
+                <div>
+                  <strong>KPassword</strong>
+                  <span>{t("app.localVault")}</span>
+                </div>
+              </div>
+              {authLoginToolsElement}
+            </div>
+
+            <div className="authHeroBlock authLogoStage">
+              <AppLogo size="lg" className="vaultLogo" />
+            </div>
+
+            <section
+              className="authPanel authUnlockPanel authLoadingPanel"
+              aria-live="polite"
+              aria-busy="true"
+            >
+              <span className="authPanelLabel">{t("status.loadingVault")}</span>
+              <div
+                className="authLoadingBar"
+                role="progressbar"
+                aria-label={t("status.loadingVault")}
+              />
+            </section>
+
+            <footer className="authDeveloperCredit">
+              Desenvolvido por <strong>MNSTechbr</strong>
+            </footer>
+          </section>
+        </main>
+        {confirmDialogElement}
+        {restoreBackupDialog}
+        {newVaultDialog}
+      </>
+    );
+  }
+
+  if (mode === "setup") {
+    return (
+      <>
+        <main className="authShell authDesktopShell authSetupShell">
+          <section className="authCard authExperience authSetup">
+            <div className="authUtilityBar">
+              <div className="authProductMark">
+                <AppLogo size="sm" />
+                <div>
+                  <strong>KPassword</strong>
+                  <span>{t("app.localVault")}</span>
+                </div>
+              </div>
+              {authLoginToolsElement}
+            </div>
+
+            <div className="authHeroBlock">
+              <AppLogo size="lg" />
+              <p className="eyebrow">{t("auth.firstAccess")}</p>
+              <h1>{t("auth.createMasterTitle")}</h1>
+              <p>{t("auth.createMasterDescription")}</p>
+            </div>
+
+            <div className="firstUseGuide refinedFirstUseGuide">
+              <strong>{t("onboarding.title")}</strong>
+              <span>{t("onboarding.step1")}</span>
+              <span>{t("onboarding.step2")}</span>
+              <span>{t("onboarding.step3")}</span>
+            </div>
+
+            <section className="authPanel">
+              <span className="authPanelLabel">{t("auth.setupPanelLabel")}</span>
+              <form onSubmit={handleCreateVault} className="authForm">
+                <label>
+                  {t("auth.masterPassword")}
+                  <input
+                    type="password"
+                    value={setupPassword}
+                    onChange={(event) => setSetupPassword(event.target.value)}
+                    placeholder={t("auth.masterPlaceholder")}
+                    autoFocus
+                  />
+                </label>
+
+                <label>
+                  {t("auth.confirmMasterPassword")}
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder={t("auth.repeatPassword")}
+                  />
+                </label>
+
+                {setupPassword && (
+                  <div className="securityNotes">
+                    {masterIssues.length === 0 ? (
+                      <span>{t("auth.validMasterPassword")}</span>
+                    ) : (
+                      masterIssues.map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
+                    )}
+                  </div>
+                )}
+
+                {message && <div className="message error">{message}</div>}
+
+                <button disabled={busy} className="primaryButton">
+                  {busy ? t("auth.creatingVault") : t("auth.createEncryptedVault")}
+                </button>
+              </form>
+            </section>
+
+            <footer className="authDeveloperCredit">
+              Desenvolvido por <strong>MNSTechbr</strong>
+            </footer>
+          </section>
+        </main>
+        {confirmDialogElement}
+        {restoreBackupDialog}
+        {newVaultDialog}
+      </>
+    );
+  }
+
+  if (mode === "locked") {
+    return (
+      <>
+        <main className="authShell authDesktopShell">
+          <section className={`authCard authExperience authLocked${unlockPassword || busy || windowsHelloBusy ? " authUnlockTyping" : ""}${unlockGateOpen ? " authUnlockSuccess" : ""}`}>
+            <div className="authUtilityBar">
+              <div className="authProductMark">
+                <AppLogo size="sm" />
+                <div>
+                  <strong>KPassword</strong>
+                  <span>{t("app.localVault")}</span>
+                </div>
+              </div>
+              {authLoginToolsElement}
+            </div>
+
+            <div className="authHeroBlock authLogoStage">
+              <AppLogo
+                size="lg"
+                className={unlockPassword || busy || windowsHelloBusy || unlockGateOpen ? "vaultLogo opening" : "vaultLogo"}
+              />
+            </div>
+
+            <section className="authPanel authUnlockPanel">
+              <span className="authPanelLabel">{t("ui.unlockVault")}</span>
+              <form onSubmit={handleUnlock} className="authForm authUnlockForm">
+                <label>
+                  {t("auth.masterPassword")}
+                  <input
+                    type="password"
+                    value={unlockPassword}
+                    onChange={(event) => setUnlockPassword(event.target.value)}
+                    placeholder={t("auth.unlockPlaceholder")}
+                    autoFocus
+                  />
+                </label>
+
+                {message && <div className="message error">{message}</div>}
+
+                <button disabled={busy} className="primaryButton">
+                  {busy ? t("auth.unlocking") : t("auth.unlock")}
+                </button>
+
+                {canOfferHelloUnlock(windowsHelloStatus) && (
+                  <button
+                    type="button"
+                    className="windowsHelloButton"
+                    disabled={busy || windowsHelloBusy}
+                    onClick={() => void handleUnlockWithWindowsHello()}
+                  >
+                    {windowsHelloBusy ? t("auth.unlocking") : getPinUnlockLabel(appLanguage)}
+                  </button>
+                )}
+              </form>
+            </section>
+
+            <footer className="authDeveloperCredit">
+              Desenvolvido por <strong>MNSTechbr</strong>
+            </footer>
+          </section>
+        </main>
+        {confirmDialogElement}
+        {restoreBackupDialog}
+        {newVaultDialog}
+      </>
+    );
+  }
+
+  return (
+    <main
+      className={`appShell ${sidebarExpanded ? "sidebarOpen" : "sidebarClosed"}${sidebarHorizontal ? " sidebarHorizontal" : ""}`}
+    >
+      <aside className="sidebar">
+        <div className="sidebarBrand">
+          <button
+            className="sidebarToggle"
+            onClick={() => {
+              if (!sidebarHorizontal) {
+                setSidebarExpanded((current) => !current);
+              }
+            }}
+            title={sidebarHorizontal ? "KPassword" : sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
+            aria-label={sidebarHorizontal ? "KPassword" : sidebarExpanded ? t("nav.closeSidebar") : t("nav.openSidebar")}
+            aria-disabled={sidebarHorizontal}
+            aria-expanded={!sidebarHorizontal && sidebarExpanded}
+            tabIndex={sidebarHorizontal ? -1 : 0}
+          >
+            <AppLogo size="md" />
+          </button>
+
+          <div className="brandText">
+            <strong>KPassword</strong>
+            <span>{t("app.localVault")}</span>
+          </div>
+        </div>
+
+        <nav className="navList"><button
+            className={screen === "credentials" ? "active" : ""}
+            onClick={() => setScreen("credentials")}
+            title={t("nav.credentials")}
+            aria-label={t("nav.credentials")}
+            aria-current={screen === "credentials" ? "page" : undefined}
+          >
+            <span className="navIcon"><UiIcon name="vault" /></span>
+            <span className="navLabel">{t("nav.credentials")}</span>
+          </button>
+          <button
+            className={screen === "dashboard" ? "active" : ""}
+            onClick={() => setScreen("dashboard")}
+            title={t("nav.dashboard")}
+            aria-label={t("nav.dashboard")}
+            aria-current={screen === "dashboard" ? "page" : undefined}
+          >
+            <span className="navIcon"><UiIcon name="assistant" /></span>
+            <span className="navLabel">{t("nav.dashboard")}</span>
+          </button>
+          <button
+            className={screen === "trash" ? "active" : ""}
+            onClick={() => setScreen("trash")}
+            title={t("nav.trash")}
+            aria-label={t("nav.trash")}
+            aria-current={screen === "trash" ? "page" : undefined}
+          >
+            <span className="navIcon"><UiIcon name="trash" /></span>
+            <span className="navLabel">{t("nav.trash")}</span>
+          </button>
+          <button
+            className={screen === "settings" ? "active" : ""}
+            onClick={() => setScreen("settings")}
+            title={t("nav.securityBackup")}
+            aria-label={t("nav.securityBackup")}
+            aria-current={screen === "settings" ? "page" : undefined}
+          >
+            <span className="navIcon"><UiIcon name="shield" /></span>
+            <span className="navLabel">{t("nav.securityBackup")}</span>
+          </button>
+          <button
+            className={screen === "backups" ? "active" : ""}
+            onClick={() => setScreen("backups")}
+            title={t("ui.backups")}
+            aria-label={t("ui.backups")}
+            aria-current={screen === "backups" ? "page" : undefined}
+          >
+            <span className="navIcon"><UiIcon name="backup" /></span>
+            <span className="navLabel">{t("ui.backups")}</span>
+          </button>
+          <button
+            className={screen === "preferences" ? "active" : ""}
+            onClick={() => setScreen("preferences")}
+            title={t("nav.preferences")}
+            aria-label={t("nav.preferences")}
+            aria-current={screen === "preferences" ? "page" : undefined}
+          >
+            <span className="navIcon"><UiIcon name="settings" /></span>
+            <span className="navLabel">{t("nav.preferences")}</span>
+          </button>
+        </nav>
+
+        <div className="sidebarFooter">
+          <button className="lockButton" onClick={() => lockVault()} title={t("nav.lockVault")} aria-label={t("nav.lockVault")}>
+            <span className="navIcon"><UiIcon name="lock" /></span>
+            <span className="navLabel">{t("nav.lockVault")}</span>
+          </button>
+        </div>
+      </aside>
+
+      <section className="content">
+        <header className="topbar">
+          <div className="topbarTitle">
+            <AppLogo size="md" />
+            <div>
+              <p className="eyebrow">KPassword</p>
+              <h1>
+                {screen === "credentials" && t("nav.credentials")}
+                {screen === "dashboard" && t("nav.dashboard")}
+                {screen === "trash" && t("nav.trash")}
+                {screen === "settings" && t("nav.securityBackup")}
+                {screen === "preferences" && t("nav.preferences")}
+                {screen === "backups" && t("ui.backups")}
+              </h1>
+            </div>
+          </div>
+
+          <div className="topbarActions">
+            <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} compact />
+            {screen === "credentials" && (
+              <button
+                className="primaryButton addItemIconButton"
+                onClick={openNewCredentialForm}
+                title={t("topbar.addItem")}
+                aria-label={t("topbar.addItem")}
+              >
+                <UiIcon name="plus" /><span>{t("topbar.addItem")}</span>
+              </button>
+            )}
+          </div>
+        </header>
+
+        {message && <div className="message success">{message}</div>}
+
+        {screen === "credentials" && (
+          <section className={`credentialWorkspace${detailCredential ? " hasDetail" : ""}`}>
+            <div className="vaultListPane">
+            <div className="toolbar vaultSearchToolbar">
+              <input
+                aria-label={t("search.placeholder")}
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t("search.placeholder")}
+              />
+
+              <div className="quickFilterDropdown" ref={quickFilterMenuRef}>
+                <button
+                  type="button"
+                  className={activeQuickFilter === "all" ? "quickFilterMenuButton" : "quickFilterMenuButton active"}
+                  onClick={() => setQuickFilterMenuOpen((current) => !current)}
+                  aria-haspopup="menu"
+                  aria-expanded={quickFilterMenuOpen}
+                >
+                  <span>{quickFilterButtonLabel}</span>
+                  <strong>{quickFilterButtonCount}</strong>
+                  <span className="quickFilterMenuChevron" aria-hidden="true">⌄</span>
+                </button>
+
+                {quickFilterMenuOpen && (
+                  <div className="quickFilterMenu" role="menu" aria-label={t("quickFilters.title")}>
+                    <div className="quickFilterMenuHeader">
+                      <span>{t("quickFilters.title")}</span>
+                      <small>{t("search.results", { count: filteredCredentials.length })}</small>
+                    </div>
+
+                    {quickFilterOptions.map((item) => (
+                      <button
+                        key={item.filter}
+                        type="button"
+                        role="menuitem"
+                        className={activeQuickFilter === item.filter ? "quickFilterMenuItem active" : "quickFilterMenuItem"}
+                        onClick={() => openQuickVaultFilter(item.filter)}
+                        disabled={item.filter !== "all" && item.count === 0}
+                      >
+                        <span>{item.label}</span>
+                        <strong>{item.count}</strong>
+                      </button>
+                    ))}
+
+                    {activeQuickFilter !== "all" && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="quickFilterMenuClear"
+                        onClick={() => openQuickVaultFilter("all")}
+                      >
+                        {t("quickFilters.clearFilter")}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {allVaultTags.length > 0 && (
+              <div className="tagFilterBar" aria-label={t("tags.title")}>
+                <span>{t("tags.title")}</span>
+                <div className="tagFilterChips">
+                  <button
+                    type="button"
+                    className={activeTagFilter ? "tagFilterChip" : "tagFilterChip active"}
+                    onClick={() => setActiveTagFilter("")}
+                  >
+                    {t("tags.filterAll")}
+                  </button>
+                  {allVaultTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={activeTagFilter === tag ? "tagFilterChip active" : "tagFilterChip"}
+                      onClick={() => setActiveTagFilter(tag)}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTagFilter && (
+              <div className="diagnosticFilterBanner tagFilterBanner">
+                <div>
+                  <strong>{t("tags.filteringBy")}</strong>
+                  <span>#{activeTagFilter}</span>
+                </div>
+                <button type="button" className="secondaryButton" onClick={() => setActiveTagFilter("")}>
+                  {t("tags.clearFilter")}
+                </button>
+              </div>
+            )}
+
+            {activeDiagnosticFilter !== "all" && (
+              <div className="diagnosticFilterBanner">
+                <div>
+                  <strong>{t("diagnostic.filteringBy")}</strong>
+                  <span>{getDiagnosticLabel(activeDiagnosticFilter)}</span>
+                </div>
+                <button type="button" className="secondaryButton" onClick={() => setActiveDiagnosticFilter("all")}>
+                  {t("diagnostic.clearFilter")}
+                </button>
+              </div>
+            )}
+
+            <section className="credentialRows">
+              {filteredCredentials.map((credential, index) => {
+                const itemType = getItemType(credential);
+                const credentialStrength = strengthByCredential[credential.id] ?? null;
+                const primarySecret = getItemPrimarySecret(credential);
+                const previousCredential = filteredCredentials[index - 1];
+                const nextCredential = filteredCredentials[index + 1];
+                const canMoveUp =
+                  canReorderCredentials && previousCredential?.favorite === credential.favorite;
+                const canMoveDown =
+                  canReorderCredentials && nextCredential?.favorite === credential.favorite;
+
+                return (
+                  <article
+                    className={`credentialRow${detailCredentialId === credential.id ? " selected" : ""}`}
+                    key={credential.id}
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                        event.preventDefault(); setDetailCredentialId(credential.id);
+                      }
+                    }}
+                    onClick={() => setDetailCredentialId(credential.id)}
+                    title={t("credential.clickTitle")}
+                  >
+                    <span className="reorderControls" aria-label={t("credential.reorder")}>
+                      <button
+                        type="button"
+                        disabled={!canMoveUp}
+                        title={canReorderCredentials ? t("credential.moveUp") : t("credential.clearSearchToReorder")}
+                        onClick={(event) => {
+                          stopAction(event);
+                          void moveCredentialByOffset(credential.id, -1);
+                        }}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canMoveDown}
+                        title={canReorderCredentials ? t("credential.moveDown") : t("credential.clearSearchToReorder")}
+                        onClick={(event) => {
+                          stopAction(event);
+                          void moveCredentialByOffset(credential.id, 1);
+                        }}
+                      >
+                        ↓
+                      </button>
+                    </span>
+                    <button
+                      type="button"
+                      aria-pressed={credential.favorite}
+                      aria-label={credential.favorite ? t("credential.removeFavorite") : t("credential.favorite")}
+                      className={credential.favorite ? "rowStar active" : "rowStar"}
+                      onClick={(event) => {
+                        stopAction(event);
+                        void toggleFavorite(credential.id);
+                      }}
+                      title={credential.favorite ? t("credential.removeFavorite") : t("credential.favorite")}
+                    >
+                      ★
+                    </button>
+
+                    <span className="rowMain">
+                      <strong>{credential.title}</strong>
+                      <small>{getItemSubtitle(credential, appLanguage)}</small>
+                      {getCredentialTags(credential).length > 0 && (
+                        <span className="credentialTags compact">
+                          {getCredentialTags(credential).slice(0, 3).map((tag) => (
+                            <span key={tag} className="tagPill">#{tag}</span>
+                          ))}
+                        </span>
+                      )}
+                    </span>
+
+                    <span className="rowPassword">
+                      {isCredentialItem(credential) ? maskPassword(credential.password) : maskGenericSecret(primarySecret)}
+                    </span>
+
+                    <span className="rowCategory">
+                      {getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)}
+                    </span>
+
+                    <span className="rowHealth">
+                      {isCredentialItem(credential) ? (
+                        <>
+                          <span>
+                            {credentialStrength
+                              ? `${translatePasswordLabel(credentialStrength.label, appLanguage)} · ${credentialStrength.score}%`
+                              : "—"}
+                          </span>
+                          <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
+                            {getExpiryLabel(credential)}
+                          </span>
+                          {getDiagnosticIssuesFor(credential).slice(0, 2).map((issue) => (
+                            <span key={issue} className={`diagnosticMiniBadge issue-${issue}`}>
+                              {getDiagnosticLabel(issue)}
+                            </span>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <span>{getCategoryLabel(credential.category, appLanguage)}</span>
+                          <span className="expiryBadge never">{t("item.encrypted")}</span>
+                        </>
+                      )}
+                    </span>
+
+                    <span className="rowActions">
+                      {isCredentialItem(credential) && credential.username && (
+                        <button
+                          type="button" data-copied={copiedField === `user-${credential.id}`}
+                          title={t("credential.copyUser")}
+                          aria-label={t("credential.copyUser")}
+                          onClick={(event) => {
+                            stopAction(event);
+                            void copySecure(
+                              credential.username,
+                              `user-${credential.id}`,
+                              createActionHistoryEntry("username_copied", credential.title),
+                            );
+                          }}
+                        >
+                          <UiIcon name="copy" /><span className="rowActionLabel">{copiedField === `user-${credential.id}` ? t("credential.copied") : t("credential.copyUser")}</span>
+                        </button>
+                      )}
+
+                      {primarySecret && (
+                        <button
+                          type="button" data-copied={copiedField === `secret-${credential.id}`}
+                          title={t(isCredentialItem(credential) ? "credential.copyPassword" : "item.copySecret")}
+                          aria-label={t(isCredentialItem(credential) ? "credential.copyPassword" : "item.copySecret")}
+                          onClick={(event) => {
+                            stopAction(event);
+                            void copySecure(
+                              primarySecret,
+                              `secret-${credential.id}`,
+                              createActionHistoryEntry("password_copied", credential.title),
+                            );
+                          }}
+                        >
+                          <UiIcon name="copy" /><span className="rowActionLabel">{copiedField === `secret-${credential.id}` ? t("credential.copiedFemale") : t(isCredentialItem(credential) ? "credential.copyPassword" : "item.copySecret")}</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                          title={t("credential.edit")}
+                          aria-label={t("credential.edit")}
+                        onClick={(event) => {
+                          stopAction(event);
+                          openEditCredentialForm(credential);
+                        }}
+                      >
+                          <UiIcon name="edit" /><span className="rowActionLabel">{t("credential.edit")}</span>
+                        </button>
+                    </span>
+                  </article>
+                );
+              })}
+
+              {filteredCredentials.length === 0 && (
+                <div className="emptyState">
+                  <h2>{t("credential.emptyTitle")}</h2>
+                  <p>{t("credential.emptyDescription")}</p>
+                  <button className="primaryButton" onClick={openNewCredentialForm}>
+                    {t("topbar.addItem")}
+                  </button>
+                </div>
+              )}
+            </section>
+            </div>
+            {detailPanelElement}
+          </section>
+        )}
+
+        {screen === "dashboard" && (
+          <div className="assistantPage">
+            <section className={`assistantHero tone-${vaultHealthTone}`}>
+              <div>
+                <p className="eyebrow">{t("assistant.eyebrow")}</p>
+                <h2>{t("assistant.title")}</h2>
+                <p>
+                  {assistantImprovementCount > 0
+                    ? t("assistant.heroWithActions", { count: assistantImprovementCount })
+                    : t("assistant.heroClean")}
+                </p>
+              </div>
+
+              <div className="assistantPulse" aria-label={t("diagnostic.score")}>
+                <span>{t("diagnostic.score")}</span>
+                <strong>{vaultHealthScore}</strong>
+                <small>{t(`diagnostic.health.${vaultHealthTone}`)}</small>
+              </div>
+            </section>
+
+            <section className="assistantDecisionGrid">
+              <article className={`assistantNextCard tone-${assistantMainAction?.tone ?? "neutral"}`}>
+                <div className="assistantCardHeader">
+                  <span className="assistantOrb" aria-hidden="true">✦</span>
+                  <div>
+                    <p className="eyebrow">{t("assistant.nextEyebrow")}</p>
+                    <h2>{assistantMainAction ? t(`assistant.action.title.${assistantMainAction.issue}`, { title: assistantMainAction.credential.title }) : t("assistant.noActionTitle")}</h2>
+                  </div>
+                </div>
+
+                {assistantMainAction ? (
+                  <>
+                    <p className="assistantReason">
+                      {t(`assistant.action.reason.${assistantMainAction.issue}`, { title: assistantMainAction.credential.title })}
+                    </p>
+
+                    <div className="assistantIssueLine">
+                      <span className={`diagnosticMiniBadge issue-${assistantMainAction.issue}`}>{getDiagnosticLabel(assistantMainAction.issue)}</span>
+                      <span>{getItemSubtitle(assistantMainAction.credential, appLanguage)}</span>
+                    </div>
+
+                    <div className="assistantActionButtons">
+                      <button className="primaryButton" type="button" onClick={() => runAssistantPrimaryAction(assistantMainAction)}>
+                        {t(`assistant.primary.${assistantMainAction.kind}`)}
+                      </button>
+                      {assistantMainAction.credential.url.trim() && (
+                        <button className="secondaryButton" type="button" onClick={() => void openAssistantSite(assistantMainAction.credential)}>
+                          {t("assistant.openSite")}
+                        </button>
+                      )}
+                      <button className="ghostButton" type="button" onClick={() => openAssistantCredential(assistantMainAction.credential)}>
+                        {t("assistant.viewCredential")}
+                      </button>
+                      <button className="ghostButton assistantSkipButton" type="button" onClick={() => skipAssistantAction(assistantMainAction)}>
+                        {t("assistant.skipNow")}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="assistantEmptyAction">
+                    <p>{t("assistant.noActionDescription")}</p>
+                    <button className="primaryButton" type="button" onClick={() => setScreen("credentials")}>{t("assistant.goVault")}</button>
+                  </div>
+                )}
+              </article>
+
+              <article className="assistantQueueCard">
+                <div className="assistantCardHeader compact">
+                  <div>
+                    <p className="eyebrow">{t("assistant.queueEyebrow")}</p>
+                    <h2>{t("assistant.queueTitle")}</h2>
+                  </div>
+                  {assistantSkippedCount > 0 && (
+                    <button className="ghostButton" type="button" onClick={() => setAssistantSkippedIds([])}>
+                      {t("assistant.restoreSkipped", { count: assistantSkippedCount })}
+                    </button>
+                  )}
+                </div>
+
+                <div className="assistantQueueList">
+                  {assistantQueue.length > 0 ? (
+                    assistantQueue.map((action, index) => (
+                      <button
+                        key={action.id}
+                        type="button"
+                        className={`assistantQueueItem tone-${action.tone}`}
+                        onClick={() => setAssistantFocusId(action.id)}
+                      >
+                        <span>{index + 1}</span>
+                        <strong>{action.credential.title}</strong>
+                        <small>{getDiagnosticLabel(action.issue)}</small>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="emptyText">{assistantMainAction ? t("assistant.queueEmpty") : t("assistant.noIssuesQueue")}</p>
+                  )}
+                </div>
+              </article>
+            </section>
+
+            <section className="assistantActionColumns">
+              <article className="assistantSafeCard">
+                <div>
+                  <p className="eyebrow">{t("assistant.safeEyebrow")}</p>
+                  <h2>{t("assistant.safeTitle")}</h2>
+                  <p>{assistantSafeActionCount > 0 ? t("assistant.safeDescription", { count: assistantSafeActionCount }) : t("assistant.safeEmpty")}</p>
+                </div>
+
+                {assistantTagSuggestions.length > 0 && (
+                  <>
+                    <div className="assistantTagRail">
+                      {assistantTagSuggestions.slice(0, 5).map((suggestion) => (
+                        <button key={suggestion.id} className="assistantSuggestionButton" type="button" onClick={() => void applyAssistantTagSuggestion(suggestion)} disabled={busy}>
+                          <span>{suggestion.credential.title}</span>
+                          <strong>#{suggestion.tag}</strong>
+                        </button>
+                      ))}
+                    </div>
+
+                    <button className="primaryButton" type="button" onClick={() => void applyAssistantTagSuggestions(assistantTagSuggestions)} disabled={busy}>
+                      {t("assistant.tags.applyCount", { count: assistantTagSuggestions.length })}
+                    </button>
+                  </>
+                )}
+              </article>
+
+              <article className="assistantNeedsYouCard">
+                <div>
+                  <p className="eyebrow">{t("assistant.needsYouEyebrow")}</p>
+                  <h2>{t("assistant.needsYouTitle")}</h2>
+                  <p>{assistantExternalActionCount > 0 ? t("assistant.needsYouDescription", { count: assistantExternalActionCount }) : t("assistant.needsYouEmpty")}</p>
+                </div>
+
+                <div className="assistantIssueChips">
+                  {diagnosticCards
+                    .filter((card) => card.count > 0)
+                    .map((card) => (
+                      <button key={card.filter} type="button" className={`assistantIssueChipButton tone-${card.tone}`} onClick={() => openDiagnosticFilter(card.filter)}>
+                        <strong>{card.count}</strong>
+                        <span>{getDiagnosticLabel(card.filter)}</span>
+                      </button>
+                    ))}
+                </div>
+              </article>
+            </section>
+
+            <section className="assistantRulesCard">
+              <strong>{t("assistant.ruleTitle")}</strong>
+              <span>{t("assistant.ruleText")}</span>
+            </section>
+          </div>
+        )}
+
+        {screen === "trash" && (
+          <div className="settingsGrid">
+            <article className="wideCard">
+              <div className="cardTitleRow">
+                <div>
+                  <h2>{t("trash.title")}</h2>
+                  <p>{t("trash.description")}</p>
+                </div>
+                <button
+                  className="dangerConfirmButton"
+                  disabled={deletedCredentials.length === 0}
+                  onClick={() => void handleEmptyTrash()}
+                >
+                  {t("trash.empty")}
+                </button>
+              </div>
+
+              <div className="trashList">
+                {deletedCredentials.map((credential) => (
+                  <article key={credential.id} className="trashItem">
+                    <div>
+                      <strong>{credential.title}</strong>
+                      <span>
+                        {credential.username || t("credential.noUser")} · {t("trash.deletedAt")} {formatDate(credential.deletedAt, appLanguage)}
+                      </span>
+                    </div>
+                    <div className="trashActions">
+                      <button className="secondaryButton" onClick={() => void handleRestoreCredential(credential.id)}>
+                        {t("trash.restore")}
+                      </button>
+                      <button className="dangerButton" onClick={() => void handlePermanentDeleteCredential(credential.id)}>
+                        {t("trash.deleteForever")}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+
+                {deletedCredentials.length === 0 && (
+                  <div className="emptyState">
+                    <h2>{t("trash.emptyListTitle")}</h2>
+                    <p>{t("trash.emptyListDescription")}</p>
+                  </div>
+                )}
+              </div>
+            </article>
+          </div>
+        )}
+
+        {screen === "settings" && (
+          <div className="securityPage">
+            <nav className="sectionTabs" aria-label={t("nav.securityBackup")}>
+              {(["access", "locking", "clipboard", "integrations"] as const).filter((section) => section !== "integrations" || isLinux).map((section) => (
+                <button type="button" key={section} aria-current={securitySection === section ? "page" : undefined}
+                  className={securitySection === section ? "active" : ""} onClick={() => setSecuritySection(section)}>{t(`ui.security.${section}`)}</button>
+              ))}
+            </nav>
+            <div className="settingsGrid" key={securitySection}>
+              {securitySection === "access" && (<>
+                <details className="wideCard designDisclosure">
+              <summary className="settingsSectionHeader">
+                <span>
+                  <strong>{t("settings.masterPasswordTitle")}</strong>
+                  <small>{t("settings.masterPasswordDescription")}</small>
+                </span>
+              </summary>
+
+              <div className="settingsAccordionBody">
+                <p>
+                  Não existe recuperação da senha mestra atual. Se ela for perdida, o cofre e os backups criptografados não podem ser descriptografados. Troque a senha periodicamente e guarde-a em local seguro.
+                </p>
+
+                <form className="changePasswordForm" onSubmit={handleChangeMasterPassword}>
+                  <label>
+                    Senha atual
+                    <input
+                      type="password"
+                      value={currentMasterPassword}
+                      onChange={(event) => setCurrentMasterPassword(event.target.value)}
+                      placeholder="Digite a senha atual"
+                    />
+                  </label>
+                  <label>
+                    Nova senha mestra
+                    <input
+                      type="password"
+                      value={newMasterPassword}
+                      onChange={(event) => setNewMasterPassword(event.target.value)}
+                      placeholder={t("auth.masterPlaceholder")}
+                    />
+                  </label>
+                  <label>
+                    Confirmar nova senha
+                    <input
+                      type="password"
+                      value={newMasterConfirm}
+                      onChange={(event) => setNewMasterConfirm(event.target.value)}
+                      placeholder="Repita a nova senha"
+                    />
+                  </label>
+
+                  {newMasterPassword && (
+                    <div className="securityNotes inlineNotes">
+                      {validateMasterPassword(newMasterPassword).length === 0 ? (
+                        <span>{t("settings.newPasswordValid")}</span>
+                      ) : (
+                        validateMasterPassword(newMasterPassword).map((issue) => <span key={issue}>{translateValidationIssue(issue, appLanguage)}</span>)
+                      )}
+                    </div>
+                  )}
+
+                  <button className="primaryButton" disabled={busy}>
+                    Alterar senha mestra
+                  </button>
+                </form>
+              </div>
+            </details>
+                <article className="wideCard designSection"><h2>{t("windowsHello.title")}</h2><div className={windowsHelloStatus.enabled ? "windowsHelloPanel enabled" : "windowsHelloPanel"}>
+                <div className="windowsHelloPanelText">
+                  <span>{t("windowsHello.description")}</span>
+                  <small>
+                    {windowsHelloStatus.enabled
+                      ? t("windowsHello.statusEnabled")
+                      : windowsHelloStatus.available
+                        ? t("windowsHello.statusDisabled")
+                        : t("windowsHello.unavailable")}
+                  </small>
+                </div>
+
+                {windowsHelloStatus.enabled ? (
+                  <button
+                    type="button"
+                    className="dangerConfirmButton"
+                    disabled={busy || windowsHelloBusy}
+                    onClick={() => void handleDisableWindowsHello()}
+                  >
+                    {windowsHelloBusy ? t("windowsHello.processing") : t("windowsHello.disable")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={busy || windowsHelloBusy || !windowsHelloStatus.available}
+                    onClick={() => void handleEnableWindowsHello()}
+                  >
+                    {windowsHelloBusy ? t("windowsHello.processing") : t("windowsHello.enable")}
+                  </button>
+                )}
+              </div></article></>)}
+              {securitySection === "locking" && (<article className="wideCard designSection"><h2>{t("ui.security.locking")}</h2><div className="settingsControlGrid"><label>
+                  {t("settings.autoLockLabel")}
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={vault?.settings.autoLockMinutes ?? 10}
+                    onChange={(event) => void updateVaultSettings({ autoLockMinutes: getBoundedVaultInputValue(event.target.value, 10, 1, 120) })}
+                  />
+                </label></div>
+                <div className="toggleList"><label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.lockOnInactive")}</strong>
+                    <small>{t("settings.lockOnInactiveDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.lockOnInactive ?? true}
+                    onChange={(event) => void updateVaultSettings({ lockOnInactive: event.target.checked })}
+                  />
+                </label>
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.lockOnMinimize")}</strong>
+                    <small>{t("settings.lockOnMinimizeDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.lockOnMinimize ?? true}
+                    onChange={(event) => void updateVaultSettings({ lockOnMinimize: event.target.checked })}
+                  />
+                </label>
+                </div>
+              </article>)}
+              {securitySection === "clipboard" && (<article className="wideCard designSection"><h2>{t("ui.security.clipboard")}</h2><label>
+                  {t("settings.clipboardLabel")}
+                  <input
+                    type="number"
+                    min={10}
+                    max={300}
+                    value={vault?.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS}
+                    onChange={(event) => void updateVaultSettings({ clipboardClearSeconds: getBoundedVaultInputValue(event.target.value, CLIPBOARD_CLEAR_SECONDS, 10, 300) })}
+                  />
+                </label><p>{t("settings.winV")}</p></article>)}
+              {securitySection === "integrations" && isLinux && (<article className="wideCard designSection"><h2>{t("ui.security.integrations")}</h2><div className="windowsHelloPanel">
+                  <div className="windowsHelloPanelText">
+                    <strong>Secrets Bridge</strong><span>{t("bridge.description")}</span>
+                    <label className="toggleRow"><span>{t("bridge.enable")}</span><input type="checkbox" checked={vault?.settings.secretsBridgeEnabled ?? false} disabled={busy || bridgeBusy} onChange={(e) => void updateVaultSettings({ secretsBridgeEnabled: e.target.checked })} /></label>
+                    <label>{t("bridge.duration")}<select value={bridgeHours} disabled={bridgeStatus.active} onChange={e=>setBridgeHours(Number(e.target.value))}>{[24,48,72].map(hours=><option key={hours} value={hours}>{hours}h</option>)}</select></label>
+                    <small>{bridgeStatus.active ? t("bridge.backgroundActive") : t("bridge.inactive")}</small>
+                    {bridgeStatus.active && <small>{t("bridge.remaining")}: {Math.floor(bridgeStatus.remainingSeconds / 3600)}h {Math.floor((bridgeStatus.remainingSeconds % 3600) / 60)}min · {bridgeStatus.grants.length} {t("bridge.permissions")}</small>}
+                    <small>{t("bridge.backgroundDescription")}</small>
+                    {bridgeStatus.grants.map(permission=><div className="bridgePermission" key={`${permission.identity}:${permission.keyId}:${permission.operation}:${permission.model}`}>
+                      <strong>{permission.entryScript ?? permission.application}</strong><span>{permission.project}</span><span>{permission.operation} · {permission.model} · {permission.remainingCalls} {t("bridge.callsRemaining")}</span>
+                      <button type="button" onClick={()=>void invoke("bridge_revoke_grant",{identity:permission.identity,keyId:permission.keyId,operation:permission.operation,model:permission.model})}>{t("bridge.revokePermission")}</button>
+                    </div>)}
+                  </div>
+                  <button type="button" className="secondaryButton" disabled={!vault?.settings.secretsBridgeEnabled || bridgeBusy} onClick={() => { if (bridgeStatus.active || bridgeGeneration !== null) { void invoke("bridge_close");setBridgeGeneration(null);setBridgeStatus({active:false,remainingSeconds:0,grants:[]}); } else void activateBridgeSession(); }}>{bridgeStatus.active || bridgeGeneration !== null ? t("bridge.stop") : t("bridge.activate")}</button>
+                </div>
+              </article>)}
+            </div>
+            <p className="securityFootnote">{t("security.localThreatModel")}</p>
+          </div>
+        )}
+        {screen === "backups" && (
+          <div className="settingsGrid backupPage">
+            <article className="wideCard storageCard">
+              <div className="cardTitleRow">
+                <div>
+                  <h2>{t("settings.localStorage")}</h2>
+                  <p>{t("settings.localStorageDescription")}</p>
+                </div>
+
+                <button
+                  className="secondaryButton"
+                  onClick={() => {
+                    setShowStoragePaths(true);
+                    window.setTimeout(() => setShowStoragePaths(false), 30000);
+                  }}
+                >
+                  {t("settings.show30s")}
+                </button>
+              </div>
+
+              {showStoragePaths ? (
+                <div className="pathGrid">
+                  <div className="pathBox">
+                    <span>{t("settings.encryptedVault")}</span>
+                    <strong>{storageInfo?.vault_path ?? t("settings.loading")}</strong>
+                  </div>
+                  <div className="pathBox">
+                    <span>{t("settings.encryptedBackups")}</span>
+                    <strong>{storageInfo?.backup_dir ?? t("settings.loading")}</strong>
+                  </div>
+                </div>
+              ) : (
+                <div className="hiddenPathsBox">
+                  <strong>{t("settings.hiddenPaths")}</strong>
+                  <span>{t("settings.hiddenPathsDescription")}</span>
+                </div>
+              )}
+
+              <div className="folderActionGrid">
+                <button className="secondaryButton" type="button" onClick={() => void handleOpenVaultFolder()}>
+                  {t("folders.openVault")}
+                </button>
+                <button className="secondaryButton" type="button" onClick={() => void handleOpenBackupFolder()}>
+                  {t("folders.openBackups")}
+                </button>
+              </div>
+            </article>
+            <article className="wideCard">
+              <h2>{t("settings.autoBackups")}</h2>
+              <p>{t("settings.autoBackupsDescription")}</p>
+
+              <div className="backupFrequency"><label>
+                  {t("settings.backupIntervalLabel")}
+                  <input
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={vault?.settings.backupIntervalHours ?? 4}
+                    onChange={(event) => void updateVaultSettings({ backupIntervalHours: getBoundedVaultInputValue(event.target.value, 4, 1, 24) })}
+                  />
+                </label></div>
+              <div className="backupList">
+                {backups.slice(0, 3).map((backup) => (
+                  <div key={backup.filename}>
+                    <strong>{backup.filename}</strong>
+                    <span>
+                      {formatDate(backup.modified_epoch_ms)} · {(backup.size_bytes / 1024).toFixed(1)} KB
+                    </span>
+                  </div>
+                ))}
+
+                {backups.length === 0 && <p className="emptyText">{t("settings.noBackups")}</p>}
+              </div>
+
+              {backups.length > 3 && (
+                <p className="backupListHint">
+                  Exibindo os 3 backups mais recentes. Para ver todos, use Abrir pasta de backups.
+                </p>
+              )}
+
+              <button
+                className="secondaryButton"
+                onClick={() => {
+                  if (!vault) return;
+
+                  void askConfirmation({
+                    title: "Criar backup",
+                    message: "Criar um novo backup criptografado agora?",
+                    confirmText: "Criar backup",
+                    cancelText: t("dialog.cancel"),
+                  }).then((confirmed) => {
+                    if (!confirmed) return;
+
+                    void persistVault(vault, undefined, true)
+                      .then(() => refreshStorageInfo())
+                      .then(() => setMessage("Backup criptografado atualizado."))
+                      .catch(() => setMessage("Erro ao criar backup."));
+                  });
+                }}
+              >
+                Criar backup agora
+              </button>
+            </article><details className="wideCard designDisclosure">
+              <summary className="settingsSectionHeader">
+                <span>
+                  <strong>{t("backupVerify.title")}</strong>
+                  <small>{t("backupVerify.description")}</small>
+                </span>
+              </summary>
+
+              <div className="settingsAccordionBody">
+              <div className="backupVerifyPanel">
+                <label>
+                  {t("backupVerify.passwordLabel")}
+                  <input
+                    type="password"
+                    value={backupVerifyPassword}
+                    onChange={(event) => setBackupVerifyPassword(event.target.value)}
+                    placeholder={t("backupVerify.passwordPlaceholder")}
+                  />
+                </label>
+
+                <label className="fileImportButton inlineFileButton backupVerifyButton">
+                  {t("backupVerify.button")}
+                  <input
+                    type="file"
+                    accept=".kpvault,application/json"
+                    onChange={(event) => {
+                      void handleVerifyBackupFile(event.target.files?.[0], backupVerifyPassword);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+
+              {backupVerifyResult && (
+                <div
+                  className={backupVerifyResult.ok ? "backupVerifyResult success" : "backupVerifyResult failure"}
+                  role="status"
+                >
+                  <strong>
+                    {backupVerifyResult.ok
+                      ? t("backupVerify.successTitle")
+                      : t("backupVerify.failureTitle")}
+                  </strong>
+                  <p>
+                    {backupVerifyResult.ok
+                      ? t("backupVerify.successMessage")
+                      : t("backupVerify.failureMessage")}
+                  </p>
+                  <p>{t("backupVerify.noChanges")}</p>
+
+                  {backupVerifyResult.ok && (
+                    <dl className="backupVerifyMeta">
+                      {backupVerifyResult.backupVersion && (
+                        <div>
+                          <dt>{t("backupVerify.backupVersion")}</dt>
+                          <dd>{backupVerifyResult.backupVersion}</dd>
+                        </div>
+                      )}
+                      {backupVerifyResult.cryptoVersion !== undefined && (
+                        <div>
+                          <dt>{t("backupVerify.cryptoVersion")}</dt>
+                          <dd>{backupVerifyResult.cryptoVersion}</dd>
+                        </div>
+                      )}
+                      {backupVerifyResult.itemCount !== undefined && (
+                        <div>
+                          <dt>{t("backupVerify.itemCount")}</dt>
+                          <dd>{backupVerifyResult.itemCount}</dd>
+                        </div>
+                      )}
+                      {backupVerifyResult.createdAt && (
+                        <div>
+                          <dt>{t("backupVerify.createdAt")}</dt>
+                          <dd>{formatDate(backupVerifyResult.createdAt, appLanguage)}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
+                </div>
+              )}
+              </div>
+            </details><details className="wideCard designDisclosure">
+              <summary className="settingsSectionHeader">
+                <span>
+                  <strong>{t("settings.importBackup")}</strong>
+                  <small>{t("settings.importBackupDescription")}</small>
+                </span>
+              </summary>
+
+              <div className="settingsAccordionBody">
+              <label className="fileImportButton inlineFileButton">
+                {t("settings.selectBackup")}
+                <input
+                  type="file"
+                  accept=".kpvault,application/json"
+                  onChange={(event) => {
+                    void handleBackupFileInput(event.target.files?.[0], masterPassword);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              </div>
+            </details><details className="wideCard designDisclosure">
+              <summary className="settingsSectionHeader">
+                <span>
+                  <strong>{t("export.title")}</strong>
+                  <small>{t("export.description")}</small>
+                </span>
+              </summary>
+
+              <div className="settingsAccordionBody">
+              <div className="exportActionGrid">
+                <div className="exportBox">
+                  <strong>{t("export.encryptedTitle")}</strong>
+                  <span>{t("export.encryptedDescription")}</span>
+                  <button className="secondaryButton" type="button" onClick={() => void handleExportEncryptedJson()}>
+                    {t("export.downloadEncrypted")}
+                  </button>
+                </div>
+
+                <div className="exportBox dangerExportBox csvMigrationExportBox">
+                  <span className="dangerBadge">{t("export.csvDangerBadge")}</span>
+                  <strong>{t("export.csvTitle")}</strong>
+                  <span>{t("export.csvDescription")}</span>
+                  <small>{t("export.csvFilenameHint")}</small>
+                  <button className="dangerConfirmButton" type="button" onClick={openCsvExportDialog}>
+                    {t("export.openCsvDialog")}
+                  </button>
+                </div>
+
+                <div className="exportBox csvImportBox">
+                  <strong>{t("import.csvTitle")}</strong>
+                  <span>{t("import.csvDescription")}</span>
+                  <label className="fileImportButton inlineFileButton">
+                    {t("import.selectCsv")}
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={(event) => {
+                        void handleImportCsvFile(event.target.files?.[0]);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+
+                  {csvImportPreview && (
+                    <div className="csvImportReadyHint" role="status">
+                      <strong>{t("import.previewTitle")}</strong>
+                      <span>{t("import.previewFile", { name: csvImportPreview.filename })}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              </div>
+            </details>
+          </div>
+        )}
+
+        {screen === "preferences" && (
+          <div className="preferencesGrid">
+            <article className="wideCard preferenceCard">
+              <h2>{t("preferences.theme")}</h2>
+              <p>{t("preferences.themeDescription")}</p>
+
+              <div className="optionGrid">
+                <button
+                  className={appTheme === "dark" ? "optionButton active" : "optionButton"}
+                  onClick={() => setAppTheme("dark")}
+                >
+                  <UiIcon name="moon" />
+                  <strong>{t("preferences.dark")}</strong>
+                  <small>{t("preferences.darkDescription")}</small>
+                </button>
+
+                <button
+                  className={appTheme === "light" ? "optionButton active" : "optionButton"}
+                  onClick={() => setAppTheme("light")}
+                >
+                  <UiIcon name="sun" />
+                  <strong>{t("preferences.light")}</strong>
+                  <small>{t("preferences.lightDescription")}</small>
+                </button>
+
+                <button
+                  className={appTheme === "system" ? "optionButton active" : "optionButton"}
+                  onClick={() => setAppTheme("system")}
+                >
+                  <UiIcon name="system" />
+                  <strong>{t("preferences.system")}</strong>
+                  <small>{t("preferences.systemDescription")}</small>
+                </button>
+              </div>
+            </article>
+
+            <article className="wideCard preferenceCard">
+              <h2>{t("preferences.accessibility")}</h2>
+              <p>{t("preferences.accessibilityDescription")}</p>
+
+              <div className="toggleList">
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("preferences.largeFont")}</strong>
+                    <small>{t("preferences.largeFontDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={fontScale === "large"}
+                    onChange={(event) => setFontScale(event.target.checked ? "large" : "normal")}
+                  />
+                </label>
+
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("preferences.reduceMotion")}</strong>
+                    <small>{t("preferences.reduceMotionDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={reduceMotion}
+                    onChange={(event) => setReduceMotion(event.target.checked)}
+                  />
+                </label>
+
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("preferences.compactList")}</strong>
+                    <small>{t("preferences.compactListDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={compactMode}
+                    onChange={(event) => setCompactMode(event.target.checked)}
+                  />
+                </label>
+              </div>
+            </article>
+
+            <article className="wideCard preferenceCard">
+              <h2>{t("language.title")}</h2>
+              <p>{t("language.description")}</p>
+              <div className="languagePreferenceBox">
+                <span>{t("language.current")}</span>
+                <LanguageSelector language={appLanguage} onChange={setAppLanguage} label={t("language.select")} />
+              </div>
+            </article>
+
+            <article className="wideCard designSection"><h2>{t("ui.behavior")}</h2><div className="toggleList"><label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.lockOnClose")}</strong>
+                    <small>{t("settings.lockOnCloseDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.lockOnClose ?? true}
+                    onChange={(event) => void updateVaultSettings({ lockOnClose: event.target.checked })}
+                  />
+                </label>
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.startupWithWindows")}</strong>
+                    <small>{t("settings.startupWithWindowsDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={startupEnabled}
+                    disabled={startupBusy}
+                    onChange={(event) => void updateStartupEnabled(event.target.checked)}
+                  />
+                </label>
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.notifyOnTray")}</strong>
+                    <small>{t("settings.notifyOnTrayDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.notifyOnTray ?? true}
+                    onChange={(event) => void updateVaultSettings({ notifyOnTray: event.target.checked })}
+                  />
+                </label>
+                <label className="toggleRow">
+                  <span>
+                    <strong>{t("settings.soundOnTray")}</strong>
+                    <small>{t("settings.soundOnTrayDescription")}</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={vault?.settings.soundOnTray ?? true}
+                    onChange={(event) => void updateVaultSettings({ soundOnTray: event.target.checked })}
+                  />
+                </label></div>
+                <details className="technicalDetails"><summary>{t("ui.technicalDetails")}</summary><div className="startupStatusBox">
+                <div>
+                  <strong>{startupEnabled ? t("settings.startupStatusOn") : t("settings.startupStatusOff")}</strong>
+                  <span>{t("settings.startupStatusDescription")}</span>
+                </div>
+                <dl>
+                  <div>
+                    <dt>{t("settings.startupRegistry")}</dt>
+                    <dd>{startupStatus.registry_key} / {startupStatus.value_name || "KPassword"}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("settings.startupCommand")}</dt>
+                    <dd>{startupStatus.command_line || t("settings.startupCommandUnavailable")}</dd>
+                  </div>
+                </dl>
+              </div>
+                <div className="securityGrid">
+                <span>{t("settings.winV")}</span>
+                <span>{startupEnabled ? t("settings.autostartEnabledStatus") : t("settings.autostartDisabledStatus")}</span>
+                <span>{t("settings.tray")}</span>
+                <span>{t("settings.singleInstance")}</span>
+              </div></details></article>
+
+            <article className="wideCard preferenceCard currentVaultCard">
+              <h2>{t("vault.current")}</h2>
+              <strong>{getVaultDisplayName(activeVaultName, vaultFiles)}</strong>
+              <p>{t("ui.vaultSwitchLocked")}</p>
+              <div className="inlineActions">
+                <button type="button" className="secondaryButton" onClick={() => lockVault()}>{t("nav.lockVault")}</button>
+                {vaultFiles.some((item) => item.name === activeVaultName) && (
+                  <button type="button" className="dangerConfirmButton" disabled={busy} onClick={() => {
+                    setDeleteVaultPassword(""); setDeleteVaultError(""); setDeleteVaultTarget(activeVaultName);
+                  }}>{t("vault.delete")}</button>
+                )}
+              </div>
+            </article>
+
+            <article className="wideCard preferenceCard">
+              <h2>{t("preferences.updates")}</h2>
+              <p>{t("preferences.updatesDescription")}</p>
+
+              <div className="updateSummary">
+                <div>
+                  <span>{t("preferences.installedVersion")}</span>
+                  <strong>{APP_VERSION}</strong>
+                </div>
+                <div>
+                  <span>{t("preferences.channel")}</span>
+                  <strong>{UPDATE_GITHUB_OWNER && UPDATE_GITHUB_REPO ? t("preferences.githubReleases") : t("preferences.notConfigured")}</strong>
+                </div>
+              </div>
+
+              <button className="secondaryButton" onClick={() => void handleCheckUpdates()}>
+                {t("preferences.checkUpdate")}
+              </button>
+
+              {updateStatus && <div className="updateStatus">{updateStatus}</div>}
+            </article>
+
+            <article className="wideCard preferenceCard helpAboutCompactCard">
+              <div className="cardTitleRow">
+                <div>
+                  <h2>{t("helpAbout.title")}</h2>
+                  <p>{t("helpAbout.description")}</p>
+                </div>
+                <span className="versionBadge">v{APP_VERSION}</span>
+              </div>
+
+              <div className="compactInfoGrid">
+                <div>
+                  <strong>{t("helpAbout.example1Title")}</strong>
+                  <span>{t("helpAbout.example1Text")}</span>
+                </div>
+                <div>
+                  <strong>{t("helpAbout.example2Title")}</strong>
+                  <span>{t("helpAbout.example2Text")}</span>
+                </div>
+                <div>
+                  <strong>{t("helpAbout.example3Title")}</strong>
+                  <span>{t("helpAbout.example3Text")}</span>
+                </div>
+              </div>
+
+              <div className="localSecurityNotice">
+                <strong>{t("helpAbout.securityTitle")}</strong>
+                <span>{t("helpAbout.securityText")}</span>
+              </div>
+            </article>
+
+            <article className="wideCard securityActionCard actionHistorySettingsCard">
+              <div className="settingsSectionHeader actionHistorySettingsHeader">
+                <span>
+                  <strong>{t("actionHistory.settingsTitle")}</strong>
+                  <small>{t("actionHistory.settingsDescription")}</small>
+                </span>
+                <button type="button" className="secondaryButton" onClick={() => setActionHistoryOpen(true)}>
+                  {t("actionHistory.open")}
+                </button>
+              </div>
+
+              <div className="actionHistorySettingsSummary">
+                <span>{t("actionHistory.recentCount", { count: actionHistoryEntries.length })}</span>
+                <small>{t("actionHistory.safeNotice")}</small>
+              </div>
+            </article>
+
+            <article className="wideCard securityActionCard appDiagnosticsSettingsCard">
+              <div className="settingsSectionHeader actionHistorySettingsHeader">
+                <span>
+                  <strong>{t("appDiagnostics.settingsTitle")}</strong>
+                  <small>{t("appDiagnostics.settingsDescription")}</small>
+                </span>
+                <button type="button" className="secondaryButton" onClick={() => setAppDiagnosticsOpen(true)}>
+                  {t("appDiagnostics.open")}
+                </button>
+              </div>
+
+              <div className="actionHistorySettingsSummary">
+                <span>{t("appDiagnostics.summary")}</span>
+                <small>{t("appDiagnostics.safeNotice")}</small>
+              </div>
+            </article>
+
+            <article className="wideCard preferenceCard">
+              <h2>{t("preferences.restoreAppearance")}</h2>
+              <p>{t("preferences.sensitiveActionsDescription")}</p>
+
+              <button
+                className="secondaryButton"
+                onClick={() => {
+                  void askConfirmation({
+                    title: t("dialog.restoreAppearanceTitle"),
+                    message: t("dialog.restoreAppearanceMessage"),
+                    confirmText: t("dialog.restore"),
+                    cancelText: t("dialog.cancel"),
+                  }).then((confirmed) => {
+                    if (!confirmed) return;
+
+                    setAppTheme("system");
+                    setFontScale("normal");
+                    setReduceMotion(false);
+                    setCompactMode(false);
+                    setMessage(t("success.appearanceRestored"));
+                  });
+                }}
+              >
+                {t("preferences.restoreAppearance")}
+              </button>
+            </article>
+          </div>
+        )}
+
+      </section>
+
+      {screen !== "credentials" && detailPanelElement}
 
       {formOpen && (
         <div className="modalOverlay" onMouseDown={() => setFormOpen(false)}>

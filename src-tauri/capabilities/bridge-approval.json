@@ -2,6 +2,14 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "bridge-approval",
   "description": "Janela local de aprovação; sem acesso aos comandos do cofre, updater ou processo.",
-  "windows": ["bridge-approval"],
-  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-hide"]
+  "windows": [
+    "bridge-approval"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-hide",
+    "core:window:allow-set-theme",
+    "core:window:allow-theme"
+  ]
 }
