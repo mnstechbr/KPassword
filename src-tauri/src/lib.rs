@@ -579,14 +579,13 @@ fn save_vault_file(
     history_password: Option<String>,
 ) -> Result<StorageInfo, String> {
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
-    if !secrets_bridge::preserve_history_save(&app,&safe_vault_name,&payload,history_password) { secrets_bridge::close(&app); }
     let temp_path = vault_path.with_extension("kpvault.tmp");
-
-    fs::write(&temp_path, payload.as_bytes())
-        .map_err(|error| { secrets_bridge::close(&app); format!("Erro ao gravar arquivo temporário do cofre: {error}") })?;
-
-    fs::rename(&temp_path, &vault_path)
-        .map_err(|error| { secrets_bridge::close(&app); format!("Erro ao atualizar arquivo do cofre: {error}") })?;
+    secrets_bridge::save_with_history_check(&app, &safe_vault_name, &payload, history_password, || {
+        fs::write(&temp_path, payload.as_bytes())
+            .map_err(|error| format!("Erro ao gravar arquivo temporário do cofre: {error}"))?;
+        fs::rename(&temp_path, &vault_path)
+            .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))
+    })?;
 
     let force_backup_requested = force_backup.unwrap_or(false);
 

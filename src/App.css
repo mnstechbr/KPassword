@@ -14867,8 +14867,6 @@ textarea {
 .bridgeDesktopApproval small { display:block; color:#aab5ce; }
 .bridgeDesktopApproval footer { margin-top:20px; position:sticky; bottom:0; background:#101524; padding:8px 0; }
 .bridgeDesktopApproval button { padding:10px 12px; border-radius:12px; }
-.bridgeSessionStatus { position:fixed; bottom:12px; right:12px; max-width:calc(100vw - 48px); z-index:40; display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 14px; border:1px solid #507895; border-radius:14px; background:#101b2f; color:#e7eaf3; font-size:12px; }
-.bridgeSessionStatus button { padding:6px 10px; }
 .bridgePermission { border-top:1px solid #506078; padding:12px 0; display:grid; gap:6px; overflow-wrap:anywhere; }
 .bridgeDesktopApproval { height:100vh; overflow:auto; }
 .bridgeDesktopApproval label { color:#e7eaf3; display:flex; align-items:flex-start; gap:8px; font-size:14px; }
