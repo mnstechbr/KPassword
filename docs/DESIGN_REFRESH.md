@@ -174,3 +174,10 @@ quebra de linha. Com redução de movimento ativada, a duração foi 0 s e a
 animação da página foi desativada; a troca a partir de uma área rolada voltou
 ao topo. A navegação horizontal em 360 px foi reconferida. A percepção visual
 final no aplicativo nativo continua sujeita ao teste do usuário antes do push.
+
+### Revisão geral e limpeza após a validação visual
+
+Os resíduos demonstráveis do CSS, traduções e assets antigos foram removidos,
+sem retirar funções. A análise e as verificações estão registradas em
+[CODE_CLEANUP.md](CODE_CLEANUP.md). A camada estrutural ainda usada por estados
+especializados permanece; não houve remoção indiscriminada de estilos ativos.

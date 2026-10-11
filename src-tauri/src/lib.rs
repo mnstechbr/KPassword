@@ -1273,6 +1273,7 @@ mod windows_hello_native {
     }
 }
 
+#[cfg(windows)]
 async fn run_windows_hello_task<T, F>(operation: &'static str, task: F) -> Result<T, String>
 where
     T: Send + 'static,
@@ -1298,6 +1299,7 @@ async fn windows_hello_status(
 
     #[cfg(not(windows))]
     {
+        let _ = app;
         let safe_vault_name = sanitize_vault_name(vault_name)?;
         Ok(WindowsHelloStatus {
             available: false,
@@ -1368,6 +1370,7 @@ async fn enable_windows_hello(
 
     #[cfg(not(windows))]
     {
+        let _ = app;
         let safe_vault_name = sanitize_vault_name(vault_name)?;
         let _ = master_password;
         let _ = reason;
@@ -1396,6 +1399,7 @@ async fn disable_windows_hello(
 
     #[cfg(not(windows))]
     {
+        let _ = app;
         let safe_vault_name = sanitize_vault_name(vault_name)?;
         Ok(WindowsHelloStatus {
             available: false,
