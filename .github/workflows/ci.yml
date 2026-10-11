@@ -34,6 +34,7 @@ jobs:
       - run: python3 tools/release-signer.test.py
       - run: python3 tools/publish-release.test.py
       - run: python3 tools/kpassword_bridge_client.test.py
+      - run: python3 tools/kpassword_claude_proxy.test.py
 
   frontend:
     name: Frontend (tsc + vitest + build)

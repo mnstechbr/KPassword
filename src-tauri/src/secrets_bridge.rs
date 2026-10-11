@@ -1,6 +1,10 @@
 //! Opt-in local delivery. No TCP listener or public secret API.
 pub mod broker;
 #[cfg(target_os = "linux")]
+mod services;
+#[cfg(target_os = "linux")]
+mod providers;
+#[cfg(target_os = "linux")]
 mod identity;
 use std::{collections::HashMap, fs, path::Path, sync::Mutex, time::{Duration, Instant}};
 use serde::{Deserialize, Serialize};
@@ -16,10 +20,10 @@ const MAX_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 #[serde(deny_unknown_fields)]
 pub struct Integration { pub id: String, pub name: String, pub executable: String, pub sha256: String, #[serde(default="custom_kind")] pub kind: String }
 fn custom_kind() -> String { "custom".into() }
-struct Key { secret: Zeroizing<String>, identifier: String, integrations: Vec<Integration>, label: String }
+struct Key { secret: Zeroizing<String>, identifier: String, integrations: Vec<Integration>, label: String, #[cfg(target_os = "linux")] config: providers::Config }
 struct Session { generation: u64, expires: Instant, vault_name: String, file_hash: Vec<u8>, content_hash: Vec<u8>, keys: HashMap<String, Key> }
 #[derive(Default)]
-struct Core { generation: u64, session: Option<Session> }
+struct Core { generation: u64, session: Option<Session>, close_reason: &'static str }
 #[derive(Default)]
 pub struct BridgeState(Mutex<Core>);
 
@@ -57,7 +61,7 @@ pub fn bridge_take_request(state: State<BridgeRequests>) -> Option<LaunchRequest
 }
 
 impl Core {
-    fn close(&mut self) { self.generation = self.generation.wrapping_add(1); self.session = None; }
+    fn close(&mut self) { self.generation = self.generation.wrapping_add(1); self.session = None; self.close_reason = "bridge_inactive"; }
     fn install_session(&mut self, generation: u64, session: Session) -> Result<(), String> {
         if self.generation != generation || session.generation != generation { return Err(DENIED.into()); }
         self.session = Some(session);
@@ -106,7 +110,14 @@ fn parse_keys(plain: &Value) -> Result<HashMap<String, Key>, String> {
         let id = record["id"].as_str().ok_or(DENIED)?.to_string();
         if keys.contains_key(&id) { return Err(DENIED.into()); }
         let label = record["title"].as_str().unwrap_or("API").chars().filter(|c| !c.is_control()).take(120).collect();
-        keys.insert(id, Key { secret: Zeroizing::new(secret.into()), identifier: identifier.into(), integrations, label });
+        #[cfg(target_os = "linux")]
+        let config = {
+            let c: providers::Config = serde_json::from_value(record.clone()).map_err(|_| DENIED)?;
+            c.validate()?;
+            if !c.base_url.is_empty() && c.base_url.contains(secret) { return Err(DENIED.into()); }
+            c
+        };
+        keys.insert(id, Key { #[cfg(target_os = "linux")] config, secret: Zeroizing::new(secret.into()), identifier: identifier.into(), integrations, label });
     }
     Ok(keys)
 }
@@ -133,27 +144,42 @@ fn content_digest(value: &Value) -> Result<Vec<u8>, String> {
 /// Preserve the independent lease only for an authenticated history-only save.
 /// The caller cannot assert that keys did not change: backend decrypts and checks
 /// every vault field except the two operational-history fields itself.
-pub fn preserve_history_save(app: &AppHandle, vault_name: &str, payload: &str, password: Option<String>) -> bool {
-    let Some(password) = password else { return false; };
-    let password = Zeroizing::new(password);
+pub fn save_with_history_check(
+    app: &AppHandle, vault_name: &str, payload: &str, password: Option<String>,
+    write: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    let password = password.map(Zeroizing::new);
     let state = app.state::<BridgeState>();
-    let Ok(mut core) = state.0.lock() else { return false; };
-    let Some(session) = core.session.as_mut() else { return false; };
-    if session.expires <= Instant::now() || session.vault_name != vault_name { return false; }
-    let Ok((path,_,_)) = super::storage_paths(app,Some(vault_name.into())) else { return false; };
-    let Ok(old) = fs::read(path) else { return false; };
-    if Sha256::digest(old).as_slice() != session.file_hash { return false; }
-    let Ok(encrypted) = serde_json::from_str(payload) else { return false; };
-    let Ok(plaintext) = super::crypto_vault::decrypt_vault_file(&encrypted,&password) else { return false; };
-    let plaintext = Zeroizing::new(plaintext);
-    let Ok(mut plain) = serde_json::from_str::<Value>(&plaintext) else { return false; };
-    let digest = content_digest(&plain);
-    erase_json(&mut plain);
-    if digest.as_ref().ok() != Some(&session.content_hash) { return false; }
-    // Until the write completes, a broker digest check fails closed. Failure in
-    // the save path closes the lease; no provider call holds a vault file lock.
-    session.file_hash = Sha256::digest(payload.as_bytes()).to_vec();
-    true
+    let mut core = state.0.lock().map_err(|_| DENIED.to_string())?;
+    let preserve = (|| {
+        let password = password.as_ref()?;
+        let session = core.session.as_ref()?;
+        if session.expires <= Instant::now() || session.vault_name != vault_name { return None; }
+        let (path,_,_) = super::storage_paths(app,Some(vault_name.into())).ok()?;
+        if Sha256::digest(fs::read(path).ok()?).as_slice() != session.file_hash { return None; }
+        let encrypted = serde_json::from_str(payload).ok()?;
+        let plaintext = Zeroizing::new(super::crypto_vault::decrypt_vault_file(&encrypted,password).ok()?);
+        let mut plain = serde_json::from_str::<Value>(&plaintext).ok()?;
+        let digest = content_digest(&plain);
+        erase_json(&mut plain);
+        (digest.as_ref().ok() == Some(&session.content_hash)).then_some(())
+    })().is_some();
+    if !preserve {
+        drop(core);
+        close(app);
+        return write();
+    }
+    // Keep the digest and the atomic replacement under the same lease lock.
+    // A concurrent request sees either the old file/hash or the new pair.
+    let result = write();
+    if result.is_ok() {
+        if let Some(session) = core.session.as_mut() {
+            session.file_hash = Sha256::digest(payload.as_bytes()).to_vec();
+        }
+    }
+    drop(core);
+    if result.is_err() { close(app); }
+    result
 }
 
 #[tauri::command]
@@ -191,7 +217,7 @@ pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String
             tokio::time::sleep(Duration::from_secs(minutes*60)).await;
             if let Some(state)=app.try_state::<BridgeState>() {
                 if let Ok(mut core)=state.0.lock() {
-                    if core.generation==generation { core.close(); }
+                    if core.generation==generation { core.close(); core.close_reason="session_expired"; }
                 }
             }
         });
@@ -344,7 +370,7 @@ mod tests {
         let mut short = args; short.pop(); assert!(request_from_args(&short).is_none());
     }
     fn plain() -> Value { json!({"settings":{"secretsBridgeEnabled":true},"credentials":[{"id":"key-a","itemType":"api_key","password":"fake-key-a","apiIdentifier":"OPENAI_API_KEY","apiApplications":[{"id":"tool-a","name":"Test","executable":"/usr/bin/true","sha256":"fake"}]},{"id":"key-b","itemType":"api_key","password":"fake-key-b","apiIdentifier":"ANTHROPIC_API_KEY"}]}) }
-    fn core() -> Core { Core { generation: 1, session: Some(Session { generation: 1, expires: Instant::now() + Duration::from_secs(60), vault_name:"vault".into(),file_hash:vec![],content_hash:vec![],keys:parse_keys(&plain()).unwrap() }) } }
+    fn core() -> Core { Core { generation: 1, close_reason:"bridge_inactive", session: Some(Session { generation: 1, expires: Instant::now() + Duration::from_secs(60), vault_name:"vault".into(),file_hash:vec![],content_hash:vec![],keys:parse_keys(&plain()).unwrap() }) } }
     #[test] fn disabled_by_default() { assert!(Core::default().authorize(0,"key-a","tool-a").is_err()); let mut p=plain();p["settings"]=json!({});assert!(parse_keys(&p).is_err()); }
     #[test] fn only_explicit_record_and_tool_are_authorized() { let c=core();assert!(c.authorize(1,"key-a","tool-a").is_ok());assert!(c.authorize(1,"key-b","tool-a").is_err());assert!(c.authorize(1,"key-a","spoofed").is_err()); }
     #[test] fn close_revokes_pending_requests() { let mut c=core();c.close();assert!(c.authorize(1,"key-a","tool-a").is_err()); }

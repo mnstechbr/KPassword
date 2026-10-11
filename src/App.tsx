@@ -128,7 +128,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.5.1";
+const APP_VERSION = "1.5.2";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -2384,7 +2384,7 @@ export default function App() {
       }
 
       const file = await encryptVault(nextVault, password, encryptedVault);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, forceBackup);
+      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, forceBackup, isLinux ? password : undefined);
 
       setEncryptedVault(file);
       setVault({
@@ -3860,6 +3860,12 @@ export default function App() {
     if (itemType === "api_key") {
       const error = validateApiKey(credentialForm.password, credentialForm.apiIdentifier ?? "");
       if (error) { setMessage(t(error)); return; }
+      if (credentialForm.apiBaseUrl || (credentialForm.apiProtocol && credentialForm.apiProtocol !== "auto")) {
+        try {
+          const url = new URL(credentialForm.apiBaseUrl ?? "");
+          if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || (url.port && url.port !== "443") || !url.hostname.includes(".") || credentialForm.apiProtocol === "auto" || !credentialForm.apiProtocol) throw new Error();
+        } catch { setMessage(t("api.endpointInvalid")); return; }
+      }
     }
 
     if (itemType === "credential" && !credentialForm.password.trim()) {
@@ -3913,6 +3919,9 @@ export default function App() {
       username: itemType === "credential" ? credentialForm.username.trim() : "",
       password: itemType === "credential" || itemType === "api_key" ? credentialForm.password : "",
       apiProvider: itemType === "api_key" ? (credentialForm.apiProvider ?? "").trim() : "",
+      apiBaseUrl: itemType === "api_key" ? (credentialForm.apiBaseUrl ?? "").trim() : "",
+      apiProtocol: itemType === "api_key" ? credentialForm.apiProtocol ?? "auto" : "auto",
+      apiAuthType: itemType === "api_key" ? credentialForm.apiAuthType : undefined,
       apiIdentifier: itemType === "api_key" ? (credentialForm.apiIdentifier ?? "").trim() : "",
       apiApplications: itemType === "api_key" ? credentialForm.apiApplications ?? [] : [],
       url: itemType === "credential" ? normalizeUrl(credentialForm.url) : "",
@@ -5070,14 +5079,6 @@ export default function App() {
     </div>
   );
 
-  const bridgeStatusElement = isLinux && bridgeStatus.active ? (
-    <aside className="bridgeSessionStatus" aria-label="Secrets Bridge">
-      <strong>Secrets Bridge · {t("bridge.backgroundActive")}</strong>
-      <span>{Math.ceil(bridgeStatus.remainingSeconds / 3600)}h · {bridgeStatus.grants.length} {t("bridge.permissions")}</span>
-      <button type="button" onClick={() => { void invoke("bridge_close"); setBridgeGeneration(null); setBridgeStatus({active:false,remainingSeconds:0,grants:[]}); }}>{t("bridge.stop")}</button>
-    </aside>
-  ) : null;
-
   const confirmDialogElement = confirmDialog ? (
     <div className="confirmOverlay" onMouseDown={() => closeConfirmDialog(false)}>
       <section className="confirmCard" onMouseDown={(event) => event.stopPropagation()}>
@@ -5728,7 +5729,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}{bridgeStatusElement}
+        {confirmDialogElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -5812,7 +5813,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}{bridgeStatusElement}
+        {confirmDialogElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -5880,7 +5881,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}{bridgeStatusElement}
+        {confirmDialogElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -6829,13 +6830,14 @@ export default function App() {
                     <label className="toggleRow"><span>{t("bridge.enable")}</span><input type="checkbox" checked={vault?.settings.secretsBridgeEnabled ?? false} disabled={busy || bridgeBusy} onChange={(e) => void updateVaultSettings({ secretsBridgeEnabled: e.target.checked })} /></label>
                     <label>{t("bridge.duration")}<select value={bridgeHours} disabled={bridgeStatus.active} onChange={e=>setBridgeHours(Number(e.target.value))}>{[24,48,72].map(hours=><option key={hours} value={hours}>{hours}h</option>)}</select></label>
                     <small>{bridgeStatus.active ? t("bridge.backgroundActive") : t("bridge.inactive")}</small>
+                    {bridgeStatus.active && <small>{t("bridge.remaining")}: {Math.floor(bridgeStatus.remainingSeconds / 3600)}h {Math.floor((bridgeStatus.remainingSeconds % 3600) / 60)}min · {bridgeStatus.grants.length} {t("bridge.permissions")}</small>}
                     <small>{t("bridge.backgroundDescription")}</small>
                     {bridgeStatus.grants.map(permission=><div className="bridgePermission" key={`${permission.identity}:${permission.keyId}:${permission.operation}:${permission.model}`}>
                       <strong>{permission.entryScript ?? permission.application}</strong><span>{permission.project}</span><span>{permission.operation} · {permission.model} · {permission.remainingCalls} {t("bridge.callsRemaining")}</span>
                       <button type="button" onClick={()=>void invoke("bridge_revoke_grant",{identity:permission.identity,keyId:permission.keyId,operation:permission.operation,model:permission.model})}>{t("bridge.revokePermission")}</button>
                     </div>)}
                   </div>
-                  <button type="button" className="secondaryButton" disabled={!vault?.settings.secretsBridgeEnabled || bridgeBusy} onClick={() => { if (bridgeGeneration !== null) { void invoke("bridge_close");setBridgeGeneration(null); } else void activateBridgeSession(); }}>{bridgeGeneration === null ? t("bridge.activate") : t("bridge.stop")}</button>
+                  <button type="button" className="secondaryButton" disabled={!vault?.settings.secretsBridgeEnabled || bridgeBusy} onClick={() => { if (bridgeStatus.active || bridgeGeneration !== null) { void invoke("bridge_close");setBridgeGeneration(null);setBridgeStatus({active:false,remainingSeconds:0,grants:[]}); } else void activateBridgeSession(); }}>{bridgeStatus.active || bridgeGeneration !== null ? t("bridge.stop") : t("bridge.activate")}</button>
                 </div>
               )}
 
@@ -7751,6 +7753,9 @@ export default function App() {
                 <>
                   <label>{t("api.provider")}<input value={credentialForm.apiProvider ?? ""} onChange={(e) => setCredentialForm((c) => ({ ...c, apiProvider: e.target.value }))} placeholder="Anthropic / OpenAI" /></label>
                   <label>{t("api.identifier")}<input value={credentialForm.apiIdentifier ?? ""} onChange={(e) => setCredentialForm((c) => ({ ...c, apiIdentifier: e.target.value }))} placeholder="ANTHROPIC_API_KEY" /></label>
+                  <label>{t("api.protocol")}<select value={credentialForm.apiProtocol ?? "auto"} onChange={(e) => setCredentialForm((c) => ({ ...c, apiProtocol: e.target.value as CredentialRecord["apiProtocol"] }))}><option value="auto">{t("api.automatic")}</option><option value="openai">OpenAI compatible</option><option value="anthropic">Anthropic compatible</option><option value="json">HTTPS JSON (GET / POST)</option></select></label>
+                  <label>{t("api.authType")}<select value={credentialForm.apiAuthType ?? ((credentialForm.apiProtocol === "anthropic") ? "x-api-key" : "bearer")} onChange={(e) => setCredentialForm((c) => ({ ...c, apiAuthType: e.target.value as CredentialRecord["apiAuthType"] }))}><option value="bearer">Authorization: Bearer</option><option value="x-api-key">x-api-key</option><option value="x-goog-api-key">x-goog-api-key</option><option value="api-key">api-key</option></select></label>
+                  <label className="full">{t("api.baseUrl")}<input type="url" value={credentialForm.apiBaseUrl ?? ""} onChange={(e) => setCredentialForm((c) => ({ ...c, apiBaseUrl: e.target.value }))} placeholder="https://api.example.com/v1" /><small>{t("api.endpointHint")}</small></label>
                   <label className="full">{t("api.secret")}<input type="password" autoComplete="off" value={credentialForm.password} onChange={(e) => setCredentialForm((c) => ({ ...c, password: e.target.value }))} /></label>
                   <p className="full">{t("api.scope")}</p>
                 </>
@@ -8108,7 +8113,7 @@ export default function App() {
       {csvImportDialog}
       {actionHistoryDialog}
       {appDiagnosticsDialog}
-      {confirmDialogElement}{bridgeStatusElement}
+      {confirmDialogElement}
       {restoreBackupDialog}
     </main>
   );

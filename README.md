@@ -4,21 +4,21 @@ Gerenciador local de senhas e chaves de API para **Windows e Fedora Linux**, com
 
 As senhas e backups ficam no seu computador. Não é necessária conta nem nuvem para usar o cofre. O **Secrets Bridge**, opcional no Fedora, permite chamadas de API autorizadas: o KPassword usa a chave internamente e devolve somente a resposta ao programa. Essas chamadas enviam o conteúdo solicitado ao provedor e podem gerar cobrança.
 
-## Download e instalação — v1.5.1
+## Download e instalação — v1.5.2
 
-[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.5.1](docs/releases/v1.5.1.md)
+[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.5.2](docs/releases/v1.5.2.md)
 
 | Plataforma | Instalador | Atualizações |
 | --- | --- | --- |
-| Windows x64 | `KPassword-Setup-v1.5.1.exe` | Atualizador com assinatura, após a instalação manual da 1.5.0 ou mais recente |
-| Fedora 44 x86_64 | `KPassword-1.5.1-1.x86_64.rpm` | O app abre a Release; instalação/atualização pelo DNF |
+| Windows x64 | `KPassword-Setup-v1.5.2.exe` | Atualizador com assinatura, após a instalação manual da 1.5.0 ou mais recente |
+| Fedora 44 x86_64 | `KPassword-1.5.2-1.x86_64.rpm` | O app abre a Release; instalação/atualização pelo DNF |
 
 No Windows, execute o `.exe`. A chave pública de atualização foi renovada na 1.5.0: versões anteriores precisam de uma atualização manual, sem apagar cofres ou dados.
 
 No Fedora, baixe o RPM e execute na pasta do download:
 
 ```bash
-sudo dnf install ./KPassword-1.5.1-1.x86_64.rpm
+sudo dnf install ./KPassword-1.5.2-1.x86_64.rpm
 ```
 
 Abra o KPassword, crie ou desbloqueie seu cofre e guarde a senha mestra: ela não pode ser recuperada pelo projeto. Faça backups criptografados antes de atualizar. Cofres legados PBKDF2 e atuais Argon2id/AES-GCM continuam compatíveis entre plataformas.
@@ -51,7 +51,7 @@ A permissão contínua inclui identidade observada do executável/script, diret�
 
 **O bloqueio automático da interface e o X não encerram a ponte.** A sessão termina quando expira, o KPassword é encerrado, o computador reinicia, o cofre é editado/trocado ou o usuário bloqueia manualmente/revoga o acesso. Use o ícone da bandeja para **Revogar todos os acessos da ponte**, ou consulte/revogue permissões individuais em Segurança → Mostrar opções avançadas. As autorizações não ficam salvas em disco; reiniciar exige desbloquear e reativar a ponte.
 
-Cada permissão tem um limite de chamadas escolhido no popup (padrão: 10.000), máximo de 60 chamadas/minuto e teto de 8.192 tokens de saída por chamada de geração. Esses limites não são um orçamento monetário: configure também limites no provedor. Um pedido autorizado já em andamento pode terminar após a revogação.
+Cada permissão tem um limite de chamadas escolhido no popup (padrão: 10.000), máximo de 60 chamadas/minuto e teto de 8.192 tokens de saída por chamada de geração. Esses limites não são um orçamento monetário: configure também limites no provedor. Um pedido autorizado já enviado ao provedor pode terminar após a revogação. Histórico/backup sem mudança de conteúdo preservam a ponte. Seu estado e tempo restante aparecem somente nas configurações de Segurança.
 
 ### Conector e exemplo
 
@@ -72,20 +72,35 @@ resposta = request_api("ID_DA_CREDENCIAL", "responses", {
 | Identificador da chave no cofre | Operações |
 | --- | --- |
 | `OPENAI_API_KEY` | `responses`, `chat`, `embeddings` |
-| `DEEPSEEK_API_KEY` | `chat` |
+| `DEEPSEEK_API_KEY` | `chat`, `messages` |
 | `ANTHROPIC_API_KEY` | `messages` |
+| `ZAI_API_KEY` / `Z_AI_API_KEY` | `chat` |
+| `MIMO_API_KEY` / `XIAOMI_API_KEY` | `chat` |
+| `TELEGRAM_BOT_TOKEN` | `telegram.get_me`, `telegram.send_message`, `telegram.get_updates` |
+| `MERCADO_PAGO_ACCESS_TOKEN` | operações de pagamento, preferência e assinatura |
+| `MERCADO_PAGO_WEBHOOK_SECRET` | `mercadopago.verify_webhook` (resultado da verificação, sem entregar o segredo) |
 
 A integração deve chamar esse conector em vez de procurar a chave em arquivos ou pedir que o usuário a cole. [Guia para Claude, Codex e projetos](docs/integrations/CLAUDE.md).
 
-**Limites atuais:** apenas JSON sem streaming; pedidos até 1 MiB e respostas até 4 MiB. Não há endpoint HTTP compatível automaticamente com SDKs, integração automática com aplicativos, suporte a senhas comuns pelo Bridge, cliente Windows do Bridge ou acesso remoto.
+O conector também oferece `stream_api` para streaming. Para usar Claude Code com DeepSeek sem exportar a chave real:
+
+```bash
+python3 /usr/lib/KPassword/bridge/kpassword_claude_proxy.py --key-id ID_DA_CREDENCIAL --model deepseek-flash -- claude
+```
+
+O cliente recebe um token temporário para o proxy em loopback; esse token não é a chave do provedor. A autorização identifica o adaptador, seu script e o projeto. Não é necessário modificar o `.env` para incluir uma chave real. Lançadores antigos que exigem a chave devem ser substituídos por esse comando.
+
+**Outros provedores:** no item Chave de API, selecione o formato (OpenAI, Anthropic ou JSON) e a URL HTTPS oficial. Isso atende outros serviços compatíveis sem cadastrar cada marca no código. O destino é configuração autenticada do cofre; mudar essa configuração revoga a sessão. Nomes de serviço sozinhos não definem seu protocolo.
+
+**Limites atuais:** pedidos até 1 MiB, respostas JSON/eventos até 4 MiB e stream até 128 MiB/120 segundos de conexão com o provedor. O adaptador Anthropic oferece `/v1/messages`, com ferramentas e streaming; não oferece Files API ou contagem de tokens. Não há integração automática de todos os SDKs, respostas binárias, OAuth interativo, suporte a senhas comuns pelo Bridge, cliente Windows do Bridge ou acesso remoto.
 
 ## Segurança e privacidade
 
 O cofre é criptografado em repouso. Com a ponte ativa, as chaves de API permanecem disponíveis na memória do backend, mesmo com a interface bloqueada; as demais credenciais e a senha mestra são removidas da interface ao bloquear. O usuário deve revogar a ponte quando não quiser mais autorizar chamadas.
 
-O socket Unix fica em diretório privado (0700), com permissão 0600, sem servidor TCP. A identidade é obtida do processo pelo sistema, incluindo executável, script quando identificável e diretório; o pedido não pode simplesmente declarar “sou Claude”. Isso **não é isolamento contra malware da mesma conta, root, injeção/depuração ou captura de teclado**. Copiar o arquivo criptografado não gera popup. A ponte controla pedidos feitos pelo conector.
+O socket Unix fica em diretório privado (0700), com permissão 0600. O adaptador opcional abre somente loopback, com token temporário e rejeição de requisições de navegador. A identidade é obtida do processo pelo sistema, incluindo executável, script quando identificável e diretório; o pedido não pode simplesmente declarar “sou Claude”. Isso **não é isolamento contra malware da mesma conta, root, injeção/depuração ou captura de teclado**. Copiar o arquivo criptografado não gera popup. A ponte controla pedidos feitos pelo conector.
 
-Os destinos HTTPS são fixos por provedor, sem redirecionamentos ou proxies do ambiente. Histórico não contém chaves nem conteúdo de pedidos/respostas. Autorizar uma aplicação também autoriza o envio de seus dados ao provedor e o consumo de sua cota.
+Os destinos HTTPS são fixos pelos perfis de provedor ou pela configuração autenticada do cofre, sem redirecionamentos ou proxies do ambiente. Histórico não contém chaves nem conteúdo de pedidos/respostas. Autorizar uma aplicação também autoriza o envio de seus dados ao provedor e o consumo de sua cota.
 
 Windows Hello é uma conveniência protegida pelo contexto Windows/DPAPI, não um segundo fator independente. Guardar TOTP e senha no mesmo cofre reduz a separação entre fatores. Use `.kpvault` para backup; exportações CSV exigem cuidado próprio.
 
