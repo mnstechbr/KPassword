@@ -9,7 +9,6 @@ import {
   type MouseEvent,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { linuxTranslation, readClipboard, writeClipboard } from "./platform";
 import { validateApiKey } from "./api-key";
@@ -129,7 +128,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.5.1";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -1825,36 +1824,15 @@ export default function App() {
   const [bridgeGeneration, setBridgeGeneration] = useState<number | null>(null);
   const [bridgeBusy, setBridgeBusy] = useState(false);
   const [bridgeAudit, setBridgeAudit] = useState<Array<{ at: number; outcome: string; integration_id: string }>>([]);
-  type AccessRequest = { requestId: string; keyId: string; executable: string; sha256: string; pid: number; provider: string; operation: string; timeoutMs: number };
-  const [bridgeAccessRequest, setBridgeAccessRequest] = useState<AccessRequest | null>(null);
-  const [rememberBridgeAccess, setRememberBridgeAccess] = useState(false);
-  const accessRequestHandler = useRef<(request: AccessRequest) => void>(() => {});
-
+  const [bridgeHours, setBridgeHours] = useState(48);
+  type BridgePermission = { keyId: string; identity: string; application: string; entryScript: string | null; project: string; operation: string; model: string; remainingCalls: number };
+  const [bridgeStatus, setBridgeStatus] = useState<{ active: boolean; remainingSeconds: number; grants: BridgePermission[] }>({active:false,remainingSeconds:0,grants:[]});
   useEffect(() => {
     if (!isLinux) return;
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
-    const take = async () => {
-      try {
-        const request = await invoke<AccessRequest | null>("bridge_take_access_request");
-        if (!disposed && request) accessRequestHandler.current(request);
-      } catch { /* No request payload or credentials are logged. */ }
-    };
-    void listen("kpassword:bridge-access-request", () => { void take(); }).then((stop) => {
-      if (disposed) stop(); else { unlisten = stop; void take(); }
-    }).catch(() => {});
-    return () => { disposed = true; unlisten?.(); };
+    const refresh = () => { void invoke<typeof bridgeStatus>("bridge_status").then(status => { setBridgeStatus(status); if (!status.active) setBridgeGeneration(null); }).catch(() => {}); };
+    refresh(); const timer = window.setInterval(refresh, 2000);
+    return () => window.clearInterval(timer);
   }, [isLinux]);
-
-  useEffect(() => {
-    if (!bridgeAccessRequest) return;
-    const timer = window.setTimeout(() => {
-      void invoke("bridge_answer_access_request", { requestId: bridgeAccessRequest.requestId, approve: false, remember: false }).catch(() => {});
-      setBridgeAccessRequest(null);
-      setRememberBridgeAccess(false);
-    }, bridgeAccessRequest.timeoutMs);
-    return () => window.clearTimeout(timer);
-  }, [bridgeAccessRequest]);
 
   useEffect(() => {
     void invoke<string>("platform_name").then((name) => {
@@ -2295,9 +2273,8 @@ export default function App() {
     })();
   }, [activeVaultName, refreshStorageInfo, refreshVaultFiles, refreshWindowsHelloStatus]);
 
-  const lockVault = useCallback(() => {
-    void invoke("bridge_close").catch(() => {});
-    setBridgeGeneration(null);
+  const lockVault = useCallback((revokeBridge = true) => {
+    if (revokeBridge) { void invoke("bridge_close").catch(() => {}); setBridgeGeneration(null); }
     setBridgeAudit([]);
     teardownStrengthEngine();
     setVault(null);
@@ -2330,12 +2307,12 @@ export default function App() {
   useEffect(() => {
     setBridgeGeneration(null);
     void invoke("bridge_close").catch(() => {});
-  }, [mode, activeVaultName, encryptedVault]);
+  }, [activeVaultName]);
 
   useEffect(() => { setBridgeAudit([]); }, [detailCredentialId]);
 
   useEffect(() => {
-    const handler = () => lockVault();
+    const handler = (event: Event) => lockVault(!(event as CustomEvent<{ preserveBridge?: boolean }>).detail?.preserveBridge);
 
     window.addEventListener("kpassword:lock", handler);
 
@@ -2375,7 +2352,7 @@ export default function App() {
 
       if (!busy && !windowsHelloBusy && idleMs >= autoLockMinutes * 60_000) {
         requestTrayProtection("inactive");
-        lockVault();
+        lockVault(false);
         setMessage(t("security.autoLocked"));
       }
     }, 15_000);
@@ -2389,7 +2366,7 @@ export default function App() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden" && !busy && !windowsHelloBusy) {
         requestTrayProtection("minimize");
-        lockVault();
+        lockVault(false);
       }
     };
 
@@ -2563,7 +2540,7 @@ export default function App() {
           createActionHistoryEntry("vault_unlocked"),
         );
         const historyFile = await encryptVault(vaultWithHistory, unlockPassword, encryptedVault);
-        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false);
+        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, isLinux ? unlockPassword : undefined);
 
         setEncryptedVault(historyFile);
         setStorageInfo(historyInfo);
@@ -3863,35 +3840,10 @@ export default function App() {
   async function activateBridgeSession() {
     if (!isLinux || !vault?.settings.secretsBridgeEnabled || mode !== "unlocked" || bridgeBusy) return;
     setBridgeBusy(true);
-    try { setBridgeGeneration(await invoke<number>("bridge_open", { vaultName: activeVaultName, masterPassword })); }
+    try { setBridgeGeneration(await invoke<number>("bridge_open", { vaultName: activeVaultName, masterPassword, durationHours: bridgeHours })); }
     catch { setMessage(t("bridge.denied")); }
     finally { setBridgeBusy(false); }
   }
-
-  accessRequestHandler.current = (request) => {
-    if (mode !== "unlocked" || bridgeGeneration === null || bridgeBusy || confirmDialog || bridgeAccessRequest) {
-      void invoke("bridge_answer_access_request", { requestId: request.requestId, approve: false, remember: false }).catch(() => {});
-      return;
-    }
-    setRememberBridgeAccess(false);
-    setBridgeAccessRequest(request);
-  };
-
-  async function answerBridgeAccess(approve: boolean) {
-    if (!bridgeAccessRequest) return;
-    const requestId = bridgeAccessRequest.requestId;
-    setBridgeAccessRequest(null);
-    try { await invoke("bridge_answer_access_request", { requestId, approve, remember: approve && rememberBridgeAccess }); }
-    catch { setMessage(t("bridge.denied")); }
-    finally { setRememberBridgeAccess(false); }
-  }
-
-  useEffect(() => {
-    if (mode !== "unlocked" || bridgeGeneration === null) {
-      setBridgeAccessRequest(null);
-      setRememberBridgeAccess(false);
-    }
-  }, [mode, bridgeGeneration]);
 
   async function handleSaveCredential(event: FormEvent) {
     event.preventDefault();
@@ -5118,19 +5070,12 @@ export default function App() {
     </div>
   );
 
-  const bridgeAccessDialogElement = bridgeAccessRequest && mode === "unlocked" ? (
-    <div className="confirmOverlay" onMouseDown={() => void answerBridgeAccess(false)}>
-      <section className="confirmCard" role="dialog" aria-modal="true" aria-labelledby="bridge-access-title" onMouseDown={(event) => event.stopPropagation()}>
-        <h2 id="bridge-access-title">{t("bridge.requestTitle")}</h2>
-        <p>{`${vault?.credentials.find((c) => c.id === bridgeAccessRequest.keyId)?.title ?? "API"}\n${bridgeAccessRequest.provider} · ${bridgeAccessRequest.operation}\n${bridgeAccessRequest.executable}\nPID: ${bridgeAccessRequest.pid}\nSHA-256: ${bridgeAccessRequest.sha256}`}</p>
-        <p>{t("bridge.proxyWarning")}</p>
-        <label className="toggleRow"><input type="checkbox" checked={rememberBridgeAccess} onChange={(e) => setRememberBridgeAccess(e.target.checked)} />{t("bridge.rememberSession")}</label>
-        <div className="confirmActions">
-          <button className="ghostButton" onClick={() => void answerBridgeAccess(false)}>{t("bridge.refuse")}</button>
-          <button className="primaryButton" onClick={() => void answerBridgeAccess(true)}>{t("bridge.approve")}</button>
-        </div>
-      </section>
-    </div>
+  const bridgeStatusElement = isLinux && bridgeStatus.active ? (
+    <aside className="bridgeSessionStatus" aria-label="Secrets Bridge">
+      <strong>Secrets Bridge · {t("bridge.backgroundActive")}</strong>
+      <span>{Math.ceil(bridgeStatus.remainingSeconds / 3600)}h · {bridgeStatus.grants.length} {t("bridge.permissions")}</span>
+      <button type="button" onClick={() => { void invoke("bridge_close"); setBridgeGeneration(null); setBridgeStatus({active:false,remainingSeconds:0,grants:[]}); }}>{t("bridge.stop")}</button>
+    </aside>
   ) : null;
 
   const confirmDialogElement = confirmDialog ? (
@@ -5783,7 +5728,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}{bridgeAccessDialogElement}
+        {confirmDialogElement}{bridgeStatusElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -5867,7 +5812,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}{bridgeAccessDialogElement}
+        {confirmDialogElement}{bridgeStatusElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -5935,7 +5880,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}{bridgeAccessDialogElement}
+        {confirmDialogElement}{bridgeStatusElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -6017,7 +5962,7 @@ export default function App() {
         </nav>
 
         <div className="sidebarFooter">
-          <button className="lockButton" onClick={lockVault} title={t("nav.lockVault")} aria-label={t("nav.lockVault")}>
+          <button className="lockButton" onClick={() => lockVault()} title={t("nav.lockVault")} aria-label={t("nav.lockVault")}>
             <span className="navIcon" aria-hidden="true">🔒</span>
             <span className="navLabel">{t("nav.lockVault")}</span>
           </button>
@@ -6882,7 +6827,13 @@ export default function App() {
                   <div className="windowsHelloPanelText">
                     <strong>Secrets Bridge</strong><span>{t("bridge.description")}</span>
                     <label className="toggleRow"><span>{t("bridge.enable")}</span><input type="checkbox" checked={vault?.settings.secretsBridgeEnabled ?? false} disabled={busy || bridgeBusy} onChange={(e) => void updateVaultSettings({ secretsBridgeEnabled: e.target.checked })} /></label>
-                    <small>{bridgeGeneration === null ? t("bridge.inactive") : t("bridge.active")}</small>
+                    <label>{t("bridge.duration")}<select value={bridgeHours} disabled={bridgeStatus.active} onChange={e=>setBridgeHours(Number(e.target.value))}>{[24,48,72].map(hours=><option key={hours} value={hours}>{hours}h</option>)}</select></label>
+                    <small>{bridgeStatus.active ? t("bridge.backgroundActive") : t("bridge.inactive")}</small>
+                    <small>{t("bridge.backgroundDescription")}</small>
+                    {bridgeStatus.grants.map(permission=><div className="bridgePermission" key={`${permission.identity}:${permission.keyId}:${permission.operation}:${permission.model}`}>
+                      <strong>{permission.entryScript ?? permission.application}</strong><span>{permission.project}</span><span>{permission.operation} · {permission.model} · {permission.remainingCalls} {t("bridge.callsRemaining")}</span>
+                      <button type="button" onClick={()=>void invoke("bridge_revoke_grant",{identity:permission.identity,keyId:permission.keyId,operation:permission.operation,model:permission.model})}>{t("bridge.revokePermission")}</button>
+                    </div>)}
                   </div>
                   <button type="button" className="secondaryButton" disabled={!vault?.settings.secretsBridgeEnabled || bridgeBusy} onClick={() => { if (bridgeGeneration !== null) { void invoke("bridge_close");setBridgeGeneration(null); } else void activateBridgeSession(); }}>{bridgeGeneration === null ? t("bridge.activate") : t("bridge.stop")}</button>
                 </div>
@@ -8157,7 +8108,7 @@ export default function App() {
       {csvImportDialog}
       {actionHistoryDialog}
       {appDiagnosticsDialog}
-      {confirmDialogElement}{bridgeAccessDialogElement}
+      {confirmDialogElement}{bridgeStatusElement}
       {restoreBackupDialog}
     </main>
   );

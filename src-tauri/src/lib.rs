@@ -576,16 +576,17 @@ fn save_vault_file(
     payload: String,
     vault_name: Option<String>,
     force_backup: Option<bool>,
+    history_password: Option<String>,
 ) -> Result<StorageInfo, String> {
-    secrets_bridge::close(&app);
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
+    if !secrets_bridge::preserve_history_save(&app,&safe_vault_name,&payload,history_password) { secrets_bridge::close(&app); }
     let temp_path = vault_path.with_extension("kpvault.tmp");
 
     fs::write(&temp_path, payload.as_bytes())
-        .map_err(|error| format!("Erro ao gravar arquivo temporário do cofre: {error}"))?;
+        .map_err(|error| { secrets_bridge::close(&app); format!("Erro ao gravar arquivo temporário do cofre: {error}") })?;
 
     fs::rename(&temp_path, &vault_path)
-        .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))?;
+        .map_err(|error| { secrets_bridge::close(&app); format!("Erro ao atualizar arquivo do cofre: {error}") })?;
 
     let force_backup_requested = force_backup.unwrap_or(false);
 
@@ -2526,6 +2527,11 @@ pub fn run() {
                 None::<&str>,
             )?;
             let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
+            #[cfg(target_os = "linux")]
+            let bridge_stop = MenuItem::with_id(app, "bridge_stop", "Revogar todos os acessos da ponte", true, None::<&str>)?;
+            #[cfg(target_os = "linux")]
+            let menu = Menu::with_items(app, &[&open_full_item, &open_compact_item, &bridge_stop, &quit_item])?;
+            #[cfg(not(target_os = "linux"))]
             let menu = Menu::with_items(app, &[&open_full_item, &open_compact_item, &quit_item])?;
 
             TrayIconBuilder::new()
@@ -2544,7 +2550,9 @@ pub fn run() {
                     "open_compact" => {
                         show_main_window_compact(app);
                     }
+                    "bridge_stop" => { secrets_bridge::close(app); }
                     "quit" => {
+                        secrets_bridge::close(app);
                         app.exit(0);
                     }
                     _ => {
@@ -2573,7 +2581,8 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler({
+            let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
             secrets_bridge::bridge_open,
             secrets_bridge::bridge_close,
             secrets_bridge::bridge_prepare,
@@ -2582,6 +2591,8 @@ pub fn run() {
             secrets_bridge::bridge_take_request,
             secrets_bridge::broker::bridge_take_access_request,
             secrets_bridge::broker::bridge_answer_access_request,
+            secrets_bridge::broker::bridge_status,
+            secrets_bridge::broker::bridge_revoke_grant,
             platform_name,
             linux_clipboard,
             linux_capture_qr,
@@ -2615,7 +2626,15 @@ pub fn run() {
             start_windows_screen_snip,
             restore_main_window_after_screen_snip,
             read_windows_clipboard_image_png_data_url
-        ])
+        ];
+            move |invoke: tauri::ipc::Invoke<tauri::Wry>| {
+                if invoke.message.webview().label() == "bridge-approval"
+                    && !["bridge_take_access_request", "bridge_answer_access_request"].contains(&invoke.message.command()) {
+                    invoke.resolver.reject("Comando indisponível nesta janela."); return true;
+                }
+                handler(invoke)
+            }
+        })
         .run(tauri::generate_context!())
         .expect("erro ao executar o KPassword");
 }
