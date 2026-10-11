@@ -106,3 +106,13 @@ medições temporárias ficam em `/tmp/kpassword-visual-qa`. O build e os 140 te
 passaram novamente; permanece o aviso de tamanho de chunks. Esta inspeção não
 certifica a janela nativa, desempenho WebKitGTK/WebView2 ou funções de integração
 com o sistema. O teste no aplicativo real continua necessário antes do push.
+
+### Ajuste da altura na criação de cofre
+
+A criação deixou de herdar áreas nomeadas do grid antigo. O guia fica em uma
+faixa abaixo das duas colunas, com logo e espaçamentos menores somente nessa tela.
+A tela de desbloqueio permanece igual. Na prévia isolada, a criação coube sem
+rolagem horizontal ou vertical em 1120 × 720, 1120 × 680, 1024 × 600,
+1440 × 900 e 800 × 720; o desbloqueio foi reconferido em 1120 × 720.
+Em larguras de até 680 px, os elementos continuam empilhados e a rolagem vertical
+permanece disponível para acessar todos os campos e avisos.
