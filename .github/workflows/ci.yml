@@ -3,14 +3,16 @@ name: CI
 # Rede de seguranca minima: executa as suites de teste e os guard rails de
 # release em cada push e pull request.
 #
-# Esta pipeline NAO assina, NAO empacota release e NAO publica nada.
+# Esta pipeline NAO assina e NAO publica releases. Instaladores gerados aqui
+# sao artefatos internos de validacao, sem assinatura do updater.
 # A chave privada de assinatura nunca entra no GitHub.
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main", "master", "feature/fedora-native"]
   pull_request:
     branches: ["main", "master"]
+  workflow_dispatch:
 
 # Least privilege: nenhum job precisa escrever no repositorio.
 permissions:
@@ -22,6 +24,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  local-signing:
+    name: Local release signatures (fake keys only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --locked --release --manifest-path tools/release-signer/Cargo.toml
+      - run: python3 tools/release-signer.test.py
+      - run: python3 tools/publish-release.test.py
+      - run: python3 tools/kpassword_bridge_client.test.py
+
   frontend:
     name: Frontend (tsc + vitest + build)
     runs-on: ubuntu-latest
@@ -51,8 +64,8 @@ jobs:
 
   rust:
     name: Rust (cargo test)
-    # windows-latest e obrigatorio: lib.rs contem modulos sob #[cfg(windows)]
-    # e faz #[link(name = "Crypt32")], que nao compilam em Linux.
+    # Manter o runner Windows para verificar os modulos sob #[cfg(windows)],
+    # inclusive Windows Hello/DPAPI, enquanto o suporte Fedora e adicionado.
     runs-on: windows-latest
     permissions:
       contents: read
@@ -75,6 +88,88 @@ jobs:
       # o binario Tauri completo. Verificado localmente: 29 testes.
       - name: cargo test --lib
         run: cargo test --lib
+
+      # O frontend compilado e necessario para generate_context! em release.
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install frontend (lockfile exato)
+        working-directory: .
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: .
+        run: npm run build
+
+      - name: Check Windows release binary
+        run: cargo check --locked --release --bin kpassword
+
+      - name: Build Windows validation installer (without updater signing)
+        working-directory: .
+        shell: pwsh
+        run: |
+          $validationConfig = Join-Path $env:RUNNER_TEMP 'kpassword-validation.json'
+          '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content -Encoding utf8NoBOM $validationConfig
+          npm run tauri -- build --ci --bundles nsis --config $validationConfig -- --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Windows validation installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: kpassword-windows-validation
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+  fedora:
+    name: Fedora native (tests + RPM)
+    runs-on: ubuntu-latest
+    container: fedora:44
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - name: Install native build dependencies
+        run: dnf install -y git nodejs npm rust cargo gcc gcc-c++ make pkgconf-pkg-config gtk3-devel webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel openssl-devel patchelf
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install frontend (lockfile exato)
+        run: npm ci
+
+      - name: Cache Fedora Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Frontend tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Rust tests (including vault vectors and Bridge security)
+        run: cargo test --locked --lib --manifest-path src-tauri/Cargo.toml
+
+      - name: Build native RPM
+        run: npm run tauri -- build --ci --bundles rpm -- --locked
+
+      - name: Inspect RPM metadata, dependencies and scripts
+        run: |
+          rpm -qpi src-tauri/target/release/bundle/rpm/*.rpm
+          rpm -qpl src-tauri/target/release/bundle/rpm/*.rpm
+          rpm -qpR src-tauri/target/release/bundle/rpm/*.rpm
+          rpm -qp --scripts src-tauri/target/release/bundle/rpm/*.rpm
+
+      - name: Upload Fedora validation installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: kpassword-fedora-validation
+          path: src-tauri/target/release/bundle/rpm/*.rpm
+          if-no-files-found: error
 
   release-consistency:
     name: Release consistency (version:check)

@@ -9,7 +9,10 @@ import {
   type MouseEvent,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { linuxTranslation, readClipboard, writeClipboard } from "./platform";
+import { validateApiKey } from "./api-key";
 import {
   createEmptyVault,
   decryptVault,
@@ -126,7 +129,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.4.1";
+const APP_VERSION = "1.5.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -157,7 +160,7 @@ const DEFAULT_STARTUP_STATUS: StartupStatus = {
 
 type Screen = "credentials" | "dashboard" | "trash" | "settings" | "preferences";
 
-const ITEM_TYPES: VaultItemType[] = ["credential", "secure_note", "card", "identity", "license"];
+const ITEM_TYPES: VaultItemType[] = ["credential", "secure_note", "card", "identity", "license", "api_key"];
 
 type AppTheme = "dark" | "light" | "mixed";
 type FontScale = "normal" | "large";
@@ -972,6 +975,7 @@ function getItemTypeIcon(itemType: VaultItemType) {
     card: "💳",
     identity: "🪪",
     license: "📜",
+    api_key: "🗝️",
   };
 
   return icons[itemType];
@@ -987,6 +991,8 @@ function getItemSubtitle(item: CredentialRecord, language: AppLanguage) {
   if (itemType === "credential") {
     return item.username || translate(language, "credential.noUser");
   }
+
+  if (itemType === "api_key") return item.apiProvider || item.apiIdentifier || "API Key";
 
   if (itemType === "secure_note") {
     return item.notes ? translate(language, "item.secureNoteWithContent") : translate(language, "item.secureNoteEmpty");
@@ -1007,7 +1013,7 @@ function getItemSubtitle(item: CredentialRecord, language: AppLanguage) {
 function getItemPrimarySecret(item: CredentialRecord) {
   const itemType = getItemType(item);
 
-  if (itemType === "credential") return item.password;
+  if (itemType === "credential" || itemType === "api_key") return item.password;
   if (itemType === "card") return item.cardNumber ?? "";
   if (itemType === "license") return item.licenseKey ?? "";
 
@@ -1143,6 +1149,8 @@ function buildCsv(items: CredentialRecord[]) {
     "licenseKey",
     "licenseOwner",
     "licenseExpiresAt",
+    "apiProvider",
+    "apiIdentifier",
     "passwordChangedAt",
     "passwordExpiresInDays",
     "passwordExpiryNoticeDays",
@@ -1151,7 +1159,7 @@ function buildCsv(items: CredentialRecord[]) {
   ];
 
   const rows = items.map((item) =>
-    headers.map((header) => escapeCsvValue(header === "tags" ? getCredentialTags(item).join("; ") : (item as unknown as Record<string, unknown>)[header])).join(","),
+    headers.map((header) => escapeCsvValue(header === "type" ? getItemType(item) : header === "tags" ? getCredentialTags(item).join("; ") : (item as unknown as Record<string, unknown>)[header])).join(","),
   );
 
   return [headers.join(","), ...rows].join("\r\n");
@@ -1399,6 +1407,7 @@ function normalizeImportedItemType(value: string): VaultItemType {
   if (["card", "cartao", "cartão", "tarjeta"].includes(normalized)) return "card";
   if (["identity", "identidade", "identidad", "kimlik"].includes(normalized)) return "identity";
   if (["license", "licenca", "licença", "licencia", "lisans"].includes(normalized)) return "license";
+  if (["api_key", "api key"].includes(normalized)) return "api_key";
 
   return "credential";
 }
@@ -1472,7 +1481,10 @@ function rowToImportedCredential(row: Record<string, string>, now: string, mappi
     tags: normalizeCredentialTags(getMappedCsvValue(row, "tags", mapping)),
     favorite: ["true", "1", "sim", "yes"].includes(getMappedCsvValue(row, "favorite", mapping).toLowerCase()),
     username: itemType === "credential" ? getMappedCsvValue(row, "username", mapping) : "",
-    password: itemType === "credential" ? getMappedCsvValue(row, "password", mapping) : "",
+    password: itemType === "credential" || itemType === "api_key" ? getMappedCsvValue(row, "password", mapping) : "",
+    apiProvider: itemType === "api_key" ? getCsvValue(row, ["apiprovider", "provider"]) : "",
+    apiIdentifier: itemType === "api_key" ? getCsvValue(row, ["apiidentifier", "identifier"]) : "",
+    apiApplications: [],
     url: itemType === "credential" ? normalizeUrl(getMappedCsvValue(row, "url", mapping)) : "",
     notes: getMappedCsvValue(row, "notes", mapping),
     passwordChangedAt: getCsvValue(row, ["passwordchangedat", "password_changed_at", "alterada_em"]) || now,
@@ -1802,11 +1814,54 @@ function normalizeVault(vault: PlainVault): PlainVault {
       lockOnInactive: vault.settings?.lockOnInactive ?? true,
       notifyOnTray: vault.settings?.notifyOnTray ?? true,
       soundOnTray: vault.settings?.soundOnTray ?? true,
+      secretsBridgeEnabled: vault.settings?.secretsBridgeEnabled ?? false,
     },
   };
 }
 
 export default function App() {
+  const [platform, setPlatform] = useState("unknown");
+  const isLinux = platform === "linux";
+  const [bridgeGeneration, setBridgeGeneration] = useState<number | null>(null);
+  const [bridgeBusy, setBridgeBusy] = useState(false);
+  const [bridgeAudit, setBridgeAudit] = useState<Array<{ at: number; outcome: string; integration_id: string }>>([]);
+  type AccessRequest = { requestId: string; keyId: string; executable: string; sha256: string; pid: number; provider: string; operation: string; timeoutMs: number };
+  const [bridgeAccessRequest, setBridgeAccessRequest] = useState<AccessRequest | null>(null);
+  const [rememberBridgeAccess, setRememberBridgeAccess] = useState(false);
+  const accessRequestHandler = useRef<(request: AccessRequest) => void>(() => {});
+
+  useEffect(() => {
+    if (!isLinux) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    const take = async () => {
+      try {
+        const request = await invoke<AccessRequest | null>("bridge_take_access_request");
+        if (!disposed && request) accessRequestHandler.current(request);
+      } catch { /* No request payload or credentials are logged. */ }
+    };
+    void listen("kpassword:bridge-access-request", () => { void take(); }).then((stop) => {
+      if (disposed) stop(); else { unlisten = stop; void take(); }
+    }).catch(() => {});
+    return () => { disposed = true; unlisten?.(); };
+  }, [isLinux]);
+
+  useEffect(() => {
+    if (!bridgeAccessRequest) return;
+    const timer = window.setTimeout(() => {
+      void invoke("bridge_answer_access_request", { requestId: bridgeAccessRequest.requestId, approve: false, remember: false }).catch(() => {});
+      setBridgeAccessRequest(null);
+      setRememberBridgeAccess(false);
+    }, bridgeAccessRequest.timeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [bridgeAccessRequest]);
+
+  useEffect(() => {
+    void invoke<string>("platform_name").then((name) => {
+      document.documentElement.dataset.platform = name;
+      setPlatform(name);
+    }).catch(() => {});
+  }, []);
   const [screen, setScreen] = useState<Screen>("credentials");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [sidebarHorizontal, setSidebarHorizontal] = useState(false);
@@ -1881,6 +1936,14 @@ export default function App() {
   const [newVaultDialogOpen, setNewVaultDialogOpen] = useState(false);
   const [newVaultDialogName, setNewVaultDialogName] = useState("");
   const [newVaultDialogError, setNewVaultDialogError] = useState("");
+  const [deleteVaultTarget, setDeleteVaultTarget] = useState<string | null>(null);
+  const [deleteVaultPassword, setDeleteVaultPassword] = useState("");
+  const [deleteVaultError, setDeleteVaultError] = useState("");
+  useEffect(() => {
+    setDeleteVaultTarget(null);
+    setDeleteVaultPassword("");
+    setDeleteVaultError("");
+  }, [mode, activeVaultName]);
   const [totpTick, setTotpTick] = useState(Date.now());
   const [detailTotpCode, setDetailTotpCode] = useState("");
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
@@ -1932,8 +1995,8 @@ export default function App() {
 
   const t = useCallback(
     (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) =>
-      translate(appLanguage, key, values),
-    [appLanguage],
+      (isLinux ? linuxTranslation(key, appLanguage) : undefined) ?? translate(appLanguage, key, values),
+    [appLanguage, isLinux],
   );
 
   const csvImportAnalysis = useMemo(
@@ -2233,6 +2296,9 @@ export default function App() {
   }, [activeVaultName, refreshStorageInfo, refreshVaultFiles, refreshWindowsHelloStatus]);
 
   const lockVault = useCallback(() => {
+    void invoke("bridge_close").catch(() => {});
+    setBridgeGeneration(null);
+    setBridgeAudit([]);
     teardownStrengthEngine();
     setVault(null);
     setMasterPassword("");
@@ -2260,6 +2326,13 @@ export default function App() {
     setMessage("");
     setMode((current) => (current === "setup" ? "setup" : "locked"));
   }, [teardownStrengthEngine]);
+
+  useEffect(() => {
+    setBridgeGeneration(null);
+    void invoke("bridge_close").catch(() => {});
+  }, [mode, activeVaultName, encryptedVault]);
+
+  useEffect(() => { setBridgeAudit([]); }, [detailCredentialId]);
 
   useEffect(() => {
     const handler = () => lockVault();
@@ -2737,6 +2810,36 @@ export default function App() {
     setNewVaultDialogOpen(true);
   }
 
+  async function handleDeleteVault(event: FormEvent) {
+    event.preventDefault();
+    const target = deleteVaultTarget;
+    if (!target || busy || mode !== "unlocked") return;
+    const confirmed = await askConfirmation({
+      title: t("vault.delete"), message: t("vault.deleteWarning", { name: getVaultDisplayName(target, vaultFiles) }),
+      confirmText: t("vault.delete"), cancelText: t("dialog.cancel"), tone: "danger",
+    });
+    if (!confirmed) return;
+    if (readActiveVaultName() !== target) {
+      setDeleteVaultPassword(""); setDeleteVaultError(t("vault.deleteFailed")); return;
+    }
+    setBusy(true);
+    try {
+      const backup = await invoke<string>("delete_vault_file", {
+        vaultName: target, expectedVaultName: target, masterPassword: deleteVaultPassword,
+      });
+      setDeleteVaultPassword(""); setDeleteVaultTarget(null);
+      lockVault();
+      const files = await listVaultFiles();
+      setVaultFiles(files);
+      const next = files[0]?.name ?? DEFAULT_VAULT_NAME;
+      setActiveVaultName(next);
+      if (next === target) { setEncryptedVault(null); setMode("setup"); await refreshStorageInfo(next); }
+      setMessage(t("vault.deleted", { path: backup }));
+    } catch {
+      setDeleteVaultPassword(""); setDeleteVaultError(t("vault.deleteFailed"));
+    } finally { setBusy(false); }
+  }
+
   function closeNewVaultDialog() {
     setNewVaultDialogOpen(false);
     setNewVaultDialogName("");
@@ -3099,6 +3202,11 @@ export default function App() {
 
   async function handleCheckUpdates() {
     setUpdateStatus(t("updates.checking"));
+    if (isLinux) {
+      try { await openExternalUrl("https://github.com/mnstechbr/KPassword/releases/latest"); }
+      catch { setUpdateStatus(t("updates.error", { detail: "GitHub Releases" })); }
+      return;
+    }
 
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
@@ -3472,6 +3580,12 @@ export default function App() {
     const appWindow = getCurrentWindow();
 
     try {
+      if (isLinux) {
+        const dataUrl = await invoke<string>("linux_capture_qr");
+        const content = await decodeQrFromDataUrlBestEffort(dataUrl);
+        await applyTotpFromRawValue(content, "screen", credentialForm.totpIssuer || credentialForm.title);
+        return;
+      }
       // Fluxo novo e mais previsível:
       // 1. Esconde/minimiza o KPassword.
       // 2. Aciona Win + Shift + S via comando nativo.
@@ -3732,6 +3846,53 @@ export default function App() {
     await applyAssistantTagSuggestions([suggestion]);
   }
 
+  async function changeBridgeGrant(credential: CredentialRecord, removeId?: string) {
+    if (!vault || !isLinux || bridgeBusy) return;
+    setBridgeBusy(true);
+    try {
+      let applications = credential.apiApplications ?? [];
+      if (removeId) {
+        applications = applications.filter((a) => a.id !== removeId);
+      }
+      await persistVaultWithHistory({ ...vault, credentials: vault.credentials.map((c) => c.id === credential.id ? { ...c, apiApplications: applications, updatedAt: new Date().toISOString() } : c) }, createActionHistoryEntry(removeId ? "bridge_revoked" : "bridge_authorized", credential.id));
+      setBridgeGeneration(null);
+    } catch { setMessage(t("bridge.denied")); }
+    finally { setBridgeBusy(false); }
+  }
+
+  async function activateBridgeSession() {
+    if (!isLinux || !vault?.settings.secretsBridgeEnabled || mode !== "unlocked" || bridgeBusy) return;
+    setBridgeBusy(true);
+    try { setBridgeGeneration(await invoke<number>("bridge_open", { vaultName: activeVaultName, masterPassword })); }
+    catch { setMessage(t("bridge.denied")); }
+    finally { setBridgeBusy(false); }
+  }
+
+  accessRequestHandler.current = (request) => {
+    if (mode !== "unlocked" || bridgeGeneration === null || bridgeBusy || confirmDialog || bridgeAccessRequest) {
+      void invoke("bridge_answer_access_request", { requestId: request.requestId, approve: false, remember: false }).catch(() => {});
+      return;
+    }
+    setRememberBridgeAccess(false);
+    setBridgeAccessRequest(request);
+  };
+
+  async function answerBridgeAccess(approve: boolean) {
+    if (!bridgeAccessRequest) return;
+    const requestId = bridgeAccessRequest.requestId;
+    setBridgeAccessRequest(null);
+    try { await invoke("bridge_answer_access_request", { requestId, approve, remember: approve && rememberBridgeAccess }); }
+    catch { setMessage(t("bridge.denied")); }
+    finally { setRememberBridgeAccess(false); }
+  }
+
+  useEffect(() => {
+    if (mode !== "unlocked" || bridgeGeneration === null) {
+      setBridgeAccessRequest(null);
+      setRememberBridgeAccess(false);
+    }
+  }, [mode, bridgeGeneration]);
+
   async function handleSaveCredential(event: FormEvent) {
     event.preventDefault();
 
@@ -3743,6 +3904,11 @@ export default function App() {
     }
 
     const itemType = credentialForm.itemType ?? "credential";
+
+    if (itemType === "api_key") {
+      const error = validateApiKey(credentialForm.password, credentialForm.apiIdentifier ?? "");
+      if (error) { setMessage(t(error)); return; }
+    }
 
     if (itemType === "credential" && !credentialForm.password.trim()) {
       setMessage(t("errors.credentialPasswordRequired"));
@@ -3793,7 +3959,10 @@ export default function App() {
       itemType,
       title: credentialForm.title.trim(),
       username: itemType === "credential" ? credentialForm.username.trim() : "",
-      password: itemType === "credential" ? credentialForm.password : "",
+      password: itemType === "credential" || itemType === "api_key" ? credentialForm.password : "",
+      apiProvider: itemType === "api_key" ? (credentialForm.apiProvider ?? "").trim() : "",
+      apiIdentifier: itemType === "api_key" ? (credentialForm.apiIdentifier ?? "").trim() : "",
+      apiApplications: itemType === "api_key" ? credentialForm.apiApplications ?? [] : [],
       url: itemType === "credential" ? normalizeUrl(credentialForm.url) : "",
       tags: normalizeCredentialTags(credentialTagsInput),
       notes: credentialForm.notes.trim(),
@@ -4182,7 +4351,7 @@ export default function App() {
       clipboardCleanupRef.current = null;
     }
 
-    await navigator.clipboard.writeText(value);
+    await writeClipboard(value, isLinux);
     setCopiedField(label);
 
     if (historyEntry && vault) {
@@ -4193,10 +4362,10 @@ export default function App() {
 
     clipboardCleanupRef.current = window.setTimeout(async () => {
       try {
-        const current = await navigator.clipboard.readText();
+        const current = await readClipboard(isLinux);
 
         if (current === copiedValue) {
-          await navigator.clipboard.writeText("");
+          await writeClipboard("", isLinux);
         }
       } catch {
         // Sem permissão de leitura: não limpa para evitar apagar conteúdo novo do usuário.
@@ -4584,6 +4753,8 @@ export default function App() {
         getCredentialTags(credential).join(" "),
         credential.password,
         credential.totpIssuer,
+        credential.apiProvider,
+        credential.apiIdentifier,
         getItemTypeLabel(getItemType(credential), appLanguage),
         credential.cardholderName,
         credential.cardNumber,
@@ -4863,12 +5034,20 @@ export default function App() {
           onChange={(event) => setNewVaultName(event.target.value)}
           placeholder={t("vault.newNamePlaceholder")}
         />
-        <button type="button" className="secondaryButton" onClick={() => void handleCreateNewVault()}>
+        <button type="button" className="secondaryButton" onClick={() => {
+          if (newVaultName.trim()) void handleCreateNewVault();
+          else openNewVaultDialog();
+        }}>
           {t("vault.create")}
         </button>
       </div>
 
       <small>{t("vault.currentFile", { name: getVaultDisplayName(activeVaultName, vaultFiles) })}</small>
+      {mode === "unlocked" && vaultFiles.some((item) => item.name === activeVaultName) && (
+        <button type="button" className="dangerConfirmButton" disabled={busy} onClick={() => {
+          setDeleteVaultPassword(""); setDeleteVaultError(""); setDeleteVaultTarget(activeVaultName);
+        }}>{t("vault.delete")}</button>
+      )}
     </div>
   );
 
@@ -4938,6 +5117,21 @@ export default function App() {
       </div>
     </div>
   );
+
+  const bridgeAccessDialogElement = bridgeAccessRequest && mode === "unlocked" ? (
+    <div className="confirmOverlay" onMouseDown={() => void answerBridgeAccess(false)}>
+      <section className="confirmCard" role="dialog" aria-modal="true" aria-labelledby="bridge-access-title" onMouseDown={(event) => event.stopPropagation()}>
+        <h2 id="bridge-access-title">{t("bridge.requestTitle")}</h2>
+        <p>{`${vault?.credentials.find((c) => c.id === bridgeAccessRequest.keyId)?.title ?? "API"}\n${bridgeAccessRequest.provider} · ${bridgeAccessRequest.operation}\n${bridgeAccessRequest.executable}\nPID: ${bridgeAccessRequest.pid}\nSHA-256: ${bridgeAccessRequest.sha256}`}</p>
+        <p>{t("bridge.proxyWarning")}</p>
+        <label className="toggleRow"><input type="checkbox" checked={rememberBridgeAccess} onChange={(e) => setRememberBridgeAccess(e.target.checked)} />{t("bridge.rememberSession")}</label>
+        <div className="confirmActions">
+          <button className="ghostButton" onClick={() => void answerBridgeAccess(false)}>{t("bridge.refuse")}</button>
+          <button className="primaryButton" onClick={() => void answerBridgeAccess(true)}>{t("bridge.approve")}</button>
+        </div>
+      </section>
+    </div>
+  ) : null;
 
   const confirmDialogElement = confirmDialog ? (
     <div className="confirmOverlay" onMouseDown={() => closeConfirmDialog(false)}>
@@ -5317,6 +5511,26 @@ export default function App() {
     </div>
   ) : null;
 
+  const deleteVaultDialog = deleteVaultTarget && mode === "unlocked" ? (
+    <div className="popupOverlay">
+      <form className="restoreDialog" role="dialog" aria-modal="true" aria-labelledby="deleteVaultTitle" onSubmit={(event) => void handleDeleteVault(event)}>
+        <h2 id="deleteVaultTitle">{t("vault.delete")}</h2>
+        <p>{t("vault.deleteWarning", { name: getVaultDisplayName(deleteVaultTarget, vaultFiles) })}</p>
+        <label>{t("auth.masterPassword")}
+          <input type="password" autoComplete="off" autoFocus required value={deleteVaultPassword}
+            onChange={(event) => setDeleteVaultPassword(event.target.value)} disabled={busy} />
+        </label>
+        {deleteVaultError && <div className="message error" role="alert">{deleteVaultError}</div>}
+        <div className="confirmActions">
+          <button type="button" className="ghostButton" disabled={busy} onClick={() => {
+            setDeleteVaultTarget(null); setDeleteVaultPassword(""); setDeleteVaultError("");
+          }}>{t("dialog.cancel")}</button>
+          <button type="submit" className="dangerConfirmButton" disabled={busy || !deleteVaultPassword}>{t("vault.delete")}</button>
+        </div>
+      </form>
+    </div>
+  ) : null;
+
   const csvImportDialog = csvImportPreview ? (
     <div className="modalOverlay csvImportOverlay" onMouseDown={cancelCsvImportPreview}>
       <section className="csvImportModal" role="dialog" aria-modal="true" aria-labelledby="csvImportTitle" onMouseDown={(event) => event.stopPropagation()}>
@@ -5569,7 +5783,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}
+        {confirmDialogElement}{bridgeAccessDialogElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -5579,7 +5793,7 @@ export default function App() {
   if (mode === "setup") {
     return (
       <>
-        <main className="authShell authDesktopShell">
+        <main className="authShell authDesktopShell authSetupShell">
           <section className="authCard authExperience authSetup">
             <div className="authUtilityBar">
               <div className="authProductMark">
@@ -5653,7 +5867,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}
+        {confirmDialogElement}{bridgeAccessDialogElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -5721,7 +5935,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}
+        {confirmDialogElement}{bridgeAccessDialogElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -6663,6 +6877,17 @@ export default function App() {
               <div className="settingsAccordionBody">
                 <p>{t("security.localThreatModel")}</p>
 
+              {isLinux && (
+                <div className="windowsHelloPanel">
+                  <div className="windowsHelloPanelText">
+                    <strong>Secrets Bridge</strong><span>{t("bridge.description")}</span>
+                    <label className="toggleRow"><span>{t("bridge.enable")}</span><input type="checkbox" checked={vault?.settings.secretsBridgeEnabled ?? false} disabled={busy || bridgeBusy} onChange={(e) => void updateVaultSettings({ secretsBridgeEnabled: e.target.checked })} /></label>
+                    <small>{bridgeGeneration === null ? t("bridge.inactive") : t("bridge.active")}</small>
+                  </div>
+                  <button type="button" className="secondaryButton" disabled={!vault?.settings.secretsBridgeEnabled || bridgeBusy} onClick={() => { if (bridgeGeneration !== null) { void invoke("bridge_close");setBridgeGeneration(null); } else void activateBridgeSession(); }}>{bridgeGeneration === null ? t("bridge.activate") : t("bridge.stop")}</button>
+                </div>
+              )}
+
               <div className={windowsHelloStatus.enabled ? "windowsHelloPanel enabled" : "windowsHelloPanel"}>
                 <div className="windowsHelloPanelText">
                   <strong>{t("windowsHello.title")}</strong>
@@ -7090,6 +7315,22 @@ export default function App() {
                 </div>
               )}
 
+              {itemType === "api_key" && (
+                <>
+                <div className="detailGrid">
+                  <div><span>{t("api.provider")}</span><strong>{detailCredential.apiProvider || "—"}</strong></div>
+                  <div><span>{t("api.identifier")}</span><strong>{detailCredential.apiIdentifier || "—"}</strong></div>
+                  <div><span>{t("api.secret")}</span><strong>{visiblePasswords[detailCredential.id] ? detailCredential.password : "••••••••"}</strong></div>
+                </div>
+                {isLinux && <div className="historyBox">
+                  <h3>Secrets Bridge</h3><p>{t("bridge.description")}</p><p>{t("bridge.connectorHelp")}</p><code>{detailCredential.id}</code>
+                  {(detailCredential.apiApplications ?? []).map((a) => <article key={a.id} className="historyItem"><div><strong>{a.name}</strong><span>{a.executable}</span><span>{t("bridge.exportDisabled")}</span></div><button type="button" disabled={bridgeBusy} onClick={() => void changeBridgeGrant(detailCredential, a.id)}>{t("bridge.revoke")}</button></article>)}
+                  <button type="button" onClick={() => { void invoke<typeof bridgeAudit>("bridge_history", { keyId: detailCredential.id }).then(setBridgeAudit).catch(() => setMessage(t("bridge.denied"))); }}>{t("bridge.history")}</button>
+                  {bridgeAudit.map((event, i) => <p key={`${event.at}-${i}`}>{formatDate(new Date(event.at).toISOString(), appLanguage)} · {t(`bridge.outcome.${event.outcome}`)} · {event.integration_id}</p>)}
+                </div>}
+                </>
+              )}
+
               {itemType === "credential" && (
                 <div className="detailGrid">
                   <div>
@@ -7432,7 +7673,7 @@ export default function App() {
                   </button>
                 )}
 
-                {(itemType === "credential" || itemType === "card" || itemType === "license") && (
+                {(itemType === "credential" || itemType === "api_key" || itemType === "card" || itemType === "license") && (
                   <button
                     onClick={() =>
                       setVisiblePasswords((current) => ({
@@ -7555,6 +7796,14 @@ export default function App() {
                 <small className="tagInputHint">{t("tags.hint")}</small>
               </label>
 
+              {credentialForm.itemType === "api_key" && (
+                <>
+                  <label>{t("api.provider")}<input value={credentialForm.apiProvider ?? ""} onChange={(e) => setCredentialForm((c) => ({ ...c, apiProvider: e.target.value }))} placeholder="Anthropic / OpenAI" /></label>
+                  <label>{t("api.identifier")}<input value={credentialForm.apiIdentifier ?? ""} onChange={(e) => setCredentialForm((c) => ({ ...c, apiIdentifier: e.target.value }))} placeholder="ANTHROPIC_API_KEY" /></label>
+                  <label className="full">{t("api.secret")}<input type="password" autoComplete="off" value={credentialForm.password} onChange={(e) => setCredentialForm((c) => ({ ...c, password: e.target.value }))} /></label>
+                  <p className="full">{t("api.scope")}</p>
+                </>
+              )}
               {(credentialForm.itemType ?? "credential") === "credential" && (
                 <>
                   <label>
@@ -7902,11 +8151,13 @@ export default function App() {
       )}
 
       {totpSetupDialog}
+      {newVaultDialog}
+      {deleteVaultDialog}
       {csvExportDialog}
       {csvImportDialog}
       {actionHistoryDialog}
       {appDiagnosticsDialog}
-      {confirmDialogElement}
+      {confirmDialogElement}{bridgeAccessDialogElement}
       {restoreBackupDialog}
     </main>
   );
