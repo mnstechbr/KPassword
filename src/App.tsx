@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1843,7 +1844,7 @@ export default function App() {
   const [backupsSection, setBackupsSection] = useState<"storage" | "backups" | "transfer">("backups");
   const [securitySection, setSecuritySection] = useState<"access" | "locking" | "clipboard" | "integrations">("access");
   const contentRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     contentRef.current?.scrollTo({ top: 0 });
   }, [screen, preferencesSection, backupsSection, securitySection]);
   const [vault, setVault] = useState<PlainVault | null>(null);
