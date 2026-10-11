@@ -24,8 +24,8 @@ export async function loadVaultFile(vaultName = "vault") {
   return invoke<string | null>("load_vault_file", { vaultName });
 }
 
-export async function saveVaultFile(payload: string, vaultName = "vault", forceBackup = false) {
-  return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup });
+export async function saveVaultFile(payload: string, vaultName = "vault", forceBackup = false, historyPassword?: string) {
+  return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup, historyPassword });
 }
 
 /** Chave onde a identidade do cofre ativo e persistida (perfil do WebView2). */

@@ -1,5 +1,7 @@
 //! Opt-in local delivery. No TCP listener or public secret API.
 pub mod broker;
+#[cfg(target_os = "linux")]
+mod identity;
 use std::{collections::HashMap, fs, path::Path, sync::Mutex, time::{Duration, Instant}};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -14,8 +16,8 @@ const MAX_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 #[serde(deny_unknown_fields)]
 pub struct Integration { pub id: String, pub name: String, pub executable: String, pub sha256: String, #[serde(default="custom_kind")] pub kind: String }
 fn custom_kind() -> String { "custom".into() }
-struct Key { secret: Zeroizing<String>, identifier: String, integrations: Vec<Integration> }
-struct Session { generation: u64, expires: Instant, vault_name: String, file_hash: Vec<u8>, keys: HashMap<String, Key> }
+struct Key { secret: Zeroizing<String>, identifier: String, integrations: Vec<Integration>, label: String }
+struct Session { generation: u64, expires: Instant, vault_name: String, file_hash: Vec<u8>, content_hash: Vec<u8>, keys: HashMap<String, Key> }
 #[derive(Default)]
 struct Core { generation: u64, session: Option<Session> }
 #[derive(Default)]
@@ -103,7 +105,8 @@ fn parse_keys(plain: &Value) -> Result<HashMap<String, Key>, String> {
         if integrations.len() > 32 { return Err(DENIED.into()); }
         let id = record["id"].as_str().ok_or(DENIED)?.to_string();
         if keys.contains_key(&id) { return Err(DENIED.into()); }
-        keys.insert(id, Key { secret: Zeroizing::new(secret.into()), identifier: identifier.into(), integrations });
+        let label = record["title"].as_str().unwrap_or("API").chars().filter(|c| !c.is_control()).take(120).collect();
+        keys.insert(id, Key { secret: Zeroizing::new(secret.into()), identifier: identifier.into(), integrations, label });
     }
     Ok(keys)
 }
@@ -118,11 +121,46 @@ fn erase_json(value: &mut Value) {
     }
 }
 
+fn content_digest(value: &Value) -> Result<Vec<u8>, String> {
+    let mut copy = value.clone();
+    if let Some(object) = copy.as_object_mut() { object.remove("actionHistory"); object.remove("updatedAt"); }
+    let serialized = serde_json::to_vec(&copy).map_err(|_| DENIED);
+    erase_json(&mut copy);
+    let serialized = Zeroizing::new(serialized?);
+    Ok(Sha256::digest(&*serialized).to_vec())
+}
+
+/// Preserve the independent lease only for an authenticated history-only save.
+/// The caller cannot assert that keys did not change: backend decrypts and checks
+/// every vault field except the two operational-history fields itself.
+pub fn preserve_history_save(app: &AppHandle, vault_name: &str, payload: &str, password: Option<String>) -> bool {
+    let Some(password) = password else { return false; };
+    let password = Zeroizing::new(password);
+    let state = app.state::<BridgeState>();
+    let Ok(mut core) = state.0.lock() else { return false; };
+    let Some(session) = core.session.as_mut() else { return false; };
+    if session.expires <= Instant::now() || session.vault_name != vault_name { return false; }
+    let Ok((path,_,_)) = super::storage_paths(app,Some(vault_name.into())) else { return false; };
+    let Ok(old) = fs::read(path) else { return false; };
+    if Sha256::digest(old).as_slice() != session.file_hash { return false; }
+    let Ok(encrypted) = serde_json::from_str(payload) else { return false; };
+    let Ok(plaintext) = super::crypto_vault::decrypt_vault_file(&encrypted,&password) else { return false; };
+    let plaintext = Zeroizing::new(plaintext);
+    let Ok(mut plain) = serde_json::from_str::<Value>(&plaintext) else { return false; };
+    let digest = content_digest(&plain);
+    erase_json(&mut plain);
+    if digest.as_ref().ok() != Some(&session.content_hash) { return false; }
+    // Until the write completes, a broker digest check fails closed. Failure in
+    // the save path closes the lease; no provider call holds a vault file lock.
+    session.file_hash = Sha256::digest(payload.as_bytes()).to_vec();
+    true
+}
+
 #[tauri::command]
 pub fn bridge_close(app: AppHandle) { close(&app); }
 
 #[tauri::command]
-pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String, master_password: String) -> Result<u64, String> {
+pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String, master_password: String, duration_hours: Option<u64>) -> Result<u64, String> {
     broker::revoke(&app);
     let generation = {
         let mut core = state.0.lock().map_err(|_| DENIED)?;
@@ -136,11 +174,14 @@ pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String
     let plaintext = Zeroizing::new(super::crypto_vault::decrypt_vault_file(&encrypted, &password).map_err(|_| DENIED)?);
     let mut plain: Value = serde_json::from_str(&plaintext).map_err(|_| DENIED)?;
     let result = parse_keys(&plain);
-    let minutes = plain["settings"]["autoLockMinutes"].as_u64().unwrap_or(1).clamp(1, 120);
+    let content_hash = content_digest(&plain);
+    let hours = duration_hours.unwrap_or(48);
+    if ![24, 48, 72].contains(&hours) { erase_json(&mut plain); return Err(DENIED.into()); }
+    let minutes = hours * 60;
     erase_json(&mut plain);
     let keys = result?;
     let mut core = state.0.lock().map_err(|_| DENIED)?;
-    core.install_session(generation, Session { generation, expires: Instant::now() + Duration::from_secs(minutes * 60), vault_name: name, file_hash: Sha256::digest(&raw).to_vec(), keys })?;
+    core.install_session(generation, Session { generation, expires: Instant::now() + Duration::from_secs(minutes * 60), vault_name: name, file_hash: Sha256::digest(&raw).to_vec(), content_hash:content_hash?, keys })?;
     drop(core);
     if broker::start(&app).is_err() { close(&app); return Err(DENIED.into()); }
     #[cfg(target_os="linux")]
@@ -303,7 +344,7 @@ mod tests {
         let mut short = args; short.pop(); assert!(request_from_args(&short).is_none());
     }
     fn plain() -> Value { json!({"settings":{"secretsBridgeEnabled":true},"credentials":[{"id":"key-a","itemType":"api_key","password":"fake-key-a","apiIdentifier":"OPENAI_API_KEY","apiApplications":[{"id":"tool-a","name":"Test","executable":"/usr/bin/true","sha256":"fake"}]},{"id":"key-b","itemType":"api_key","password":"fake-key-b","apiIdentifier":"ANTHROPIC_API_KEY"}]}) }
-    fn core() -> Core { Core { generation: 1, session: Some(Session { generation: 1, expires: Instant::now() + Duration::from_secs(60), vault_name:"vault".into(),file_hash:vec![],keys:parse_keys(&plain()).unwrap() }) } }
+    fn core() -> Core { Core { generation: 1, session: Some(Session { generation: 1, expires: Instant::now() + Duration::from_secs(60), vault_name:"vault".into(),file_hash:vec![],content_hash:vec![],keys:parse_keys(&plain()).unwrap() }) } }
     #[test] fn disabled_by_default() { assert!(Core::default().authorize(0,"key-a","tool-a").is_err()); let mut p=plain();p["settings"]=json!({});assert!(parse_keys(&p).is_err()); }
     #[test] fn only_explicit_record_and_tool_are_authorized() { let c=core();assert!(c.authorize(1,"key-a","tool-a").is_ok());assert!(c.authorize(1,"key-b","tool-a").is_err());assert!(c.authorize(1,"key-a","spoofed").is_err()); }
     #[test] fn close_revokes_pending_requests() { let mut c=core();c.close();assert!(c.authorize(1,"key-a","tool-a").is_err()); }
@@ -362,3 +403,12 @@ mod tests {
     }
     #[test] fn serialized_delivery_contains_one_key_only() { let c=core();let (k,i)=c.authorize(1,"key-a","tool-a").unwrap();let d=Delivery{secret:k.secret.to_string(),identifier:k.identifier.clone(),executable:i.executable.clone(),kind:"custom".into()};let s=serde_json::to_string(&d).unwrap();assert!(s.contains("fake-key-a"));assert!(!s.contains("fake-key-b"));assert!(!s.contains("master")); }
 }
+    #[test]
+    fn only_operational_history_changes_preserve_content_identity() {
+        let value = serde_json::json!({"credentials":[{"password":"fictitious"}],"settings":{"secretsBridgeEnabled":true},"updatedAt":"before","actionHistory":[]});
+        let original = content_digest(&value).unwrap();
+        let mut history = value.clone(); history["updatedAt"] = serde_json::json!("after"); history["actionHistory"] = serde_json::json!([{"type":"vault_unlocked"}]);
+        assert_eq!(content_digest(&history).unwrap(),original);
+        history["credentials"][0]["password"] = serde_json::json!("changed"); assert_ne!(content_digest(&history).unwrap(),original);
+        let mut settings=value.clone(); settings["settings"]["secretsBridgeEnabled"]=serde_json::json!(false); assert_ne!(content_digest(&settings).unwrap(),original);
+    }
