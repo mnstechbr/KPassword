@@ -208,8 +208,7 @@ textarea { min-height: 100px; }
   scrollbar-gutter: stable;
 }
 .content > * { flex-shrink: 0; }
-.topbar, .credentialsPanel, .settingsGrid, .preferencesGrid, .analyticsPage,
-.dashboardGrid, .trashList, .wideCard, .assistantPage {
+.topbar, .settingsGrid, .preferencesGrid, .trashList, .wideCard, .assistantPage {
   width: 100%; max-width: none; margin-inline: 0;
 }
 .topbar {
@@ -266,7 +265,6 @@ textarea { min-height: 100px; }
 .rowCategory { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; background: var(--surface-raised); color: var(--muted); padding: 4px 8px; border-radius: 6px; font-size: .8rem; }
 .rowHealth { display: flex; flex-wrap: wrap; gap: 5px; color: var(--muted); font-size: .8rem; min-width: 0; }
 .rowHealth > span { background: transparent; padding: 0; }
-.rowStrength { display: block; }
 .rowActions, .trashActions, .inlineActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .rowActions button { min-height: 36px; font-size: .86rem; padding: 7px 10px; }
 .rowStar { display: grid; place-items: center; width: 28px; height: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 1.3rem; }
@@ -305,9 +303,7 @@ textarea { min-height: 100px; }
 .preferencesGrid[data-active-section="application"] > [data-section]:not([data-section="application"]),
 .preferencesGrid[data-active-section="maintenance"] > [data-section]:not([data-section="maintenance"]) { display: none; }
 .settingsGrid .wideCard, .preferencesGrid .wideCard { grid-column: auto; }
-.wideCard, .preferenceCard, .designSection, .designDisclosure,
-.assistantHero, .assistantNextCard, .assistantSideCard, .assistantQueueCard,
-.assistantRuleCard, .assistantSafeCard, .assistantNeedsYouCard, .assistantRulesCard, .analyticsCard, .vaultHealthHero {
+.wideCard, .preferenceCard, .designSection, .designDisclosure, .assistantHero, .assistantNextCard, .assistantQueueCard, .assistantSafeCard, .assistantNeedsYouCard, .assistantRulesCard {
   padding: 20px; border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--surface); color: var(--text); box-shadow: none; min-width: 0;
 }
@@ -424,12 +420,12 @@ textarea { min-height: 100px; }
 .csvImportModal > .modalHeader, .csvExportModal > .modalHeader { padding: 20px; }
 .csvImportModal > .modalActions, .csvExportModal > .modalActions { padding: 16px 20px; }
 .modalHeader, .csvExportModal .modalHeader, .detailHeader { position: static; margin: 0; background: var(--surface); backdrop-filter: none; }
-.csvImportBody, .csvExportBody { padding: 20px; }
+.csvExportBody { padding: 20px; }
 .csvImportModal .csvImportPreview { padding: 20px; border: 0; border-radius: 0; background: none; }
 .csvMappingGrid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .csvPreviewItem { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; padding: 12px 0; }
 .csvPreviewItem.invalid { background: var(--danger-bg); color: var(--danger); }
-.languageSelect, .languageDropdown, .quickFilterDropdown { z-index: 20; }
+.languageSelect, .quickFilterDropdown { z-index: 20; }
 .csvRiskPanel, .csvRecommendedPanel, .csvExportCleanupReminder, .csvAcknowledgeBox { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); box-shadow: none; }
 .csvExportActions .dangerConfirmButton { min-height: 40px; }
 .credentialModal .modalHeader { align-items: flex-start; padding: 0 0 16px; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
@@ -443,7 +439,6 @@ textarea { min-height: 100px; }
 .generatorOptions label { background: transparent; border-color: var(--border); color: var(--text); padding: 8px; }
 .generatorPanel { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 16px; }
 .generatorPanel > label span { color: var(--text); }
-.generatorHint, .generatorResult small { color: var(--muted); }
 .modalActions, .confirmActions { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .confirmCard p, .restoreDialog p, .credentialModal p { color: var(--muted); }
 .confirmIcon { background: var(--selection); color: var(--accent); border-radius: 10px; box-shadow: none; }
@@ -455,13 +450,9 @@ textarea { min-height: 100px; }
 .message.success, .backupVerifyResult.success { background: var(--success-bg); color: var(--success); border-color: var(--success); }
 .message.error, .totpEasyError, .backupVerifyResult.failure { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 :where(.dangerBadge, .diagnosticMiniBadge.issue-weak, .diagnosticMiniBadge.issue-expired) { background: var(--danger-bg); color: var(--danger); }
-:where(.expiryBadge.ok, .expiryBadge.safe, .successBadge) { background: var(--success-bg); color: var(--success); }
-.totpEasyChoice, .totpManualPanel, .totpPreviewPanel, .totpEasyNotice, .attachmentItem,
-.csvImportStats > div, .csvExportStats > div, .csvExportWarning, .csvExportChecklist,
-.actionHistoryEmpty, .appDiagnosticsItem { background: var(--surface-raised); color: var(--text); border-color: var(--border); box-shadow: none; border-radius: 8px; }
-.totpEasyChoice strong, .totpEasyChoice span, .totpEasyChoice small,
-.csvImportStats span, .csvExportStats span, .csvExportChecklist span,
-.attachmentItem span, .actionHistoryItem span, .appDiagnosticsItem span { color: var(--muted); }
+:where(.expiryBadge.ok, .expiryBadge.safe) { background: var(--success-bg); color: var(--success); }
+.totpEasyChoice, .totpManualPanel, .totpPreviewPanel, .totpEasyNotice, .attachmentItem, .csvImportStats > div, .actionHistoryEmpty { background: var(--surface-raised); color: var(--text); border-color: var(--border); box-shadow: none; border-radius: 8px; }
+.totpEasyChoice strong, .totpEasyChoice span, .totpEasyChoice small, .csvImportStats span, .attachmentItem span, .actionHistoryItem span { color: var(--muted); }
 .actionHistoryItem { background: transparent; border-color: var(--border); border-radius: 0; }
 .appDiagnosticsList > div { padding: 12px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; box-shadow: none; }
 .appDiagnosticsList dt { color: var(--muted); }
@@ -470,9 +461,6 @@ textarea { min-height: 100px; }
 .detailBody .totpBox button { flex-shrink: 0; white-space: nowrap; }
 .actionHistoryFilters button { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
 .actionHistoryFilters button.active { background: var(--selection); color: var(--accent); }
-.csvImportTableWrap, .csvExportTableWrap { border-color: var(--border); }
-.csvImportTable th, .csvExportTable th { background: var(--surface-raised); color: var(--muted); }
-.csvImportTable td, .csvExportTable td { color: var(--text); border-color: var(--border); }
 
 /* Assistant retains its complete workflow with calmer surfaces. */
 .assistantPage { gap: 20px; }
@@ -485,8 +473,7 @@ textarea { min-height: 100px; }
 .assistantNextCard::before, .assistantNextCard::after { content: none; }
 .assistantNextCard.tone-danger { border-left: 3px solid var(--danger); }
 .assistantNextCard.tone-warning { border-left: 3px solid var(--warning); }
-.assistantQueueItem, .assistantTagCard, .assistantTagItem, .assistantStatCard,
-.assistantSmallStat, .assistantSignalCard, .assistantRule { border-color: var(--border); background: transparent; box-shadow: none; color: var(--text); border-radius: 8px; }
+.assistantQueueItem { border-color: var(--border); background: transparent; box-shadow: none; color: var(--text); border-radius: 8px; }
 .assistantPage strong, .assistantPage h3 { color: var(--text); }
 .assistantPage span { color: var(--muted); }
 .assistantActionButtons { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -685,7 +672,7 @@ textarea { min-height: 100px; }
   .topbarActions { flex-wrap: nowrap; }
   .topbarActions > .languageSelect { display: none; }
   .addItemIconButton { padding: 9px 10px; }
-  .settingsGrid, .preferencesGrid, .dashboardGrid { grid-template-columns: 1fr; }
+  .settingsGrid, .preferencesGrid { grid-template-columns: 1fr; }
   .wideCard, .preferenceCard, .assistantHero, .assistantNextCard { padding: 16px; }
   .designDisclosure { padding: 0; }
   .designDisclosure > summary, .settingsAccordionBody { padding: 16px; }

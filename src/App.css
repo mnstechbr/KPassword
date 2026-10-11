@@ -77,20 +77,6 @@ button:disabled {
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
 }
 
-.brandMark {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  flex: 0 0 auto;
-  border: 1px solid rgba(0, 225, 255, 0.45);
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(0, 225, 255, 0.22), rgba(124, 58, 237, 0.2));
-  color: #c7fbff;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-}
-
 .eyebrow {
   margin: 18px 0 8px;
   color: #7dd3fc;
@@ -300,37 +286,6 @@ textarea:focus {
   background: rgba(20, 28, 42, 0.92);
 }
 
-.credentialRow.dragging {
-  opacity: 0.52;
-}
-
-.credentialRow.dragOver {
-  border-color: rgba(14, 165, 233, 0.95);
-  transform: translateY(-1px);
-}
-
-.dragHandle {
-  display: grid;
-  width: 24px;
-  height: 34px;
-  place-items: center;
-  border-radius: 10px;
-  color: #64748b;
-  cursor: grab;
-  font-size: 1rem;
-  letter-spacing: -0.28em;
-  user-select: none;
-}
-
-.dragHandle:hover {
-  background: rgba(125, 211, 252, 0.1);
-  color: #bae6fd;
-}
-
-.credentialRow:active .dragHandle {
-  cursor: grabbing;
-}
-
 .rowStar {
   display: grid;
   width: 34px;
@@ -363,7 +318,6 @@ textarea:focus {
 .rowMain small,
 .rowPassword,
 .rowCategory,
-.rowStrength,
 .rowHealth {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -376,7 +330,6 @@ textarea:focus {
 
 .rowMain small,
 .rowCategory,
-.rowStrength,
 .rowHealth {
   color: #9ca3af;
   font-size: 0.82rem;
@@ -560,39 +513,18 @@ textarea:focus {
   color: #fecaca;
 }
 
-.dashboardGrid,
 .settingsGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
-.metricCard,
 .wideCard,
 .emptyState {
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 22px;
   background: rgba(16, 18, 27, 0.82);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);
-}
-
-.metricCard {
-  display: grid;
-  gap: 8px;
-  padding: 20px;
-}
-
-.metricCard span,
-.metricCard small {
-  color: #9ca3af;
-}
-
-.metricCard strong {
-  font-size: 2.1rem;
-}
-
-.metricCard.warning strong {
-  color: #fde68a;
 }
 
 .wideCard {
@@ -659,13 +591,11 @@ textarea:focus {
   line-height: 1.5;
 }
 
-.miniList,
 .backupList {
   display: grid;
   gap: 10px;
 }
 
-.miniList button,
 .backupList div,
 .pathBox {
   display: grid;
@@ -682,7 +612,6 @@ textarea:focus {
   overflow-wrap: anywhere;
 }
 
-.miniList span,
 .backupList span,
 .pathBox span {
   color: #9ca3af;
@@ -776,7 +705,6 @@ textarea:focus {
       minmax(280px, auto);
   }
 
-  .rowStrength,
   .rowHealth {
     display: none;
   }
@@ -791,7 +719,6 @@ textarea:focus {
     white-space: nowrap;
   }
 
-  .dashboardGrid,
   .settingsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -806,7 +733,6 @@ textarea:focus {
   }
 
   .rowCategory,
-  .rowStrength,
   .rowHealth {
     display: none;
   }
@@ -838,7 +764,6 @@ textarea:focus {
     white-space: normal;
   }
 
-  .dashboardGrid,
   .settingsGrid,
   .detailGrid,
   .formGrid,
@@ -1074,7 +999,6 @@ textarea:focus {
 :root[data-theme="light"] .authCard,
 :root[data-theme="light"] .credentialRow,
 :root[data-theme="light"] .wideCard,
-:root[data-theme="light"] .metricCard,
 :root[data-theme="light"] .emptyState,
 :root[data-theme="light"] .credentialModal,
 :root[data-theme="light"] .detailPopup,
@@ -1091,7 +1015,6 @@ textarea:focus {
 :root[data-theme="light"] .optionButton,
 :root[data-theme="light"] .pathBox,
 :root[data-theme="light"] .backupList div,
-:root[data-theme="light"] .miniList button,
 :root[data-theme="light"] .detailGrid div,
 :root[data-theme="light"] .notesBox,
 :root[data-theme="light"] .securityGrid span {
@@ -1109,9 +1032,7 @@ textarea:focus {
 :root[data-theme="light"] p,
 :root[data-theme="light"] small,
 :root[data-theme="light"] .rowMain small,
-:root[data-theme="light"] .rowStrength,
 :root[data-theme="light"] .rowCategory,
-:root[data-theme="light"] .storageHint,
 :root[data-theme="light"] .backupList span,
 :root[data-theme="light"] .pathBox span,
 :root[data-theme="light"] .toggleRow small,
@@ -1160,8 +1081,7 @@ textarea:focus {
   align-content: start;
 }
 
-.changePasswordForm,
-.updateGrid {
+.changePasswordForm {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
@@ -1192,26 +1112,6 @@ textarea:focus {
   margin-top: 6px;
 }
 
-.restoreBox {
-  display: grid;
-  gap: 12px;
-  margin-top: 22px;
-  border: 1px dashed rgba(125, 211, 252, 0.25);
-  border-radius: 20px;
-  background: rgba(125, 211, 252, 0.06);
-  padding: 16px;
-}
-
-.restoreBox h2 {
-  margin-bottom: 0;
-  font-size: 1.05rem;
-}
-
-.restoreBox p {
-  margin: 0;
-  color: #9ca3af;
-}
-
 .updateStatus {
   border: 1px solid rgba(125, 211, 252, 0.25);
   border-radius: 14px;
@@ -1222,7 +1122,6 @@ textarea:focus {
 }
 
 :root[data-theme="light"] .fileImportButton,
-:root[data-theme="light"] .restoreBox,
 :root[data-theme="light"] .updateStatus {
   background: rgba(14, 165, 233, 0.08);
   border-color: rgba(14, 165, 233, 0.25);
@@ -1230,28 +1129,9 @@ textarea:focus {
 }
 
 @media (max-width: 980px) {
-  .changePasswordForm,
-  .updateGrid {
+  .changePasswordForm {
     grid-template-columns: 1fr;
   }
-}
-
-
-.authTextButton {
-  width: max-content;
-  max-width: 100%;
-  border: 0;
-  background: transparent;
-  color: #7dd3fc;
-  padding: 0;
-  margin: 16px auto 0;
-  font-weight: 800;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-.authTextButton:hover {
-  color: #bae6fd;
 }
 
 .restoreDialog {
@@ -1445,11 +1325,6 @@ textarea:focus {
 
 
 /* Global language selector and long-text layout safety */
-.authLanguageRow {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 4px;
-}
 
 .languageSelect {
   display: inline-flex;
@@ -1549,7 +1424,6 @@ button,
 }
 
 @media (max-width: 720px) {
-  .authLanguageRow,
   .topbarActions,
   .languagePreferenceBox {
     align-items: stretch;
@@ -1564,10 +1438,6 @@ button,
 }
 
 /* v0.3.3 - lixeira, validade de senha, gerador avanÃ§ado e saÃºde do cofre */
-.metricCard.danger {
-  border-color: rgba(248, 113, 113, 0.5);
-  background: linear-gradient(180deg, rgba(127, 29, 29, 0.25), rgba(16, 18, 27, 0.86));
-}
 
 .rowHealth {
   display: grid;
@@ -1743,8 +1613,6 @@ button,
     grid-template-columns: 1fr;
   }
 }
-
-/* === KPassword v0.3.3 hotfix spacing security settings START === */
 /* v0.3.3 hotfix - espaÃ§amento do card ConfiguraÃ§Ãµes de seguranÃ§a */
 .securityActionCard .settingsControlGrid {
   margin-top: 18px;
@@ -1811,9 +1679,6 @@ button,
     align-self: flex-start;
   }
 }
-/* === KPassword v0.3.3 hotfix spacing security settings END === */
-
-/* === KPassword v0.4.0 item types and password history START === */
 .itemTypeSwitch {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1995,7 +1860,6 @@ button,
     text-align: left;
   }
 }
-/* === KPassword v0.4.0 item types and password history END === */
 
 
 /* v0.4.1 - importaÃ§Ã£o, exportaÃ§Ã£o e anexos criptografados */
@@ -2112,45 +1976,6 @@ button,
 
 
 /* KPassword v0.5.0 - multi-cofres e TOTP */
-.vaultSwitcher {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--card) 78%, transparent);
-  min-width: 0;
-}
-
-.authCard .vaultSwitcher {
-  width: 100%;
-  margin: 6px 0 14px;
-}
-
-.vaultSwitcher label {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-}
-
-.vaultSwitcher label span,
-.vaultSwitcher small {
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-
-.vaultSwitcher select,
-.vaultSwitcher input {
-  min-width: 0;
-}
-
-.newVaultRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: end;
-}
 
 .totpBox {
   display: flex;
@@ -2185,7 +2010,6 @@ button,
 }
 
 @media (max-width: 720px) {
-  .newVaultRow,
   .totpBox {
     grid-template-columns: 1fr;
   }
@@ -2199,8 +2023,6 @@ button,
     width: 100%;
   }
 }
-
-/* === KPassword v0.5.0 login premium responsive START === */
 .authShell {
   min-height: 100dvh;
   padding: clamp(14px, 3vh, 32px) clamp(12px, 3vw, 32px);
@@ -2257,12 +2079,6 @@ button,
   z-index: 1;
 }
 
-.authLanguageRow {
-  justify-content: flex-end;
-  min-height: 42px;
-  margin: 0 0 8px;
-}
-
 .authCard > .appLogo.lg {
   width: clamp(56px, 7vh, 68px);
   height: clamp(56px, 7vh, 68px);
@@ -2311,59 +2127,6 @@ button,
   border-radius: 18px;
 }
 
-.authTextButton {
-  display: inline-flex;
-  align-self: center;
-  justify-content: center;
-  margin: 16px auto 0;
-  text-align: center;
-}
-
-.authCard > .vaultSwitcher {
-  width: 100%;
-  margin: clamp(16px, 2.4vh, 24px) 0 0;
-  padding: 14px;
-  gap: 10px;
-  border-radius: 20px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.028)),
-    rgba(10, 13, 22, 0.48);
-  border-color: rgba(255, 255, 255, 0.105);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24) inset;
-}
-
-.authCard > .vaultSwitcher label {
-  gap: 7px;
-}
-
-.authCard > .vaultSwitcher label span,
-.authCard > .vaultSwitcher small {
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-
-.authCard > .vaultSwitcher select,
-.authCard > .vaultSwitcher input {
-  min-height: 46px;
-  border-radius: 14px;
-}
-
-.authCard > .vaultSwitcher small {
-  text-align: center;
-}
-
-.authCard > .vaultSwitcher .newVaultRow {
-  grid-template-columns: minmax(0, 1fr) minmax(118px, auto);
-  align-items: stretch;
-}
-
-.authCard > .vaultSwitcher .newVaultRow button {
-  min-height: 46px;
-  padding: 0 18px;
-  white-space: nowrap;
-  border-radius: 14px;
-}
-
 @media (max-height: 760px) {
   .authShell {
     padding-block: 10px;
@@ -2373,11 +2136,6 @@ button,
     max-height: calc(100dvh - 20px);
     padding: 20px 24px;
     border-radius: 26px;
-  }
-
-  .authLanguageRow {
-    min-height: 38px;
-    margin-bottom: 4px;
   }
 
   .authCard > .appLogo.lg {
@@ -2411,15 +2169,6 @@ button,
   .authForm .primaryButton {
     min-height: 54px;
   }
-
-  .authTextButton {
-    margin-top: 12px;
-  }
-
-  .authCard > .vaultSwitcher {
-    margin-top: 14px;
-    padding: 12px;
-  }
 }
 
 @media (max-width: 620px) {
@@ -2435,21 +2184,10 @@ button,
     border-radius: 24px;
   }
 
-  .authCard > .vaultSwitcher .newVaultRow {
-    grid-template-columns: 1fr;
-  }
-
-  .authCard > .vaultSwitcher .newVaultRow button {
-    width: 100%;
-  }
-
   .languageSelect.compact select {
     max-width: 94px;
   }
 }
-/* === KPassword v0.5.0 login premium responsive END === */
-
-/* === KPassword v0.5.1 Windows Hello START === */
 .windowsHelloButton {
   display: inline-flex;
   min-height: 56px;
@@ -2538,9 +2276,6 @@ button,
     min-width: 0;
   }
 }
-/* === KPassword v0.5.1 Windows Hello END === */
-
-/* === KPassword v0.6.0 responsive design system START === */
 :root {
   --kp-bg: #08090d;
   --kp-surface: #10121b;
@@ -2550,22 +2285,15 @@ button,
   --kp-border-soft: rgba(255, 255, 255, 0.075);
   --kp-text: #f7f7fb;
   --kp-muted: #aab0c5;
-  --kp-muted-2: #8d96ad;
   --kp-primary: #0ea5e9;
   --kp-accent: #7c3aed;
   --kp-danger: #dc2626;
   --kp-warning: #f59e0b;
-  --kp-success: #22c55e;
-  --kp-radius-xs: 12px;
   --kp-radius-sm: 14px;
   --kp-radius-md: 18px;
   --kp-radius-lg: 22px;
-  --kp-radius-xl: 28px;
-  --kp-space-1: 6px;
   --kp-space-2: 10px;
   --kp-space-3: 14px;
-  --kp-space-4: 18px;
-  --kp-space-5: 24px;
   --kp-page-pad: clamp(14px, 2.4vw, 26px);
   --kp-card-pad: clamp(16px, 2vw, 24px);
   --kp-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
@@ -2583,7 +2311,6 @@ button,
   --kp-border-soft: rgba(15, 23, 42, 0.08);
   --kp-text: #111827;
   --kp-muted: #4b5563;
-  --kp-muted-2: #64748b;
   --card: var(--kp-card);
   --border: var(--kp-border);
   --muted: var(--kp-muted);
@@ -2611,11 +2338,9 @@ body {
 .toolbar,
 .credentialRows,
 .credentialRow,
-.dashboardGrid,
 .settingsGrid,
 .preferencesGrid,
 .wideCard,
-.metricCard,
 .preferenceCard,
 .securityActionCard,
 .storageCard,
@@ -2641,8 +2366,6 @@ body {
 .attachmentItem,
 .historyItem,
 .trashItem,
-.vaultSwitcher,
-.newVaultRow,
 .windowsHelloPanel,
 .languagePreferenceBox {
   min-width: 0;
@@ -2705,9 +2428,6 @@ textarea {
 .topbarTitle p,
 .cardTitleRow h2,
 .cardTitleRow p,
-.metricCard strong,
-.metricCard span,
-.metricCard small,
 .rowMain strong,
 .rowMain small,
 .detailHeader h2,
@@ -2727,7 +2447,6 @@ textarea {
 .windowsHelloPanelText strong,
 .windowsHelloPanelText span,
 .windowsHelloPanelText small,
-.vaultSwitcher small,
 .languagePreferenceBox span {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -2755,14 +2474,12 @@ textarea {
   text-align: right;
 }
 
-.dashboardGrid,
 .settingsGrid,
 .preferencesGrid {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
   gap: clamp(12px, 1.8vw, 18px);
 }
 
-.metricCard,
 .wideCard,
 .preferenceCard,
 .emptyState {
@@ -2925,7 +2642,6 @@ textarea {
 .exportBox,
 .pathBox,
 .backupList div,
-.miniList button,
 .detailGrid div,
 .notesBox,
 .securityGrid span,
@@ -2958,7 +2674,6 @@ textarea {
 }
 
 .authForm,
-.authCard > .vaultSwitcher,
 .securityActionCard,
 .preferenceCard,
 .storageCard,
@@ -3021,8 +2736,7 @@ textarea {
 
   .wideCard,
   .settingsGrid .wideCard,
-  .preferenceCard,
-  .dashboardGrid .wideCard {
+  .preferenceCard {
     grid-column: 1 / -1;
   }
 
@@ -3060,7 +2774,6 @@ textarea {
   .optionGrid,
   .exportActionGrid,
   .itemTypeSwitch,
-  .newVaultRow,
   .historyItem,
   .windowsHelloPanel,
   .totpBox {
@@ -3093,7 +2806,6 @@ textarea {
   .restoreDialog,
   .confirmCard,
   .wideCard,
-  .metricCard,
   .preferenceCard,
   .emptyState {
     border-radius: 18px;
@@ -3109,7 +2821,6 @@ textarea {
     font-size: clamp(1.55rem, 8vw, 2rem);
   }
 
-  .metricCard,
   .wideCard,
   .preferenceCard,
   .emptyState,
@@ -3178,19 +2889,6 @@ textarea {
     max-width: none;
   }
 
-  .authLanguageRow {
-    align-items: stretch;
-  }
-
-  .authLanguageRow .languageSelect {
-    width: 100%;
-  }
-
-  .authLanguageRow select {
-    width: 100%;
-    max-width: none;
-  }
-
   .credentialRow {
     padding: 10px;
   }
@@ -3199,9 +2897,6 @@ textarea {
     justify-content: stretch;
   }
 }
-/* === KPassword v0.6.0 responsive design system END === */
-
-/* === KPassword v0.6.0 hotfix desktop login + dashboard START === */
 
 /* Login: desktop-first, sem sensaÃ§Ã£o de app mobile preso em container */
 .authShell {
@@ -3225,14 +2920,6 @@ textarea {
   align-items: center;
   padding: clamp(26px, 4vw, 44px);
   border-radius: 34px;
-}
-
-.authLanguageRow {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  justify-content: flex-end;
-  min-height: 38px;
-  margin: 0;
 }
 
 .authCard > .appLogo.lg {
@@ -3286,28 +2973,6 @@ textarea {
   box-shadow: 0 18px 46px rgba(0,0,0,0.20);
 }
 
-.authTextButton {
-  grid-column: 2;
-  grid-row: 6;
-  justify-self: center;
-  margin: 0;
-}
-
-.authCard > .vaultSwitcher {
-  grid-column: 2;
-  grid-row: 7;
-  align-self: end;
-  margin: 0;
-  padding: 14px;
-  border-radius: 20px;
-}
-
-.authCard > .vaultSwitcher .newVaultRow {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.authCard > .vaultSwitcher select,
-.authCard > .vaultSwitcher input,
 .authForm input {
   min-height: 50px;
 }
@@ -3318,10 +2983,6 @@ textarea {
 }
 
 /* Loading fica com cara de tela desktop, nÃ£o de celular */
-.authCard:not(:has(.authForm)) > .vaultSwitcher {
-  grid-row: 2 / span 4;
-  align-self: center;
-}
 
 .authCard:not(:has(.authForm)) > h1 {
   grid-row: 3;
@@ -3332,129 +2993,6 @@ textarea {
 }
 
 /* Dashboard: cards mais limpos, menos "grade crua", com hierarquia visual */
-.dashboardGrid {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: clamp(12px, 1.5vw, 18px);
-  align-items: stretch;
-}
-
-.dashboardGrid .metricCard {
-  grid-column: span 3;
-  min-height: 132px;
-  padding: 18px;
-  border-radius: 24px;
-  align-content: space-between;
-  gap: 10px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.022)),
-    rgba(15, 23, 42, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.18);
-}
-
-.dashboardGrid .metricCard:nth-child(1) {
-  grid-column: span 6;
-  background:
-    radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.20), transparent 32%),
-    linear-gradient(135deg, rgba(37, 99, 235, 0.20), rgba(15, 23, 42, 0.78));
-  border-color: rgba(125, 211, 252, 0.22);
-}
-
-.dashboardGrid .metricCard:nth-child(2),
-.dashboardGrid .metricCard:nth-child(3),
-.dashboardGrid .metricCard:nth-child(4) {
-  background:
-    linear-gradient(180deg, rgba(99, 102, 241, 0.10), rgba(255,255,255,0.018)),
-    rgba(15, 23, 42, 0.70);
-}
-
-.dashboardGrid .metricCard span {
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(203, 213, 225, 0.76);
-}
-
-.dashboardGrid .metricCard strong {
-  font-size: clamp(1.9rem, 4vw, 3rem);
-  line-height: 0.98;
-  letter-spacing: -0.05em;
-  font-variant-numeric: tabular-nums;
-}
-
-.dashboardGrid .metricCard small {
-  line-height: 1.4;
-  color: rgba(148, 163, 184, 0.88);
-}
-
-.dashboardGrid .metricCard.warning {
-  border-color: rgba(251, 191, 36, 0.24);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(251, 191, 36, 0.12), transparent 34%),
-    rgba(15, 23, 42, 0.72);
-}
-
-.dashboardGrid .metricCard.danger {
-  border-color: rgba(248, 113, 113, 0.24);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(248, 113, 113, 0.14), transparent 34%),
-    rgba(15, 23, 42, 0.72);
-}
-
-.dashboardGrid .wideCard {
-  grid-column: span 4;
-  min-height: 240px;
-  padding: clamp(18px, 2vw, 24px);
-  border-radius: 26px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.050), rgba(255,255,255,0.018)),
-    rgba(15, 23, 42, 0.76);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
-}
-
-.dashboardGrid .wideCard h2 {
-  margin: 0 0 16px;
-  font-size: clamp(1rem, 1.6vw, 1.18rem);
-  letter-spacing: -0.02em;
-}
-
-.dashboardGrid .securityGrid {
-  grid-template-columns: 1fr;
-  gap: 9px;
-  margin-top: 0;
-}
-
-.dashboardGrid .securityGrid span {
-  display: flex;
-  align-items: center;
-  min-height: 42px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(2, 6, 23, 0.24);
-  border: 1px solid rgba(148, 163, 184, 0.10);
-  line-height: 1.35;
-}
-
-.dashboardGrid .miniList {
-  gap: 10px;
-  margin-top: 0;
-}
-
-.dashboardGrid .miniList button {
-  min-height: 54px;
-  padding: 12px;
-  border-radius: 14px;
-  background: rgba(2, 6, 23, 0.24);
-  border-color: rgba(148, 163, 184, 0.10);
-}
-
-.dashboardGrid .miniList button strong,
-.dashboardGrid .miniList button span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
 
 /* Responsividade sem quebrar containers */
 @media (max-width: 1180px) {
@@ -3462,18 +3000,6 @@ textarea {
     width: min(960px, calc(100vw - 28px));
     grid-template-columns: minmax(250px, 0.82fr) minmax(340px, 1fr);
     gap: 14px clamp(20px, 3vw, 36px);
-  }
-
-  .dashboardGrid .metricCard {
-    grid-column: span 4;
-  }
-
-  .dashboardGrid .metricCard:nth-child(1) {
-    grid-column: span 8;
-  }
-
-  .dashboardGrid .wideCard {
-    grid-column: span 6;
   }
 }
 
@@ -3493,14 +3019,11 @@ textarea {
     border-radius: 26px;
   }
 
-  .authLanguageRow,
   .authCard > .appLogo.lg,
   .authCard > .eyebrow,
   .authCard > h1,
   .authCard > p:not(.eyebrow),
-  .authForm,
-  .authTextButton,
-  .authCard > .vaultSwitcher {
+  .authForm {
     grid-column: 1;
     grid-row: auto;
   }
@@ -3530,24 +3053,6 @@ textarea {
     background: transparent;
     box-shadow: none;
   }
-
-  .authCard > .vaultSwitcher .newVaultRow {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboardGrid .metricCard,
-  .dashboardGrid .metricCard:nth-child(1),
-  .dashboardGrid .wideCard {
-    grid-column: 1 / -1;
-  }
-
-  .dashboardGrid .metricCard {
-    min-height: 110px;
-  }
-
-  .dashboardGrid .wideCard {
-    min-height: auto;
-  }
 }
 
 @media (max-width: 520px) {
@@ -3560,186 +3065,6 @@ textarea {
     border-radius: 22px;
     padding: 18px;
   }
-
-  .authLanguageRow {
-    justify-content: stretch;
-  }
-
-  .authLanguageRow .languageSelect,
-  .authLanguageRow select {
-    width: 100%;
-    max-width: none;
-  }
-
-  .dashboardGrid .metricCard,
-  .dashboardGrid .wideCard {
-    border-radius: 18px;
-    padding: 16px;
-  }
-}
-/* === KPassword v0.6.0 hotfix desktop login + dashboard END === */
-
-/* === KPassword v0.6.1 taskbar + dashboard compact START === */
-.compactDashboard {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  align-items: stretch;
-}
-
-.compactDashboard .dashboardTotalCard {
-  grid-column: span 8;
-  min-height: 150px;
-}
-
-.compactDashboard .dashboardMoreControl {
-  grid-column: span 4;
-  display: grid;
-  align-content: center;
-  justify-items: stretch;
-  gap: 10px;
-  min-width: 0;
-  padding: 18px;
-  border-radius: 24px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018)), rgba(15, 23, 42, 0.68);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.16);
-}
-
-.compactDashboard .dashboardMoreControl button {
-  width: 100%;
-  min-height: 52px;
-  border-radius: 16px;
-}
-
-.compactDashboard .dashboardMoreControl small {
-  color: rgba(148, 163, 184, 0.86);
-  line-height: 1.45;
-  text-align: center;
-}
-
-.dashboardMorePanel {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: clamp(12px, 1.5vw, 18px);
-  min-width: 0;
-  animation: dashboardMoreIn 160ms ease-out;
-}
-
-@keyframes dashboardMoreIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.dashboardMorePanel .metricCard {
-  grid-column: span 3;
-}
-
-.dashboardMorePanel .wideCard {
-  grid-column: span 4;
-}
-
-@media (max-width: 1180px) {
-  .compactDashboard .dashboardTotalCard,
-  .compactDashboard .dashboardMoreControl {
-    grid-column: span 6;
-  }
-
-  .dashboardMorePanel .metricCard {
-    grid-column: span 4;
-  }
-
-  .dashboardMorePanel .wideCard {
-    grid-column: span 6;
-  }
-}
-
-@media (max-width: 860px) {
-  .compactDashboard .dashboardTotalCard,
-  .compactDashboard .dashboardMoreControl,
-  .dashboardMorePanel .metricCard,
-  .dashboardMorePanel .wideCard {
-    grid-column: 1 / -1;
-  }
-
-  .compactDashboard .dashboardTotalCard {
-    min-height: 120px;
-  }
-}
-/* === KPassword v0.6.1 taskbar + dashboard compact END === */
-
-
-/* === KPassword v0.7.0 product polish, help, about, folders START === */
-.vaultIndicator {
-  display: inline-grid;
-  gap: 2px;
-  min-width: 0;
-  max-width: min(260px, 34vw);
-  padding: 8px 12px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: rgba(15, 23, 42, 0.56);
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-}
-
-.vaultIndicator span {
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.vaultIndicator strong {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 0.86rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.vaultIndicator:hover {
-  border-color: rgba(96, 165, 250, 0.38);
-  transform: translateY(-1px);
-}
-
-button.metricCard {
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.dashboardTotalCard {
-  position: relative;
-  overflow: hidden;
-}
-
-.dashboardTotalCard::after {
-  content: "\25BE";
-  position: absolute;
-  right: 18px;
-  top: 18px;
-  color: rgba(226, 232, 240, 0.78);
-  font-size: 1.1rem;
-  transition: transform 0.18s ease;
-}
-
-.dashboardTotalCard.expanded::after {
-  transform: rotate(180deg);
-}
-
-.reportCard {
-  grid-column: span 4;
-}
-
-.reportCard p,
-.warningCard p,
-.helpHeroCard p,
-.aboutHeroCard p {
-  color: var(--muted);
-  line-height: 1.65;
 }
 
 .folderActionGrid {
@@ -3751,124 +3076,6 @@ button.metricCard {
 
 .folderActionGrid button {
   flex: 1 1 220px;
-}
-
-.helpGrid,
-.aboutGrid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: clamp(14px, 1.8vw, 20px);
-  align-items: start;
-}
-
-.helpGrid > .wideCard,
-.aboutGrid > .wideCard {
-  grid-column: span 6;
-  min-width: 0;
-}
-
-.helpHeroCard,
-.aboutHeroCard {
-  grid-column: 1 / -1;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.16), transparent 36%),
-    linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(15, 23, 42, 0.78));
-}
-
-.guideSteps,
-.exampleGrid,
-.checklistGrid,
-.aboutVersionGrid {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.guideSteps {
-  grid-template-columns: 1fr;
-}
-
-.guideSteps div {
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: rgba(2, 6, 23, 0.20);
-}
-
-.guideSteps strong {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border-radius: 12px;
-  background: rgba(96, 165, 250, 0.16);
-  color: #bfdbfe;
-}
-
-.guideSteps span,
-.exampleGrid span,
-.checklistGrid span {
-  min-width: 0;
-  color: var(--muted);
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-}
-
-.exampleGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.exampleGrid div,
-.checklistGrid span,
-.aboutVersionGrid div {
-  display: grid;
-  gap: 7px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: rgba(2, 6, 23, 0.20);
-}
-
-.exampleGrid strong {
-  color: var(--text);
-  line-height: 1.35;
-}
-
-.checklistGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.checklistGrid span::before {
-  content: "\2713  ";
-  color: #86efac;
-  font-weight: 900;
-}
-
-.aboutVersionGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.aboutVersionGrid span {
-  color: var(--muted);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.aboutVersionGrid strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.warningCard {
-  border-color: rgba(251, 191, 36, 0.26);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(251, 191, 36, 0.12), transparent 35%),
-    rgba(15, 23, 42, 0.76);
 }
 
 .firstUseGuide {
@@ -3910,32 +3117,14 @@ button.metricCard {
 }
 
 @media (max-width: 1180px) {
-  .reportCard {
-    grid-column: span 6;
-  }
 
   .topbarActions {
     flex-wrap: wrap;
     justify-content: flex-end;
   }
-
-  .vaultIndicator {
-    max-width: 100%;
-  }
 }
 
 @media (max-width: 860px) {
-  .helpGrid > .wideCard,
-  .aboutGrid > .wideCard,
-  .reportCard {
-    grid-column: 1 / -1;
-  }
-
-  .exampleGrid,
-  .checklistGrid,
-  .aboutVersionGrid {
-    grid-template-columns: 1fr;
-  }
 
   .authCard > .firstUseGuide {
     grid-column: 1;
@@ -3953,16 +3142,11 @@ button.metricCard {
     align-items: stretch;
   }
 
-  .vaultIndicator,
   .topbarActions .primaryButton,
   .topbarActions .languageSelect {
     width: 100%;
   }
 }
-/* === KPassword v0.7.0 product polish, help, about, folders END === */
-
-
-/* === KPassword v0.7.0 enxuto: navegaÃ§Ã£o, ajuda e controles START === */
 select {
   appearance: none;
   -webkit-appearance: none;
@@ -4102,9 +3286,6 @@ select option:checked {
 :root[data-theme="light"] .localSecurityNotice span {
   color: #475569;
 }
-/* === KPassword v0.7.0 enxuto: navegaÃ§Ã£o, ajuda e controles END === */
-
-/* === KPassword v0.7.0 hotfix idiomas e detalhe do item START === */
 .languageSelect.compact select {
   width: 72px;
   min-width: 72px;
@@ -4174,9 +3355,6 @@ select option:checked {
     padding-right: 25px;
   }
 }
-/* === KPassword v0.7.0 hotfix idiomas e detalhe do item END === */
-
-/* === KPassword v0.7.0 hotfix analitico limpo e add compacto START === */
 .addItemIconButton {
   width: 46px;
   min-width: 46px;
@@ -4196,69 +3374,7 @@ select option:checked {
   transform: translateY(-1px);
 }
 
-.cleanDashboard {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  align-items: stretch;
-}
-
-.cleanDashboard .dashboardTotalCard {
-  grid-column: 1 / -1;
-  min-height: 148px;
-  cursor: default;
-}
-
-.cleanDashboard .dashboardTotalCard::after {
-  display: none;
-}
-
-.cleanDashboard .dashboardTotalCard small {
-  color: rgba(203, 213, 225, 0.72);
-}
-
-.cleanDashboard .wideCard {
-  min-height: auto;
-}
-
-.cleanDashboard .dashboardHealthCard,
-.cleanDashboard .dashboardAttentionCard,
-.cleanDashboard .dashboardProtectionCard {
-  grid-column: span 4;
-}
-
-.cleanDashboard .dashboardHealthCard .securityGrid,
-.cleanDashboard .dashboardProtectionCard .securityGrid {
-  grid-template-columns: 1fr;
-}
-
-.cleanDashboard .dashboardHealthCard .securityGrid span,
-.cleanDashboard .dashboardProtectionCard .securityGrid span {
-  min-height: 40px;
-  overflow-wrap: anywhere;
-}
-
-.cleanDashboard .dashboardAttentionCard .miniList button {
-  min-height: 54px;
-}
-
-.reportCard {
-  display: none;
-}
-
-@media (max-width: 1180px) {
-  .cleanDashboard .dashboardHealthCard,
-  .cleanDashboard .dashboardAttentionCard,
-  .cleanDashboard .dashboardProtectionCard {
-    grid-column: span 6;
-  }
-}
-
 @media (max-width: 860px) {
-  .cleanDashboard .dashboardTotalCard,
-  .cleanDashboard .dashboardHealthCard,
-  .cleanDashboard .dashboardAttentionCard,
-  .cleanDashboard .dashboardProtectionCard {
-    grid-column: 1 / -1;
-  }
 
   .addItemIconButton {
     width: 44px;
@@ -4274,9 +3390,6 @@ select option:checked {
     order: -1;
   }
 }
-/* === KPassword v0.7.0 hotfix analitico limpo e add compacto END === */
-
-/* === KPassword v0.7.0 hotfix cabeÃ§alho modal novo item START === */
 .credentialModal .modalHeader {
   position: static;
   top: auto;
@@ -4304,9 +3417,6 @@ select option:checked {
 .credentialModal .modalHeader .iconButton {
   flex: 0 0 auto;
 }
-/* === KPassword v0.7.0 hotfix cabeÃ§alho modal novo item END === */
-
-/* === KPassword v0.7.0 hotfix gerador sem baloes START === */
 .credentialModal .generatorPanel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4384,10 +3494,6 @@ select option:checked {
     min-height: 42px;
   }
 }
-/* === KPassword v0.7.0 hotfix gerador sem baloes END === */
-
-
-/* === KPassword v0.7.1 premium desktop login + typography START === */
 :root {
   --font-sans: Inter, "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --title-tracking: -0.055em;
@@ -4427,7 +3533,6 @@ h3,
 
 .eyebrow,
 .authPanelLabel,
-.metricCard span,
 label > span:first-child {
   letter-spacing: 0.105em;
   font-weight: 760;
@@ -4514,120 +3619,6 @@ label > span:first-child {
   color: rgba(203, 213, 225, 0.64);
 }
 
-.authQuickSettings {
-  position: relative;
-  z-index: 25;
-}
-
-.authQuickSettings > summary {
-  list-style: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  min-height: 44px;
-  padding: 0 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(125, 211, 252, 0.22);
-  background: rgba(15, 23, 42, 0.52);
-  color: #e5f5ff;
-  cursor: pointer;
-  user-select: none;
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.20);
-}
-
-.authQuickSettings > summary::-webkit-details-marker {
-  display: none;
-}
-
-.authQuickSettings > summary strong {
-  font-size: 0.86rem;
-  letter-spacing: -0.01em;
-}
-
-.authQuickPanel {
-  position: absolute;
-  top: calc(100% + 12px);
-  right: 0;
-  width: min(420px, calc(100vw - 40px));
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 22px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background:
-    linear-gradient(180deg, rgba(18, 24, 38, 0.98), rgba(10, 15, 26, 0.98));
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.52);
-  backdrop-filter: blur(20px) saturate(135%);
-}
-
-.quickSettingGroup {
-  display: grid;
-  gap: 8px;
-}
-
-.quickSettingGroup > span {
-  font-size: 0.76rem;
-  color: rgba(203, 213, 225, 0.70);
-  font-weight: 780;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.quickThemeButtons {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.quickThemeButton,
-.authQuickAction {
-  min-height: 42px;
-  border-radius: 13px;
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  background: rgba(15, 23, 42, 0.46);
-  color: rgba(226, 232, 240, 0.90);
-  font-weight: 760;
-}
-
-.quickThemeButton.active {
-  border-color: rgba(56, 189, 248, 0.38);
-  background: rgba(14, 116, 144, 0.28);
-  color: #e0f7ff;
-}
-
-.authQuickAction {
-  width: 100%;
-  background: rgba(8, 47, 73, 0.62);
-  border-color: rgba(56, 189, 248, 0.24);
-}
-
-.authQuickPanel .vaultSwitcher {
-  margin: 0;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(2, 6, 23, 0.30);
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  box-shadow: none;
-}
-
-.authQuickPanel .vaultSwitcher .newVaultRow {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-}
-
-.authQuickPanel .vaultSwitcher select,
-.authQuickPanel .vaultSwitcher input,
-.authQuickPanel .vaultSwitcher button,
-.authQuickPanel .languageSelect select {
-  min-height: 42px;
-  border-radius: 12px;
-}
-
-.authQuickPanel .languageSelect {
-  width: 100%;
-}
-
 .authHeroBlock {
   grid-column: 1;
   grid-row: 2;
@@ -4667,26 +3658,6 @@ label > span:first-child {
   font-size: clamp(1rem, 1.6vw, 1.26rem);
   line-height: 1.65;
   color: rgba(203, 213, 225, 0.78);
-}
-
-.authTrustRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.authTrustRow span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.42);
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  color: rgba(226, 232, 240, 0.78);
-  font-size: 0.82rem;
-  font-weight: 720;
 }
 
 .authPanel {
@@ -4849,16 +3820,8 @@ select {
     line-height: 0.98;
   }
 
-  .authTrustRow {
-    justify-content: center;
-  }
-
   .authPanel {
     padding: 20px;
-  }
-
-  .authQuickPanel {
-    right: 0;
   }
 }
 
@@ -4870,31 +3833,7 @@ select {
   .authProductMark span {
     display: none;
   }
-
-  .authQuickSettings > summary strong {
-    display: none;
-  }
-
-  .authQuickSettings > summary {
-    width: 44px;
-    padding: 0;
-  }
-
-  .authQuickPanel {
-    width: calc(100vw - 28px);
-  }
-
-  .quickThemeButtons {
-    grid-template-columns: 1fr;
-  }
-
-  .authQuickPanel .vaultSwitcher .newVaultRow {
-    grid-template-columns: 1fr;
-  }
 }
-/* === KPassword v0.7.1 premium desktop login + typography END === */
-
-/* === KPassword v0.7.1 hotfix login desktop real START === */
 
 /*
   Login desktop real:
@@ -5025,24 +3964,6 @@ select {
   color: rgba(203, 213, 225, 0.76);
 }
 
-.authTrustRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 6px;
-}
-
-.authTrustRow span {
-  padding: 8px 11px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(15, 23, 42, 0.30);
-  color: rgba(226, 232, 240, 0.78);
-  font-size: 0.82rem;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
 .authPanel {
   grid-column: 2;
   grid-row: 2;
@@ -5103,74 +4024,6 @@ select {
 }
 
 /* Ajustes rÃ¡pidos: sempre por cima, sem entrar atrÃ¡s do painel */
-.authQuickSettings {
-  position: relative;
-  z-index: 200;
-}
-
-.authQuickSettings summary {
-  min-height: 48px;
-  padding: 0 18px;
-  border-radius: 17px;
-  border: 1px solid rgba(125, 211, 252, 0.22);
-  background: rgba(15, 23, 42, 0.42);
-  backdrop-filter: blur(18px);
-  box-shadow: none;
-}
-
-.authQuickSettings summary strong {
-  font-size: 0.92rem;
-  letter-spacing: -0.01em;
-}
-
-.authQuickSettings[open] summary {
-  border-color: rgba(125, 211, 252, 0.40);
-  background: rgba(15, 23, 42, 0.68);
-}
-
-.authQuickPanel {
-  position: absolute;
-  top: calc(100% + 12px);
-  right: 0;
-  z-index: 500;
-  width: min(430px, calc(100vw - 36px));
-  max-height: min(70dvh, 570px);
-  overflow: auto;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(8, 13, 24, 0.98));
-  box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.58),
-    0 0 0 1px rgba(255, 255, 255, 0.030) inset;
-  backdrop-filter: blur(22px);
-}
-
-.quickSettingGroup {
-  gap: 10px;
-}
-
-.quickThemeButtons {
-  gap: 8px;
-}
-
-.quickThemeButton {
-  min-height: 44px;
-  border-radius: 14px;
-}
-
-.quickVaultGroup .vaultSwitcher {
-  padding: 12px;
-  border-radius: 16px;
-  max-height: none;
-  overflow: visible;
-}
-
-.authQuickAction {
-  min-height: 46px;
-  border-radius: 15px;
-}
 
 /* Primeiro uso: menos cara de manual */
 .refinedFirstUseGuide {
@@ -5244,21 +4097,8 @@ select {
     flex-direction: column;
   }
 
-  .authProductMark,
-  .authQuickSettings,
-  .authQuickSettings summary {
+  .authProductMark {
     width: 100%;
-  }
-
-  .authQuickSettings summary {
-    justify-content: center;
-  }
-
-  .authQuickPanel {
-    position: static;
-    width: 100%;
-    max-height: none;
-    margin-top: 10px;
   }
 
   .authHeroBlock {
@@ -5279,15 +4119,7 @@ select {
     padding: 18px;
     border-radius: 22px;
   }
-
-  .authTrustRow span {
-    white-space: normal;
-  }
 }
-/* === KPassword v0.7.1 hotfix login desktop real END === */
-
-
-/* === KPassword v0.7.1 hotfix login sem app-dentro-do-app START === */
 .authShell.authDesktopShell {
   min-height: 100dvh;
   width: 100%;
@@ -5415,8 +4247,7 @@ select {
 
 .authThemeButton,
 .authToolButton,
-.authVaultSelect,
-.authNewVaultInput {
+.authVaultSelect {
   height: 42px;
   min-height: 42px;
   border-radius: 14px;
@@ -5449,15 +4280,9 @@ select {
   background-position: right 11px center;
 }
 
-.authNewVaultInput {
-  width: min(180px, 24vw);
-  padding: 0 13px;
-}
-
 .authToolButton:hover,
 .authThemeButton:hover,
 .authVaultSelect:hover,
-.authNewVaultInput:hover,
 .authLoginTools .languageSelect.compact select:hover {
   border-color: rgba(125, 211, 252, 0.34);
   background-color: rgba(15, 23, 42, 0.42);
@@ -5503,24 +4328,6 @@ select {
   font-size: clamp(0.98rem, 1.1vw, 1.08rem);
   line-height: 1.62;
   color: rgba(203, 213, 225, 0.74);
-}
-
-.authTrustRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.authTrustRow span {
-  padding: 7px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.13);
-  background: rgba(15, 23, 42, 0.24);
-  color: rgba(226, 232, 240, 0.76);
-  font-size: 0.80rem;
-  line-height: 1.2;
-  white-space: nowrap;
 }
 
 .authPanel {
@@ -5583,10 +4390,6 @@ select {
 }
 
 /* Esconde a implementaÃ§Ã£o antiga de ajustes rÃ¡pidos se algum resto existir */
-.authQuickSettings,
-.authQuickPanel {
-  display: none;
-}
 
 /* Temas realmente aplicados na tela bloqueada */
 :root[data-theme="light"] .authShell.authDesktopShell {
@@ -5603,17 +4406,14 @@ select {
 }
 
 :root[data-theme="light"] .authHeroBlock p:not(.eyebrow),
-:root[data-theme="light"] .authProductMark div > span,
-:root[data-theme="light"] .authTrustRow span {
+:root[data-theme="light"] .authProductMark div > span {
   color: rgba(51, 65, 85, 0.78);
 }
 
 :root[data-theme="light"] .authPanel,
-:root[data-theme="light"] .authTrustRow span,
 :root[data-theme="light"] .authThemeButton,
 :root[data-theme="light"] .authToolButton,
 :root[data-theme="light"] .authVaultSelect,
-:root[data-theme="light"] .authNewVaultInput,
 :root[data-theme="light"] .authLoginTools .languageSelect.compact select {
   background: rgba(255, 255, 255, 0.66);
   border-color: rgba(59, 130, 246, 0.16);
@@ -5629,10 +4429,6 @@ select {
     grid-template-columns: minmax(0, 1fr) minmax(330px, 400px);
     gap: 28px;
     padding-inline: 34px;
-  }
-
-  .authNewVaultInput {
-    display: none;
   }
 }
 
@@ -5703,9 +4499,6 @@ select {
     border-radius: 22px;
   }
 }
-/* === KPassword v0.7.1 hotfix login sem app-dentro-do-app END === */
-
-/* === KPassword v0.7.1 hotfix tema conectado logo e PIN START === */
 
 /* Marca do app: a barra do Windows jÃ¡ mostra KPassword. Na tela, a logo entra como elemento visual principal. */
 .authProductMark {
@@ -5838,7 +4631,6 @@ select {
   display: none;
 }
 
-/* Modo misto: manter contraste consistente na tela de login. */
 
 /* Modo claro: tema conectado sem botÃµes lavados. */
 :root[data-theme="light"] .authThemeButtons {
@@ -5884,9 +4676,6 @@ select {
     white-space: normal;
   }
 }
-/* === KPassword v0.7.1 hotfix tema conectado logo e PIN END === */
-
-/* === KPassword v0.7.1 hotfix scroll login sem mover layout START === */
 
 /*
   Apenas habilita rolagem quando o conteÃºdo da tela bloqueada ultrapassar
@@ -5918,16 +4707,11 @@ body:has(.authDesktopShell),
 .authCard.authExperience {
   padding-bottom: max(clamp(28px, 4vw, 64px), env(safe-area-inset-bottom));
 }
-/* === KPassword v0.7.1 hotfix scroll login sem mover layout END === */
-
-
-/* === KPassword v0.7.1 hotfix temas analitico lateral START === */
 
 /* Menu lateral: a barra superior do sistema jÃ¡ mostra KPassword. */
 
 /* Guarda de contraste para os 3 temas. */
 :root[data-theme="dark"] {
-  --kp-page-bg: #08090d;
   --kp-panel-bg: rgba(16, 18, 27, 0.86);
   --kp-panel-bg-strong: rgba(18, 22, 34, 0.96);
   --kp-field-bg: rgba(255, 255, 255, 0.055);
@@ -5937,7 +4721,6 @@ body:has(.authDesktopShell),
 }
 
 :root[data-theme="light"] {
-  --kp-page-bg: #eef3fb;
   --kp-panel-bg: rgba(255, 255, 255, 0.92);
   --kp-panel-bg-strong: rgba(255, 255, 255, 0.98);
   --kp-field-bg: rgba(15, 23, 42, 0.055);
@@ -5947,7 +4730,6 @@ body:has(.authDesktopShell),
 }
 
 .wideCard,
-.metricCard,
 .credentialRow,
 .emptyState,
 .credentialModal,
@@ -5962,41 +4744,27 @@ body:has(.authDesktopShell),
 .backupList div,
 .detailGrid div,
 .notesBox,
-.securityGrid span,
-.analyticsCard,
-.analyticsHero {
+.securityGrid span {
   color: var(--kp-readable);
 }
 
 .wideCard h2,
-.metricCard strong,
 .credentialRow strong,
 .detailGrid strong,
 .pathBox strong,
-.analyticsCard h2,
-.analyticsHero h2,
 label {
   color: var(--kp-readable);
 }
 
 .wideCard p,
-.metricCard small,
-.metricCard span,
 .credentialRow small,
 .rowMain small,
-.rowStrength,
 .rowCategory,
-.storageHint,
 .backupList span,
 .pathBox span,
 .toggleRow small,
 .optionButton small,
-.emptyText,
-.analyticsCard small,
-.analyticsHero p,
-.analyticsProtectionList span,
-.analyticsSignal,
-.analyticsMiniList button span {
+.emptyText {
   color: var(--kp-readable-muted);
 }
 
@@ -6007,13 +4775,9 @@ textarea,
 .optionButton,
 .pathBox,
 .backupList div,
-.miniList button,
 .detailGrid div,
 .notesBox,
-.securityGrid span,
-.analyticsSignal,
-.analyticsSummaryList span,
-.analyticsProtectionList span {
+.securityGrid span {
   background: var(--kp-field-bg);
   color: var(--kp-readable);
   border-color: var(--kp-line);
@@ -6033,192 +4797,6 @@ select option {
 }
 
 /* AnalÃ­tico: menos estatÃ­stica solta, mais leitura de saÃºde e aÃ§Ã£o. */
-.analyticsPage {
-  display: grid;
-  gap: clamp(16px, 2vw, 24px);
-  min-width: 0;
-}
-
-.analyticsHero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: clamp(16px, 3vw, 34px);
-  min-width: 0;
-  padding: clamp(20px, 3vw, 32px);
-  border: 1px solid var(--kp-line);
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.18), transparent 32%),
-    var(--kp-panel-bg);
-  box-shadow: var(--kp-shadow, 0 18px 50px rgba(0, 0, 0, 0.22));
-}
-
-.analyticsHero.safe {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.13), transparent 34%),
-    var(--kp-panel-bg);
-}
-
-.analyticsHero.attention {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.16), transparent 34%),
-    var(--kp-panel-bg);
-}
-
-.analyticsHero .eyebrow {
-  margin: 0 0 10px;
-}
-
-.analyticsHero h2 {
-  margin: 0 0 8px;
-  font-size: clamp(1.55rem, 2.6vw, 2.25rem);
-  line-height: 1.05;
-  letter-spacing: -0.04em;
-}
-
-.analyticsHero p {
-  margin: 0;
-  line-height: 1.55;
-}
-
-.analyticsTotalBadge {
-  display: grid;
-  min-width: 154px;
-  justify-items: end;
-  gap: 4px;
-  padding: 16px 18px;
-  border: 1px solid var(--kp-line);
-  border-radius: 22px;
-  background: var(--kp-field-bg);
-}
-
-.analyticsTotalBadge span,
-.analyticsTotalBadge small {
-  color: var(--kp-readable-muted);
-  line-height: 1.25;
-}
-
-.analyticsTotalBadge strong {
-  color: var(--kp-readable);
-  font-size: clamp(2rem, 4vw, 3.15rem);
-  line-height: 0.95;
-  letter-spacing: -0.06em;
-}
-
-.analyticsGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
-  gap: clamp(14px, 2vw, 20px);
-  align-items: stretch;
-}
-
-.analyticsCard {
-  min-height: auto;
-  padding: clamp(18px, 2vw, 24px);
-  border-radius: 24px;
-  background: var(--kp-panel-bg);
-  border-color: var(--kp-line);
-}
-
-.analyticsCard h2 {
-  margin: 0 0 16px;
-  font-size: clamp(1.02rem, 1.4vw, 1.2rem);
-  letter-spacing: -0.02em;
-}
-
-.analyticsSignals,
-.analyticsSummaryList,
-.analyticsProtectionList {
-  display: grid;
-  gap: 10px;
-}
-
-.analyticsSignals {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.analyticsSignal,
-.analyticsProtectionList span,
-.analyticsSummaryList span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  min-height: 42px;
-  padding: 10px 12px;
-  border: 1px solid var(--kp-line);
-  border-radius: 14px;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.analyticsSignal.tone-danger {
-  border-color: rgba(248, 113, 113, 0.26);
-  background: rgba(248, 113, 113, 0.08);
-}
-
-.analyticsSignal.tone-warning {
-  border-color: rgba(245, 158, 11, 0.28);
-  background: rgba(245, 158, 11, 0.08);
-}
-
-.analyticsSummaryList span small {
-  color: var(--kp-readable-muted);
-}
-
-.analyticsSummaryList span strong {
-  color: var(--kp-readable);
-  font-size: 1.2rem;
-}
-
-.analyticsMiniList button {
-  background: var(--kp-field-bg);
-  color: var(--kp-readable);
-  border-color: var(--kp-line);
-}
-
-.analyticsMiniList button strong {
-  color: var(--kp-readable);
-}
-
-.analyticsProtectionCard {
-  grid-column: 1 / -1;
-}
-
-.analyticsProtectionList {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-@media (max-width: 1080px) {
-  .analyticsGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .analyticsProtectionList {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 680px) {
-  .analyticsHero {
-    grid-template-columns: 1fr;
-  }
-
-  .analyticsTotalBadge {
-    justify-items: start;
-    width: 100%;
-  }
-
-  .analyticsSignals,
-  .analyticsProtectionList {
-    grid-template-columns: 1fr;
-  }
-}
-/* === KPassword v0.7.1 hotfix temas analitico lateral END === */
-
-/* === KPassword v0.7.1 hotfix contraste final temas e sidebar START === */
 
 /*
   Regra final de contraste:
@@ -6232,13 +4810,10 @@ select option {
 
 /* Remove qualquer sobra textual da marca interna. */
 
-/* Bases dos temas claros/mistos */
 :root[data-theme="light"] {
   --kp-readable: #0f172a;
   --kp-readable-muted: #475569;
-  --kp-readable-soft: #64748b;
   --kp-surface: rgba(255, 255, 255, 0.94);
-  --kp-surface-solid: #ffffff;
   --kp-surface-soft: #f1f5f9;
   --kp-surface-raised: #f8fafc;
   --kp-border-soft: rgba(15, 23, 42, 0.12);
@@ -6246,10 +4821,7 @@ select option {
   --kp-blue-soft-hover: #bae6fd;
   --kp-blue-text: #083344;
   --kp-danger-soft: #fee2e2;
-  --kp-danger-soft-hover: #fecaca;
   --kp-danger-text: #7f1d1d;
-  --kp-warning-soft: #fef3c7;
-  --kp-warning-text: #78350f;
   color: var(--kp-readable);
 }
 
@@ -6273,14 +4845,11 @@ select option {
 :root[data-theme="light"] .storageCard,
 :root[data-theme="light"] .securityActionCard,
 :root[data-theme="light"] .preferenceCard,
-:root[data-theme="light"] .metricCard,
 :root[data-theme="light"] .emptyState,
 :root[data-theme="light"] .credentialRow,
 :root[data-theme="light"] .credentialModal,
 :root[data-theme="light"] .detailPopup,
-:root[data-theme="light"] .confirmCard,
-:root[data-theme="light"] .analyticsCard,
-:root[data-theme="light"] .analyticsHero {
+:root[data-theme="light"] .confirmCard {
   background: var(--kp-surface);
   color: var(--kp-readable);
   border-color: var(--kp-border-soft);
@@ -6294,8 +4863,6 @@ select option {
 :root[data-theme="light"] .securityActionCard strong,
 :root[data-theme="light"] .storageCard strong,
 :root[data-theme="light"] .trashItem strong,
-:root[data-theme="light"] .analyticsCard h2,
-:root[data-theme="light"] .analyticsHero h2,
 :root[data-theme="light"] label {
   color: var(--kp-readable);
 }
@@ -6307,9 +4874,7 @@ select option {
 :root[data-theme="light"] .securityActionCard p,
 :root[data-theme="light"] .storageCard p,
 :root[data-theme="light"] .trashItem span,
-:root[data-theme="light"] .emptyText,
-:root[data-theme="light"] .analyticsHero p,
-:root[data-theme="light"] .analyticsCard small {
+:root[data-theme="light"] .emptyText {
   color: var(--kp-readable-muted);
 }
 
@@ -6324,11 +4889,7 @@ select option {
 :root[data-theme="light"] .backupList div,
 :root[data-theme="light"] .detailGrid div,
 :root[data-theme="light"] .notesBox,
-:root[data-theme="light"] .securityGrid span,
-:root[data-theme="light"] .analyticsSignal,
-:root[data-theme="light"] .analyticsSummaryList span,
-:root[data-theme="light"] .analyticsProtectionList span,
-:root[data-theme="light"] .miniList button {
+:root[data-theme="light"] .securityGrid span {
   background: var(--kp-surface-soft);
   color: var(--kp-readable);
   border-color: var(--kp-border-soft);
@@ -6340,7 +4901,6 @@ select option {
 }
 
 /* Cofre atual / idioma no topo */
-:root[data-theme="light"] .vaultIndicator,
 :root[data-theme="light"] .languageSelect.compact select {
   background: rgba(255, 255, 255, 0.74);
   color: var(--kp-readable);
@@ -6348,11 +4908,6 @@ select option {
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
 }
 
-:root[data-theme="light"] .vaultIndicator span {
-  color: #475569;
-}
-
-:root[data-theme="light"] .vaultIndicator strong,
 :root[data-theme="light"] .languageSelect.compact select {
   color: #0f172a;
 }
@@ -6441,47 +4996,6 @@ select option {
 }
 
 /* AnalÃ­tico: deixar o sentido mais claro visualmente. */
-.analyticsHero {
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
-}
-
-.analyticsSignals {
-  grid-template-columns: 1fr;
-}
-
-.analyticsSignal {
-  justify-content: flex-start;
-  font-weight: 750;
-}
-
-:root[data-theme="light"] .analyticsSignal.tone-danger {
-  background: #fee2e2;
-  color: #7f1d1d;
-  border-color: rgba(185, 28, 28, 0.18);
-}
-
-:root[data-theme="light"] .analyticsSignal.tone-warning {
-  background: #fef3c7;
-  color: #78350f;
-  border-color: rgba(180, 83, 9, 0.18);
-}
-
-:root[data-theme="light"] .analyticsMiniList button {
-  background: #f8fafc;
-  color: var(--kp-readable);
-  border-color: var(--kp-border-soft);
-}
-
-:root[data-theme="light"] .analyticsMiniList button strong {
-  color: var(--kp-readable);
-}
-
-:root[data-theme="light"] .analyticsMiniList button span {
-  color: var(--kp-readable-muted);
-}
-/* === KPassword v0.7.1 hotfix contraste final temas e sidebar END === */
-
-/* === KPassword v0.7.1 hotfix contraste popup item START === */
 
 /*
   Popup Adicionar/Editar item:
@@ -6641,9 +5155,6 @@ select option {
 :root[data-theme="dark"] .credentialModal small {
   color: #aab0c5;
 }
-/* === KPassword v0.7.1 hotfix contraste popup item END === */
-
-/* === KPassword v0.7.1 hotfix compacto topo menor START === */
 
 /*
   Modo compacto:
@@ -6708,24 +5219,6 @@ select option {
     min-width: 0;
   }
 
-  .vaultIndicator {
-    max-width: 136px;
-    min-width: 0;
-    padding: 7px 10px;
-    border-radius: 14px;
-  }
-
-  .vaultIndicator span {
-    font-size: 0.58rem;
-    line-height: 1.1;
-    letter-spacing: 0.08em;
-  }
-
-  .vaultIndicator strong {
-    font-size: 0.78rem;
-    line-height: 1.15;
-  }
-
   .languageSelect.compact select {
     width: 58px;
     max-width: 58px;
@@ -6747,40 +5240,16 @@ select option {
   }
 
   .settingsGrid,
-  .analyticsPage,
   .credentialRows {
     margin-top: 0;
   }
 
   .wideCard,
-  .analyticsHero,
-  .analyticsCard,
   .emptyState {
     border-radius: 18px;
   }
 
   .wideCard {
-    padding: 16px;
-  }
-
-  .analyticsHero {
-    padding: 16px;
-    gap: 12px;
-  }
-
-  .analyticsHero h2 {
-    font-size: clamp(1.22rem, 6vw, 1.55rem);
-    line-height: 1.08;
-  }
-
-  .analyticsTotalBadge {
-    min-width: 0;
-    width: 100%;
-    padding: 12px;
-    border-radius: 16px;
-  }
-
-  .analyticsCard {
     padding: 16px;
   }
 
@@ -6812,11 +5281,6 @@ select option {
     justify-content: stretch;
   }
 
-  .vaultIndicator {
-    max-width: none;
-    width: 100%;
-  }
-
   .languageSelect.compact select {
     width: 56px;
     max-width: 56px;
@@ -6832,165 +5296,6 @@ select option {
   .topbarTitle h1 {
     font-size: clamp(1.3rem, 8vw, 1.72rem);
   }
-}
-/* === KPassword v0.7.1 hotfix compacto topo menor END === */
-
-/* === KPassword v0.8.0 DiagnÃ³stico do Cofre START === */
-.vaultHealthHero {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.vaultHealthHero.tone-safe {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.18), transparent 34%),
-    var(--kp-panel-bg);
-}
-
-.vaultHealthHero.tone-good {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.18), transparent 34%),
-    var(--kp-panel-bg);
-}
-
-.vaultHealthHero.tone-warning {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.18), transparent 34%),
-    var(--kp-panel-bg);
-}
-
-.vaultHealthHero.tone-danger {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(248, 113, 113, 0.18), transparent 34%),
-    var(--kp-panel-bg);
-}
-
-.vaultScoreBadge {
-  display: grid;
-  min-width: 168px;
-  justify-items: end;
-  gap: 4px;
-  padding: 18px 20px;
-  border: 1px solid var(--kp-line);
-  border-radius: 24px;
-  background: var(--kp-field-bg);
-}
-
-.vaultScoreBadge span,
-.vaultScoreBadge small {
-  color: var(--kp-readable-muted);
-  line-height: 1.25;
-}
-
-.vaultScoreBadge strong {
-  color: var(--kp-readable);
-  font-size: clamp(2.4rem, 5vw, 4.2rem);
-  line-height: 0.92;
-  letter-spacing: -0.08em;
-}
-
-.diagnosticCardGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(12px, 1.7vw, 18px);
-}
-
-.diagnosticCard {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  min-height: 154px;
-  padding: 16px;
-  border: 1px solid var(--kp-line);
-  border-radius: 22px;
-  background: var(--kp-panel-bg);
-  color: var(--kp-readable);
-  text-align: left;
-  cursor: pointer;
-  box-shadow: var(--kp-shadow, 0 14px 40px rgba(0, 0, 0, 0.18));
-}
-
-.diagnosticCard:disabled {
-  cursor: default;
-  opacity: 1;
-}
-
-.diagnosticCard span {
-  color: var(--kp-readable-muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.diagnosticCard strong {
-  color: var(--kp-readable);
-  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
-  line-height: 0.95;
-  letter-spacing: -0.06em;
-}
-
-.diagnosticCard small {
-  color: var(--kp-readable-muted);
-  line-height: 1.35;
-}
-
-.diagnosticCard .diagnosticGuidanceText,
-.diagnosticCard .diagnosticGuidanceAction {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  font-size: 0.76rem;
-  line-height: 1.32;
-}
-
-.diagnosticCard .diagnosticGuidanceText {
-  margin-top: 2px;
-  color: var(--kp-readable);
-}
-
-.diagnosticCard .diagnosticGuidanceAction {
-  margin-top: 1px;
-  padding-top: 7px;
-  border-top: 1px solid var(--kp-line);
-}
-
-.diagnosticCard .diagnosticGuidanceAction b {
-  color: var(--kp-readable);
-  font-weight: 820;
-}
-
-.diagnosticCard em {
-  align-self: end;
-  width: fit-content;
-  margin-top: 4px;
-  padding: 6px 9px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--kp-readable);
-  font-size: 0.72rem;
-  font-style: normal;
-  font-weight: 800;
-}
-
-.diagnosticCard.tone-danger.hasIssues {
-  border-color: rgba(248, 113, 113, 0.34);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(248, 113, 113, 0.15), transparent 42%),
-    var(--kp-panel-bg);
-}
-
-.diagnosticCard.tone-warning.hasIssues {
-  border-color: rgba(245, 158, 11, 0.34);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.15), transparent 42%),
-    var(--kp-panel-bg);
-}
-
-.diagnosticCard.clear {
-  border-color: rgba(34, 197, 94, 0.24);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.09), transparent 42%),
-    var(--kp-panel-bg);
 }
 
 .diagnosticFilterBanner {
@@ -7104,8 +5409,6 @@ select option {
   gap: 8px;
 }
 
-:root[data-theme="light"] .vaultScoreBadge,
-:root[data-theme="light"] .diagnosticCard,
 :root[data-theme="light"] .credentialDiagnosisBox,
 :root[data-theme="light"] .diagnosticFilterBanner {
   background: var(--kp-surface-soft);
@@ -7113,45 +5416,12 @@ select option {
   border-color: var(--kp-border-soft);
 }
 
-:root[data-theme="light"] .diagnosticCard.tone-danger.hasIssues {
-  border-color: rgba(220, 38, 38, 0.25);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(248, 113, 113, 0.14), transparent 42%),
-    var(--kp-surface-soft);
-}
-
-:root[data-theme="light"] .diagnosticCard.tone-warning.hasIssues {
-  border-color: rgba(217, 119, 6, 0.25);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(245, 158, 11, 0.14), transparent 42%),
-    var(--kp-surface-soft);
-}
-
-:root[data-theme="light"] .diagnosticMiniBadge,
-:root[data-theme="light"] .diagnosticCard em {
+:root[data-theme="light"] .diagnosticMiniBadge {
   color: var(--kp-readable);
   background: rgba(15, 23, 42, 0.06);
 }
 
-@media (max-width: 1180px) {
-  .diagnosticCardGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 760px) {
-  .vaultHealthHero {
-    grid-template-columns: 1fr;
-  }
-
-  .vaultScoreBadge {
-    justify-items: start;
-    width: 100%;
-  }
-
-  .diagnosticCardGrid {
-    grid-template-columns: 1fr;
-  }
 
   .diagnosticFilterBanner {
     align-items: stretch;
@@ -7162,240 +5432,18 @@ select option {
     width: 100%;
   }
 }
-/* === KPassword v0.8.0 DiagnÃ³stico do Cofre END === */
 
-/* === KPassword v0.8.2 hotfix contraste claro/misto START === */
-
-.app.theme-light,
-body.theme-light,
-[data-theme="light"] {
-  --kp-light-text: #111827;
-  --kp-light-muted: #475569;
-  --kp-light-card: rgba(255, 255, 255, 0.94);
-  --kp-light-card-strong: rgba(248, 250, 252, 0.97);
-  --kp-light-blue-bg: #d8f1ff;
-  --kp-light-blue-border: #9bd8f5;
-  --kp-light-blue-text: #082f49;
-  --kp-light-red-bg: #fee2e2;
-  --kp-light-red-border: #fecaca;
-  --kp-light-red-text: #7f1d1d;
-  --kp-light-red-bg-active: linear-gradient(135deg, #dc2626, #991b1b);
-  --kp-light-red-text-active: #ffffff;
-}
-
-/* Login: botÃ£o PIN legÃ­vel em claro/misto */
-.app.theme-light .pinButton,
-.app.theme-light .helloButton,
-.app.theme-light button[title*="PIN"],
-.app.theme-light button[aria-label*="PIN"] {
-  color: var(--kp-light-blue-text);
-  background: var(--kp-light-blue-bg);
-  border-color: var(--kp-light-blue-border);
-  text-shadow: none;
-  opacity: 1;
-}
-
-.app.theme-light .pinButton:disabled,
-.app.theme-light .helloButton:disabled,
-.app.theme-light button[title*="PIN"]:disabled,
-.app.theme-light button[aria-label*="PIN"]:disabled {
-  color: #334155;
-  background: #e2e8f0;
-  border-color: #cbd5e1;
-  opacity: 0.82;
-  text-shadow: none;
-}
 
 /* Lixeira: botÃµes legÃ­veis */
-.app.theme-light .trashPage button,
-.app.theme-light .trashCard button,
-.app.theme-light .trashItem button,
-.app.theme-light .deletedItem button {
-  color: var(--kp-light-blue-text);
-  background: var(--kp-light-blue-bg);
-  border-color: var(--kp-light-blue-border);
-  text-shadow: none;
-  opacity: 1;
-}
 
-.app.theme-light .trashPage button.danger,
-.app.theme-light .trashCard button.danger,
-.app.theme-light .trashItem button.danger,
-.app.theme-light .deletedItem button.danger,
-.app.theme-light .dangerButton,
-.app.theme-light .danger {
-  color: var(--kp-light-red-text);
-  background: var(--kp-light-red-bg);
-  border-color: var(--kp-light-red-border);
-  text-shadow: none;
-  opacity: 1;
-}
-
-.app.theme-light button.danger:disabled,
-.app.theme-light .dangerButton:disabled,
-.app.theme-light .trashPage button:disabled {
-  color: var(--kp-light-red-text);
-  background: #f2c7c7;
-  border-color: #e9b4b4;
-  opacity: 0.86;
-  text-shadow: none;
-}
-
-/* Cofre: itens, textos e aÃ§Ãµes visÃ­veis em claro/misto */
-.app.theme-light .credentialRow,
-.app.theme-light .vaultItem,
-.app.theme-light .itemRow,
-.app.theme-light .credentialCard {
-  color: var(--kp-light-text);
-  background: var(--kp-light-card);
-  border-color: rgba(148, 163, 184, 0.36);
-  text-shadow: none;
-}
-
-.app.theme-light .credentialRow *,
-.app.theme-light .vaultItem *,
-.app.theme-light .itemRow *,
-.app.theme-light .credentialCard * {
-  text-shadow: none;
-}
-
-.app.theme-light .credentialRow strong,
-.app.theme-light .credentialRow b,
-.app.theme-light .credentialRow h3,
-.app.theme-light .vaultItem strong,
-.app.theme-light .itemRow strong,
-.app.theme-light .credentialCard strong {
-  color: var(--kp-light-text);
-}
-
-.app.theme-light .credentialRow span,
-.app.theme-light .credentialRow p,
-.app.theme-light .vaultItem span,
-.app.theme-light .vaultItem p,
-.app.theme-light .itemRow span,
-.app.theme-light .itemRow p,
-.app.theme-light .credentialCard span,
-.app.theme-light .credentialCard p {
-  color: var(--kp-light-muted);
-}
-
-.app.theme-light .passwordDots,
-.app.theme-light .maskedPassword,
-.app.theme-light .credentialPassword {
-  color: #1e3a8a;
-  -webkit-text-fill-color: #1e3a8a;
-}
 
 /* AÃ§Ãµes das credenciais: copiar usuÃ¡rio, copiar senha, editar */
-.app.theme-light .credentialActions button,
-.app.theme-light .vaultActions button,
-.app.theme-light .itemActions button,
-.app.theme-light .credentialRow button,
-.app.theme-light .vaultItem button,
-.app.theme-light .itemRow button,
-.app.theme-light .credentialCard button {
-  color: var(--kp-light-blue-text);
-  background: var(--kp-light-blue-bg);
-  border-color: var(--kp-light-blue-border);
-  text-shadow: none;
-  opacity: 1;
-}
 
 /* Detalhe/modal da credencial */
-.app.theme-light .itemDetail,
-.app.theme-light .detailCard,
-.app.theme-light .detailPanel,
-.app.theme-light .modalContent,
-.app.theme-light .modalBody {
-  color: var(--kp-light-text);
-  background: var(--kp-light-card);
-  text-shadow: none;
-}
-
-.app.theme-light .itemDetail .wideCard,
-.app.theme-light .itemDetail .sectionCard,
-.app.theme-light .detailCard .wideCard,
-.app.theme-light .attachmentPanel,
-.app.theme-light .passwordHistoryPanel,
-.app.theme-light .attachmentsCard,
-.app.theme-light .historyCard {
-  color: var(--kp-light-text);
-  background: var(--kp-light-card-strong);
-  border-color: rgba(148, 163, 184, 0.34);
-  text-shadow: none;
-}
-
-.app.theme-light .itemDetail h1,
-.app.theme-light .itemDetail h2,
-.app.theme-light .itemDetail h3,
-.app.theme-light .itemDetail strong,
-.app.theme-light .detailCard h1,
-.app.theme-light .detailCard h2,
-.app.theme-light .detailCard h3,
-.app.theme-light .detailCard strong {
-  color: var(--kp-light-text);
-}
-
-.app.theme-light .itemDetail p,
-.app.theme-light .itemDetail span,
-.app.theme-light .detailCard p,
-.app.theme-light .detailCard span {
-  color: var(--kp-light-muted);
-}
 
 /* BotÃµes do detalhe: copiar, mostrar senha, abrir site, editar */
-.app.theme-light .itemDetail button,
-.app.theme-light .detailCard button,
-.app.theme-light .modalContent button {
-  text-shadow: none;
-}
-
-.app.theme-light .itemDetail button:not(.danger):not(.dangerButton),
-.app.theme-light .detailCard button:not(.danger):not(.dangerButton) {
-  color: var(--kp-light-blue-text);
-  background: var(--kp-light-blue-bg);
-  border-color: var(--kp-light-blue-border);
-  opacity: 1;
-}
-
-.app.theme-light .itemDetail button.danger,
-.app.theme-light .detailCard button.danger,
-.app.theme-light .itemDetail .dangerButton,
-.app.theme-light .detailCard .dangerButton {
-  color: var(--kp-light-red-text);
-  background: var(--kp-light-red-bg);
-  border-color: var(--kp-light-red-border);
-  opacity: 1;
-}
 
 /* Fallback para cards brancos com botoes brancos */
-.app.theme-light .wideCard button:not(.primaryButton):not(.addItemIconButton),
-.app.theme-light .sectionCard button:not(.primaryButton):not(.addItemIconButton) {
-  text-shadow: none;
-  color: var(--kp-light-blue-text);
-}
-
-.app.theme-light .wideCard button.danger,
-.app.theme-light .sectionCard button.danger {
-  color: var(--kp-light-red-text);
-}
-
-.app.theme-light input,
-.app.theme-light textarea,
-.app.theme-light select {
-  color: var(--kp-light-text);
-  -webkit-text-fill-color: var(--kp-light-text);
-}
-
-.app.theme-light input::placeholder,
-.app.theme-light textarea::placeholder {
-  color: #64748b;
-  -webkit-text-fill-color: #64748b;
-}
-
-/* === KPassword v0.8.2 hotfix contraste claro/misto END === */
-
-/* === KPassword v0.8.2 HOTFIX REAL contraste Claro/Misto START === */
 
 /*
   CorreÃ§Ã£o real usando os seletores que o app usa:
@@ -7412,7 +5460,6 @@ body.theme-light,
 :root[data-theme="light"] {
   --kp-fix-text: #0f172a;
   --kp-fix-muted: #475569;
-  --kp-fix-soft: #64748b;
   --kp-fix-card: rgba(255, 255, 255, 0.96);
   --kp-fix-card-soft: rgba(248, 250, 252, 0.96);
   --kp-fix-blue-bg: #d8f1ff;
@@ -7656,11 +5703,6 @@ body.theme-light,
   color: var(--kp-fix-text);
   -webkit-text-fill-color: var(--kp-fix-text);
 }
-
-/* === KPassword v0.8.2 HOTFIX REAL contraste Claro/Misto END === */
-
-
-/* === KPassword login reset limpo v0.8.3 START === */
 .srOnly {
   position: absolute;
   width: 1px;
@@ -8083,8 +6125,7 @@ body.theme-light,
 
 .authLocked .authLogoStage > .eyebrow,
 .authLocked .authLogoStage > h1,
-.authLocked .authLogoStage > p,
-.authLocked .authLogoStage > .authTrustRow {
+.authLocked .authLogoStage > p {
   display: none;
 }
 
@@ -8441,9 +6482,6 @@ body.theme-light,
     font-size: 0.72rem;
   }
 }
-/* === KPassword login reset limpo v0.8.3 END === */
-
-/* === KPassword login reset limpo v0.8.3 - ajuste fino de escala e portao START === */
 @media (min-width: 901px) {
   .authCard.authExperience .authUtilityBar {
     width: min(1040px, calc(100vw - 112px));
@@ -8610,9 +6648,6 @@ body.theme-light,
     font-size: 0.78rem;
   }
 }
-/* === KPassword login reset limpo v0.8.3 - ajuste fino de escala e portao END === */
-
-/* === KPassword login reset limpo v0.8.3 - ajuste fino compacto balanceado START === */
 @media (min-width: 901px) {
   .authCard.authExperience .authUtilityBar {
     width: min(990px, calc(100vw - 128px));
@@ -8870,9 +6905,6 @@ body.theme-light,
     padding-right: 26px;
   }
 }
-/* === KPassword login reset limpo v0.8.3 - ajuste fino compacto balanceado END === */
-
-/* === KPassword login v0.8.3 - tune4 topo limpo e centralizado START === */
 @media (min-width: 901px) {
   /*
     Este bloco parte da base boa do tune2 e corrige apenas a rÃ©gua superior.
@@ -8992,9 +7024,6 @@ body.theme-light,
     width: 420px;
   }
 }
-/* === KPassword login v0.8.3 - tune4 topo limpo e centralizado END === */
-
-/* === KPassword login v0.8.3 - tune5 espacamento superior equilibrado START === */
 @media (min-width: 901px) {
   /*
     Ajuste cirurgico: nao altera tamanho nem centralizacao do grupo do meio.
@@ -9029,15 +7058,6 @@ body.theme-light,
     gap: 22px;
   }
 }
-/* === KPassword login v0.8.3 - tune5 espacamento superior equilibrado END === */
-
-
-
-
-
-
-
-/* === KPassword v0.9.2 compact page harmony + notification polish START === */
 :root {
   --kp-page-max: 1120px;
   --kp-page-gap: clamp(10px, 1.25vw, 16px);
@@ -9062,11 +7082,8 @@ body.theme-light,
 }
 
 .topbar,
-.credentialsPanel,
-.analyticsPage,
 .settingsGrid,
 .preferencesGrid,
-.dashboardGrid,
 .trashList,
 .wideCard,
 .modalOverlay > *,
@@ -9105,8 +7122,7 @@ body.theme-light,
 
 .topbar .eyebrow,
 .topbarTitle .eyebrow,
-.cardTitleRow .eyebrow,
-.analyticsHero .eyebrow {
+.cardTitleRow .eyebrow {
   margin-bottom: 4px;
   font-size: 0.72rem;
   letter-spacing: 0.14em;
@@ -9131,27 +7147,21 @@ body.theme-light,
   min-width: 50px;
 }
 
-.dashboardGrid,
 .settingsGrid,
 .preferencesGrid,
-.analyticsGrid,
-.analyticsSignals,
 .exportActionGrid,
 .folderActionGrid,
 .optionGrid,
 .settingsControlGrid,
-.diagnosticCardGrid,
 .credentialRows,
 .trashList,
 .backupList,
 .historyList,
-.attachmentsList,
-.analyticsPage {
+.attachmentsList {
   gap: var(--kp-page-gap);
 }
 
 .wideCard,
-.metricCard,
 .credentialRow,
 .trashItem,
 .exportBox,
@@ -9167,14 +7177,10 @@ body.theme-light,
 .notesBox,
 .totpBox,
 .generatorPanel,
-.analyticsCard,
-.analyticsHero,
-.diagnosticCard,
 .diagnosticFilterBanner,
 .localSecurityNotice,
 .updateSummary,
-.firstUseGuide,
-.vaultHealthHero {
+.firstUseGuide {
   border: 1px solid var(--kp-card-border);
   border-radius: var(--kp-card-radius);
   background: var(--kp-card-glow), var(--kp-panel-bg, rgba(16, 18, 27, 0.86));
@@ -9182,9 +7188,7 @@ body.theme-light,
 }
 
 .wideCard,
-.metricCard,
 .exportBox,
-.analyticsCard,
 .localSecurityNotice,
 .firstUseGuide {
   padding: var(--kp-card-pad);
@@ -9200,7 +7204,6 @@ body.theme-light,
 
 .cardTitleRow h2,
 .wideCard h2,
-.analyticsCard h2,
 .modalHeader h2,
 .detailHeader h2 {
   margin-bottom: 6px;
@@ -9210,7 +7213,6 @@ body.theme-light,
 }
 
 .wideCard p,
-.analyticsCard p,
 .localSecurityNotice p,
 .firstUseGuide p,
 .emptyState p {
@@ -9218,55 +7220,10 @@ body.theme-light,
   line-height: 1.5;
 }
 
-.credentialsPanel,
-.analyticsPage,
 .settingsGrid,
 .preferencesGrid {
   width: 100%;
   margin-inline: auto;
-}
-
-.analyticsHero,
-.vaultHealthHero {
-  padding: clamp(14px, 1.65vw, 20px);
-  gap: clamp(12px, 1.8vw, 20px);
-  min-height: unset;
-  align-items: center;
-}
-
-.analyticsHero h2,
-.vaultHealthHero h2 {
-  margin: 0 0 6px;
-  font-size: clamp(1.38rem, 2vw, 1.9rem);
-  line-height: 1.06;
-  letter-spacing: -0.035em;
-}
-
-.analyticsHero p,
-.vaultHealthHero p {
-  line-height: 1.45;
-  font-size: clamp(0.95rem, 1.1vw, 1.05rem);
-}
-
-.analyticsTotalBadge,
-.vaultScoreBadge {
-  min-width: 118px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  gap: 2px;
-}
-
-.analyticsTotalBadge strong,
-.vaultScoreBadge strong {
-  font-size: clamp(1.9rem, 3.2vw, 2.85rem);
-  line-height: 0.95;
-}
-
-.analyticsTotalBadge span,
-.analyticsTotalBadge small,
-.vaultScoreBadge span,
-.vaultScoreBadge small {
-  font-size: 0.9rem;
 }
 
 .credentialRows {
@@ -9347,11 +7304,7 @@ textarea {
 }
 
 .securityGrid span,
-.analyticsSummaryList span,
-.analyticsProtectionList span,
-.analyticsSignal,
 .diagnosticMiniBadge,
-.vaultScoreBadge,
 .expiryBadge {
   border-radius: 999px;
 }
@@ -9403,17 +7356,6 @@ textarea {
     border-radius: 18px;
   }
 
-  .analyticsHero,
-  .vaultHealthHero {
-    grid-template-columns: 1fr;
-  }
-
-  .analyticsTotalBadge,
-  .vaultScoreBadge {
-    justify-items: start;
-    width: fit-content;
-  }
-
   .cardTitleRow,
   .toolbar,
   .detailHeader,
@@ -9444,25 +7386,11 @@ textarea {
     width: 100%;
   }
 }
-/* === KPassword v0.9.2 compact page harmony + notification polish END === */
 
-/* === KPassword v0.9.2 page density refinement START ===
-   Refino pÃ³s-teste: mantÃ©m a harmonia visual, mas remove o efeito de
-   elementos gigantes nas pÃ¡ginas internas. NÃ£o altera menu lateral/inferior. */
-.mainContent,
-.pageContent {
-  font-size: 0.95rem;
-}
-
-.analyticsHero h2,
-.vaultHealthHero h2,
 .wideCard h2,
 .cardTitleRow h2,
-.analyticsCard h2,
 .backupList strong,
-.securityGrid span,
-.analyticsProtectionList span,
-.analyticsSignal {
+.securityGrid span {
   text-shadow: none;
   -webkit-text-stroke: 0;
   font-synthesis-weight: none;
@@ -9475,8 +7403,6 @@ textarea {
 }
 
 .topbar .eyebrow,
-.analyticsHero .eyebrow,
-.vaultHealthHero .eyebrow,
 .wideCard .eyebrow {
   margin-bottom: 6px;
   font-size: 0.72rem;
@@ -9491,86 +7417,24 @@ textarea {
   letter-spacing: -0.045em;
 }
 
-.topbarActions,
-.vaultSwitcher,
-.languageButton,
-.addButton {
+.topbarActions {
   min-height: 40px;
 }
 
-.analyticsPage {
-  gap: clamp(12px, 1.4vw, 18px);
-}
-
-.analyticsHero,
-.vaultHealthHero {
-  padding: clamp(14px, 1.5vw, 18px) clamp(16px, 2vw, 24px);
-  border-radius: 22px;
-  gap: clamp(12px, 1.8vw, 22px);
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24);
-}
-
-.analyticsHero h2,
-.vaultHealthHero h2 {
-  font-size: clamp(1.28rem, 1.75vw, 1.65rem);
-  font-weight: 780;
-  letter-spacing: -0.035em;
-  line-height: 1.08;
-}
-
-.analyticsHero p,
-.vaultHealthHero p {
-  font-size: clamp(0.9rem, 1vw, 0.98rem);
-  line-height: 1.42;
-}
-
-.analyticsTotalBadge,
-.vaultScoreBadge {
-  width: 106px;
-  min-width: 106px;
-  min-height: 88px;
-  padding: 10px 12px;
-  border-radius: 22px;
-  justify-items: center;
-  text-align: center;
-  align-content: center;
-}
-
-.analyticsTotalBadge strong,
-.vaultScoreBadge strong {
-  font-size: clamp(2rem, 3vw, 2.55rem);
-  font-weight: 820;
-  letter-spacing: -0.055em;
-}
-
-.analyticsTotalBadge span,
-.analyticsTotalBadge small,
-.vaultScoreBadge span,
-.vaultScoreBadge small {
-  font-size: 0.78rem;
-  line-height: 1.15;
-}
-
-.analyticsGrid,
-.dashboardGrid,
 .settingsGrid,
 .preferencesGrid {
   gap: clamp(12px, 1.6vw, 18px);
 }
 
-.analyticsCard,
 .wideCard,
 .storageCard,
 .securityActionCard,
 .localSecurityNotice,
-.firstUseGuide,
-.cleanDashboard .dashboardHealthCard,
-.cleanDashboard .dashboardProtectionCard {
+.firstUseGuide {
   padding: clamp(14px, 1.65vw, 20px);
   border-radius: 20px;
 }
 
-.analyticsCard h2,
 .wideCard h2,
 .cardTitleRow h2,
 .securityActionCard h2,
@@ -9583,30 +7447,21 @@ textarea {
 }
 
 .wideCard p,
-.analyticsCard p,
 .storageCard p,
 .securityActionCard p {
   font-size: 0.92rem;
   line-height: 1.45;
 }
 
-.analyticsSignals,
-.analyticsSummaryList,
-.analyticsProtectionList,
 .securityGrid,
-.backupList,
-.miniList {
+.backupList {
   gap: 8px;
 }
 
-.analyticsProtectionList,
 .securityGrid {
   grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
 }
 
-.analyticsSignal,
-.analyticsProtectionList span,
-.analyticsSummaryList span,
 .securityGrid span {
   min-height: 42px;
   padding: 9px 11px;
@@ -9616,14 +7471,7 @@ textarea {
   justify-content: flex-start;
 }
 
-.analyticsSignal strong,
-.analyticsSummaryList span strong {
-  font-size: 1rem;
-  font-weight: 760;
-}
-
 .backupList div,
-.miniList button,
 .pathBox,
 .updateSummary div {
   min-height: 52px;
@@ -9633,7 +7481,6 @@ textarea {
 }
 
 .backupList strong,
-.miniList button strong,
 .pathBox strong {
   font-size: 0.96rem;
   font-weight: 720;
@@ -9641,7 +7488,6 @@ textarea {
 }
 
 .backupList span,
-.miniList button span,
 .pathBox span {
   font-size: 0.78rem;
   line-height: 1.25;
@@ -9698,28 +7544,11 @@ textarea {
 }
 
 @media (min-width: 1100px) {
-  .analyticsProtectionList {
-    grid-template-columns: repeat(5, minmax(150px, 1fr));
-  }
 
   .securityGrid {
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   }
 }
-
-@media (max-width: 760px) {
-  .analyticsHero,
-  .vaultHealthHero {
-    grid-template-columns: 1fr;
-  }
-
-  .analyticsTotalBadge,
-  .vaultScoreBadge {
-    width: fit-content;
-    min-width: 94px;
-  }
-}
-/* === KPassword v0.9.2 page density refinement END === */
 
 
 /* v0.9.2 refinamento: lista de backups limitada e aviso discreto */
@@ -9731,10 +7560,6 @@ textarea {
 }
 
 /* v0.9.4: verificaÃ§Ã£o de backup sem restauraÃ§Ã£o */
-.backupVerifyCard {
-  display: grid;
-  gap: 12px;
-}
 
 .backupVerifyPanel {
   display: grid;
@@ -9896,20 +7721,6 @@ textarea {
   background: rgba(8, 47, 73, 0.18);
 }
 
-.csvImportPreviewHeader {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.csvImportPreviewHeader > div,
-.csvImportPreviewHeader strong,
-.csvImportPreviewHeader span {
-  display: grid;
-  gap: 4px;
-}
-
 .csvImportStats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -10016,7 +7827,6 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .csvImportPreviewHeader,
   .csvImportActions {
     display: grid;
   }
@@ -10031,9 +7841,6 @@ textarea {
     padding: 14px;
   }
 }
-/* === KPassword v0.9.5 - CSV import preview END === */
-
-/* === KPassword v0.9.5 - CSV export guard START === */
 .csvMigrationExportBox {
   position: relative;
 }
@@ -10196,7 +8003,6 @@ textarea {
     width: 100%;
   }
 }
-/* === KPassword v0.9.5 - CSV export guard END === */
 
 /* KPassword v0.9.5 - tags bÃ¡sicas */
 .tagFilterBar {
@@ -10312,7 +8118,6 @@ textarea {
     padding: 6px 8px;
   }
 }
-/* === KPassword v0.9.5 - tags layout fix START === */
 /* Ajuste visual incremental: tags menores na lista e respiro entre filtro de tags e credenciais. */
 .tagFilterBar {
   margin-bottom: clamp(14px, 1.5vw, 20px);
@@ -10356,217 +8161,7 @@ textarea {
     min-height: 18px;
   }
 }
-/* === KPassword v0.9.5 - tags layout fix END === */
-
-
-/* === KPassword v0.9.5 - filtros rápidos do cofre START === */
-.quickFilterBar {
-  display: grid;
-  gap: 10px;
-  margin-bottom: clamp(14px, 1.5vw, 20px);
-  padding: 12px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.24);
-}
-
-.quickFilterBar > span {
-  color: var(--muted, #9ca3af);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.quickFilterChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-width: 0;
-}
-
-.quickFilterChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 30px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.34);
-  color: var(--text, #e5e7eb);
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1;
-  padding: 6px 9px;
-  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
-  white-space: nowrap;
-}
-
-.quickFilterChip:hover:not(:disabled),
-.quickFilterChip.active {
-  border-color: rgba(14, 165, 233, 0.58);
-  background: rgba(14, 165, 233, 0.18);
-  color: #e0f2fe;
-  transform: translateY(-1px);
-}
-
-.quickFilterChip:disabled {
-  cursor: not-allowed;
-  opacity: 0.46;
-}
-
-.quickFilterChip strong {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  min-height: 20px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.10);
-  color: inherit;
-  font-size: 0.72rem;
-  line-height: 1;
-  padding: 0 6px;
-}
-
-.quickFilterBanner {
-  border-color: rgba(14, 165, 233, 0.26);
-}
-
-:root[data-theme="light"] .quickFilterBar {
-  border-color: rgba(15, 23, 42, 0.10);
-  background: rgba(255, 255, 255, 0.70);
-}
-
-:root[data-theme="light"] .quickFilterChip {
-  border-color: rgba(15, 23, 42, 0.12);
-  background: rgba(248, 250, 252, 0.86);
-  color: #1e293b;
-}
-
-:root[data-theme="light"] .quickFilterChip:hover:not(:disabled),
-:root[data-theme="light"] .quickFilterChip.active {
-  border-color: rgba(14, 116, 144, 0.34);
-  background: rgba(14, 165, 233, 0.12);
-  color: #075985;
-}
-
-:root[data-theme="light"] .quickFilterChip strong {
-  background: rgba(15, 23, 42, 0.08);
-}
-
-@media (max-width: 720px) {
-  .quickFilterBar {
-    padding: 10px;
-    margin-bottom: 12px;
-  }
-
-  .quickFilterChips {
-    gap: 6px;
-  }
-
-  .quickFilterChip {
-    min-height: 28px;
-    font-size: 0.72rem;
-    padding: 5px 7px;
-  }
-
-  .quickFilterChip strong {
-    min-width: 18px;
-    min-height: 18px;
-    font-size: 0.68rem;
-    padding: 0 5px;
-  }
-}
-/* === KPassword v0.9.5 - filtros rápidos do cofre END === */
-
-/* === KPassword v0.9.5 - filtros compactos do cofre START === */
 /* Reduz a densidade visual da tela do Cofre sem remover recursos. */
-.quickFilterBar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-  padding: 7px 10px;
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.14);
-  box-shadow: none;
-}
-
-.quickFilterBar > span {
-  flex: 0 0 auto;
-  color: var(--kp-readable-muted, var(--muted, #9ca3af));
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.quickFilterChips {
-  flex: 1 1 auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  min-width: 0;
-}
-
-.quickFilterChip {
-  min-height: 24px;
-  gap: 5px;
-  padding: 3px 7px;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  line-height: 1;
-}
-
-.quickFilterChip:hover:not(:disabled),
-.quickFilterChip.active {
-  transform: none;
-}
-
-.quickFilterChip strong {
-  min-width: 16px;
-  min-height: 16px;
-  padding: 0 5px;
-  font-size: 0.64rem;
-}
-
-.quickFilterBanner.diagnosticFilterBanner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 0 0 8px;
-  padding: 8px 10px;
-  border-radius: 14px;
-  background: rgba(14, 165, 233, 0.08);
-  box-shadow: none;
-}
-
-.quickFilterBanner.diagnosticFilterBanner div {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.quickFilterBanner.diagnosticFilterBanner strong,
-.quickFilterBanner.diagnosticFilterBanner span {
-  font-size: 0.74rem;
-  line-height: 1.2;
-}
-
-.quickFilterBanner.diagnosticFilterBanner strong::after {
-  content: ":";
-}
-
-.quickFilterBanner .secondaryButton {
-  min-height: 30px;
-  padding: 6px 10px;
-  border-radius: 12px;
-  font-size: 0.76rem;
-}
 
 .tagFilterBar {
   display: flex;
@@ -10597,36 +8192,21 @@ textarea {
   font-size: 0.68rem;
 }
 
-:root[data-theme="light"] .quickFilterBar,
 :root[data-theme="light"] .tagFilterBar {
   background: rgba(255, 255, 255, 0.58);
 }
 
 @media (max-width: 860px) {
-  .quickFilterBar,
   .tagFilterBar {
     align-items: flex-start;
     flex-direction: column;
     gap: 7px;
   }
 
-  .quickFilterChips,
   .tagFilterChips {
     width: 100%;
   }
-
-  .quickFilterBanner.diagnosticFilterBanner {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .quickFilterBanner .secondaryButton {
-    width: 100%;
-  }
 }
-/* === KPassword v0.9.5 - filtros compactos do cofre END === */
-
-/* === KPassword v0.9.5 - filtro dropdown no cofre START === */
 .vaultSearchToolbar {
   align-items: stretch;
   gap: 10px;
@@ -10892,9 +8472,6 @@ textarea {
     width: 100%;
   }
 }
-/* === KPassword v0.9.5 - filtro dropdown no cofre END === */
-
-/* === KPassword v1.0 - TOTP pratico por QR START === */
 .totpEasyCard {
   display: flex;
   justify-content: space-between;
@@ -11113,9 +8690,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
-/* === KPassword v1.0 - TOTP pratico por QR END === */
-
-/* === KPassword v1.0 - refinamento modal 2FA e senha mascarada START === */
 .totpEasyModal {
   display: grid;
   gap: 18px;
@@ -11172,9 +8746,6 @@ textarea {
     min-height: 112px;
   }
 }
-/* === KPassword v1.0 - refinamento modal 2FA e senha mascarada END === */
-
-/* === KPassword v1.0 - selecionar QR na tela START === */
 .totpEasyChoiceGrid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -11212,11 +8783,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
-/* === KPassword v1.0 - selecionar QR na tela END === */
-
-
-
-/* === KPassword v1.0 - Assistente do Cofre START === */
 .assistantPage {
   display: grid;
   gap: 20px;
@@ -11534,9 +9100,6 @@ textarea {
     min-height: 112px;
   }
 }
-/* === KPassword v1.0 - Assistente do Cofre END === */
-
-/* === KPassword v1.0 - Assistente do Cofre - temas e botões START === */
 :root[data-theme="dark"] {
   --assistant-hero-bg:
     radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 36%),
@@ -11716,9 +9279,6 @@ textarea {
 :root[data-theme="light"] .assistantNextCard.tone-warning {
   border-color: rgba(245, 158, 11, 0.26);
 }
-/* === KPassword v1.0 - Assistente do Cofre - temas e botões END === */
-
-/* === KPassword v1.0 - Assistente do Cofre theme/button fix START === */
 .assistantPage {
   --assistant-card-bg: color-mix(in srgb, var(--card) 94%, #020617);
   --assistant-card-bg-soft: color-mix(in srgb, var(--card) 88%, var(--accent));
@@ -11886,11 +9446,6 @@ textarea {
 :root[data-theme="light"] .assistantNextCard::before {
   opacity: 0.75;
 }
-
-/* === KPassword v1.0 - Assistente do Cofre theme/button fix END === */
-
-
-/* === KPassword v1.0 - Assistente do Cofre integração visual START === */
 .assistantPage {
   gap: 18px;
   color: var(--kp-readable, var(--kp-text, #f7f7fb));
@@ -12127,66 +9682,6 @@ textarea {
     min-height: 260px;
   }
 }
-/* === KPassword v1.0 - Assistente do Cofre integração visual END === */
-
-/* === KPassword v1.2.0 interface simplification START === */
-.settingsAccordion {
-  display: grid;
-  gap: 0;
-  padding: 0;
-  overflow: visible;
-}
-
-.settingsAccordion > summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  cursor: pointer;
-  list-style: none;
-  padding: 20px 22px;
-  user-select: none;
-}
-
-.settingsAccordion > summary::-webkit-details-marker {
-  display: none;
-}
-
-.settingsAccordion > summary span {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-}
-
-.settingsAccordion > summary strong {
-  color: #f8fbff;
-  font-size: 1.05rem;
-}
-
-.settingsAccordion > summary small {
-  color: #aab0c5;
-  line-height: 1.45;
-}
-
-.settingsAccordion > summary em {
-  flex: 0 0 auto;
-  border: 1px solid rgba(125, 211, 252, 0.2);
-  border-radius: 999px;
-  color: #bae6fd;
-  font-style: normal;
-  font-size: 0.78rem;
-  font-weight: 900;
-  padding: 8px 11px;
-  white-space: nowrap;
-}
-
-.settingsAccordion[open] > summary {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.settingsAccordion[open] > summary em::before {
-  content: "✓ ";
-}
 
 .settingsAccordionBody {
   display: grid;
@@ -12196,66 +9691,6 @@ textarea {
 
 .settingsAccordionBody > p:first-child {
   margin-bottom: 0;
-}
-
-.settingsAccordion .exportActionGrid,
-.settingsAccordion .backupVerifyPanel,
-.settingsAccordion .settingsControlGrid,
-.settingsAccordion .toggleList {
-  margin-top: 0;
-}
-
-@media (max-width: 720px) {
-  .settingsAccordion > summary {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .settingsAccordion > summary em {
-    align-self: flex-start;
-  }
-}
-
-:root[data-theme="light"] .settingsAccordion > summary strong,
-.app.theme-light .settingsAccordion > summary strong {
-  color: #0f172a;
-}
-
-:root[data-theme="light"] .settingsAccordion > summary small,
-.app.theme-light .settingsAccordion > summary small {
-  color: #475569;
-}
-
-:root[data-theme="light"] .settingsAccordion > summary em,
-.app.theme-light .settingsAccordion > summary em {
-  border-color: rgba(15, 23, 42, 0.14);
-  color: #1d4ed8;
-}
-/* === KPassword v1.2.0 interface simplification END === */
-
-.settingsAdvancedToggleCard {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.settingsAdvancedToggleCard h2 {
-  margin: 0 0 6px;
-}
-
-.settingsAdvancedToggleCard p {
-  margin: 0;
-}
-
-.settingsAdvancedStack {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 16px;
-}
-
-.settingsAdvancedCard {
-  gap: 16px;
 }
 
 .settingsSectionHeader {
@@ -12280,20 +9715,6 @@ textarea {
   color: var(--text-muted);
   line-height: 1.45;
 }
-
-@media (max-width: 720px) {
-  .settingsAdvancedToggleCard {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .settingsAdvancedToggleCard .secondaryButton {
-    width: 100%;
-  }
-}
-
-
-/* === KPassword v1.2.0 visual density RC4 START === */
 .assistantPage {
   gap: 14px;
 }
@@ -12470,24 +9891,6 @@ textarea {
   min-height: 42px;
 }
 
-.settingsAdvancedToggleCard {
-  padding: 18px 20px;
-}
-
-.settingsAdvancedToggleCard .secondaryButton {
-  flex: 0 0 auto;
-  min-width: 210px;
-}
-
-.settingsAdvancedStack {
-  gap: 12px;
-}
-
-.settingsAdvancedCard {
-  padding: 0;
-  overflow: hidden;
-}
-
 .settingsSectionHeader {
   padding: 14px 18px 12px;
 }
@@ -12552,23 +9955,11 @@ textarea {
 }
 
 @media (max-width: 720px) {
-  .settingsAdvancedToggleCard {
-    align-items: stretch;
-  }
-
-  .settingsAdvancedToggleCard .secondaryButton {
-    width: 100%;
-    min-width: 0;
-  }
 
   .settingsGrid .wideCard {
     padding: 16px;
   }
 }
-/* === KPassword v1.2.0 visual density RC4 END === */
-
-
-/* === KPassword v1.3.0 action history START === */
 .actionHistorySettingsCard {
   display: grid;
   gap: 12px;
@@ -12781,9 +10172,6 @@ textarea {
 :root[data-theme="light"] .actionHistoryDay h3 {
   background: var(--kp-panel-bg-strong, #ffffff);
 }
-/* === KPassword v1.3.0 action history END === */
-
-/* === KPassword ajuste seletor de idioma com globo START === */
 .customLanguageSelect {
   position: relative;
   display: inline-flex;
@@ -13020,9 +10408,6 @@ textarea {
     left: auto;
   }
 }
-/* === KPassword ajuste seletor de idioma com globo END === */
-
-/* === KPassword v1.3.4 Windows polish START === */
 .startupStatusBox {
   display: grid;
   gap: 12px;
@@ -13138,9 +10523,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
-/* === KPassword v1.3.4 Windows polish END === */
-
-/* === KPassword v1.3.5 unified loading/login layout START === */
 .authLocked.authLoadingState .authLoadingPanel {
   width: min(540px, 100%);
   max-width: 540px;
@@ -13179,7 +10561,6 @@ textarea {
     padding: 26px 22px;
   }
 }
-/* === KPassword v1.3.5 unified loading/login layout END === */
 
 /* WebKitGTK: keep dialogs above the language/menu controls (z-index 80/500).
    QR capture overlays retain their existing higher layer. Windows is unchanged. */
