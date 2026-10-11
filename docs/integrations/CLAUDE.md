@@ -20,12 +20,21 @@ response = request_api(KEY_RECORD_ID, "responses", {
 })
 ```
 
-O KPassword mostra chave, provedor, operação, PID, executável e SHA-256.
-Aprovar permite uma chamada; recusar ou deixar passar 30 segundos impede a chamada.
-“Continuar permitindo” vale somente para aquela chave, executável/hash e operação
-na sessão atual. Encerrar o Bridge, bloquear, salvar ou trocar o cofre invalida
-novos pedidos. Uma chamada já enviada ao provedor não pode ser desfeita.
-O provedor recebe o conteúdo da solicitação e chamadas podem gerar cobrança.
+O KPassword abre uma janela própria de aprovação na área de trabalho, inclusive
+com o cofre bloqueado na bandeja. Ela mostra a credencial, provedor, operação,
+modelo, executável, script identificável, diretório e fingerprint de identidade.
+Aprovar permite uma chamada; recusar, fechar ou ignorar 30 segundos impede a chamada.
+“Continuar permitindo” inclui esses elementos na sessão da ponte, com limite de
+chamadas escolhido no popup (padrão 10.000, máximo 100.000). Cada permissão aceita
+até 60 chamadas por minuto; geração tem teto de 8.192 tokens de saída. Esses limites
+não são orçamento monetário. Configure limites no provedor também.
+
+O usuário escolhe 24, 48 ou 72 horas para a ponte, padrão 48, ou até sair/reiniciar.
+Trocar de tarefa no mesmo contexto preserva a permissão. O bloqueio automático ou
+X não encerram a ponte. Encerrar o Bridge, bloquear manualmente, salvar/editar ou
+trocar o cofre invalida novos pedidos. Não há credenciais ou permissões persistidas
+fora do cofre para reativação automática. Uma chamada autorizada em andamento pode
+terminar após revogação. O provedor recebe o conteúdo e chamadas podem gerar cobrança.
 
 Operações e identificadores suportados:
 
@@ -42,19 +51,26 @@ socket Unix em diretório privado (0700), socket 0600, acessível pela mesma con
 Não há servidor TCP, porta pública nem exportação de chaves ao consumidor.
 O inicializador antigo `--bridge-request` não entrega mais chaves.
 
-**Limites:** SO_PEERCRED identifica o processo, não garante a identidade de um
-projeto executado por Python/Node, plugins ou subprocessos. Autorizar continuamente
-um interpretador pode permitir outros scripts daquele mesmo interpretador.
-Não é um sandbox contra malware da mesma conta, root, depuração/injeção de processo,
-captura de teclado ou furto da senha mestra. Copiar o arquivo criptografado não gera
-popup. A criptografia protege o conteúdo enquanto a chave de decriptação não for
-comprometida. O Bridge nesta fase aceita apenas chamadas com API Keys, não senhas
-convencionais, e apenas clientes locais no Fedora. Windows mantém o cofre e as
-funções originais; não oferece este conector ainda.
+**Limites de identidade:** SO_PEERCRED e /proc fornecem processo, executável,
+script de entrada quando identificável e diretório. O conector CLI tenta identificar
+o script do lançador em uma cadeia limitada; preferimos integrar request_api no
+processo do projeto. Mudança de script/hash, diretório, modelo ou operação pede
+nova aprovação. A identificação de script suporta Python, Node, Bun e Deno. Interpretadores
+reconhecidos sem script identificável, incluindo Ruby/Perl/PHP/shell/Java/.NET,
+aceitam apenas aprovação única; runtimes desconhecidos não têm garantia de
+identificação de script. Nome declarado pelo cliente não é uma identidade confiável.
 
-**VPS:** o socket local não é acessível remotamente. Não exponha o socket, o cofre
-ou uma API de entrega de credenciais. Usar esta arquitetura remotamente exige um
-serviço autenticado com autorização, limites e revogação próprios. Dependendo do
-serviço escolhido, seu computador precisaria ficar ligado ou a chave ficaria em
-um gerenciador de segredos no servidor. Essa integração não foi implementada.
+Isso não é um sandbox contra malware da mesma conta, root, depuração/injeção,
+captura de teclado ou furto da senha mestra. Outro processo comprometido dessa
+conta pode manipular o contexto; não trate diretório/script como identidade forte
+contra esse atacante. Copiar o arquivo criptografado não gera popup. Com a ponte
+ativa, as chaves de API ficam na memória do backend. O cofre preserva os formatos
+originais. O Bridge aceita chamadas com API Keys, não senhas comuns, e clientes
+locais no Fedora; Windows preserva funções originais, sem este conector ainda.
+
+**Produção/VPS/Vercel:** utilize credencial própria de produção no gerenciador de
+segredos do serviço. Na Vercel, use variável Secret no backend; nunca variáveis
+públicas ou código enviado ao navegador. Na VPS, limite o acesso ao serviço que
+precisa do segredo. O socket local não é acessível remotamente e não deve ser
+exposto. A máquina local não precisa ficar ligada para a produção funcionar.
 Aplicações/SDKs sem adaptador não são conectados automaticamente.

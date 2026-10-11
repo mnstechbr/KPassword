@@ -165,7 +165,7 @@ export async function setupTrayGuard() {
     if (!readFlag("kpassword:lock-on-close", true)) return;
 
     event.preventDefault();
-    window.dispatchEvent(new CustomEvent("kpassword:lock"));
+    window.dispatchEvent(new CustomEvent("kpassword:lock", { detail: { preserveBridge: true } }));
     await protectToTray("close");
   });
 }
