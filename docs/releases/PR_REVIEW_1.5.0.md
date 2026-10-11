@@ -12,7 +12,7 @@ dos checks Windows/Fedora e da verificação local das assinaturas.
 | #2 checkout 7 | Incorporada na branch Fedora | Diff restrito a checkout de CodeQL/Scorecard; YAML válido. Validar novamente no CI da PR. |
 | #16 Scorecard 2.4.4 | Incorporada na branch Fedora | Patch restrito à Action; permissões preservadas, YAML válido. Execução de Scorecard em main após merge. |
 | #11 getrandom 0.4.3 | Incorporada na branch Fedora | 64 testes Rust passaram, incluindo vetores criptográficos e Bridge; conflito resolvido preservando GTK. |
-| #13 Tauri 2.11.5 | Candidata à incorporação | Patch de Tauri/runtime-wry, sem alteração de código Windows/crypto; exige testes Rust, GUI Fedora e instaladores nos dois sistemas. |
+| #13 Tauri 2.11.5 | Incorporada na branch Fedora | CI Windows/Fedora e instaladores aprovados no commit 7ac85cc; a mudança posterior do Bridge exige nova rodada antes do merge. |
 | #8 PBKDF2 0.13 | Sem merge | Probe isolado reproduz erro E0277: digest/HMAC incompatível com SHA-256 0.10 atual. |
 | #6 SHA-256 0.11 | Sem merge | Probe isolado reproduz erro E0277: CoreProxy incompatível com PBKDF2 0.12 atual. Atualizações de criptografia precisam ser coordenadas. |
 | #10 windows 0.61.3 | Sem merge nesta Release | Mudança de bindings Windows usada por Windows Hello; falta validação dedicada. Preservado windows 0.58. |

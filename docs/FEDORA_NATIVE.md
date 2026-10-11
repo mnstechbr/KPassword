@@ -112,67 +112,43 @@ limitação explícita desta implementação, não equivalência com Windows Hel
 
 ## API Keys e Secrets Bridge
 
-1. Criar um registro **Chave de API**. Informar provedor, segredo e identificador
-   como `ANTHROPIC_API_KEY` ou `OPENAI_API_KEY`. Segredo fica no campo cifrado do
-   registro, nunca em configuração pública. Visualização exige ação explícita;
-   cópia usa a proteção de clipboard do app.
-2. Abrir detalhes da chave. Escolher tipo de consumidor, nome e caminho absoluto
-   do executável/script. Autorizar após conferir caminho canônico e SHA-256.
-   Scripts precisam ser executáveis e ter shebang; não há argumentos livres nesta
-   versão. Para Python/Node, autorizar o script específico ou o interpretador para
-   uma sessão interativa, compreendendo a diferença de abrangência.
-3. Nas configurações de segurança, permitir Secrets Bridge e ativá-lo para a
-   sessão. A opção começa desabilitada. A ativação verifica a senha mestra e o
-   conteúdo do arquivo no backend, sem confiar apenas no estado visual do React.
-4. Nos detalhes da chave, clicar **Iniciar com esta chave** e confirmar novamente
-   o destino específico. Abre uma janela dedicada do Konsole com a ferramenta.
-   Outros programas e terminais existentes não recebem a variável.
-5. Revogar uma aplicação nos detalhes; bloquear o cofre ou encerrar a sessão do
-   Bridge também impede novas entregas. Salvamento, restauração e troca de cofre
-   encerram a sessão. Reativar explicitamente depois de editar permissões/chaves.
+O modelo de 1.5.0 foi alterado para **chamadas sem exportação da chave**.
+A aplicação adaptada pede uma operação pelo conector local; o KPassword mostra
+executável/PID/hash, chave, provedor e operação. Aprovar permite a chamada HTTPS;
+recusar ou não responder em 30 segundos impede a chamada. A aplicação recebe
+somente a resposta. O inicializador experimental anterior foi desativado.
 
-Claude Code recebe somente `ANTHROPIC_API_KEY`. Codex recebe `OPENAI_API_KEY` e
-overrides por processo de provider `env_key`, API OpenAI/Responses e armazenamento
-`ephemeral`, sem executar `codex login` ou escrever no `auth.json` do usuário.
-Políticas administrativas, versões diferentes das CLIs, plugins e configurações
-próprias da ferramenta podem mudar o comportamento; validar com chave fictícia
-antes de usar uma chave real. Não se aplica ao Claude Desktop ou login ChatGPT.
+O conector Python faz parte do RPM em
+`/usr/lib/KPassword/bridge/kpassword_bridge_client.py`. A integração requer
+adaptação do aplicativo/projeto; não configura automaticamente Claude/Codex nem
+SDKs OpenAI. Veja [instruções e limites](integrations/CLAUDE.md).
 
-O canal de pedido/resposta é um **socket Unix anônimo**, criado por `socketpair`,
-com endpoint herdado exclusivamente pelo inicializador filho do próprio KPassword.
-Não há pathname público, token em argv, listener HTTP, serviço permanente ou
-variável global. O descritor de capacidade é fechado antes do lançamento da
-ferramenta. A versão do protocolo é fixa; frame limitado a 32 KiB, segredo a
-16 KiB, timeouts e geração de sessão impedem pedidos pendentes de sessões antigas.
-Só o registro autorizado é entregue; nenhuma senha mestra é transmitida pelo IPC.
+Nas configurações de segurança, permitir Secrets Bridge e ativar para a sessão.
+A opção começa desabilitada; a senha mestra e o arquivo são verificados no backend.
+“Continuar permitindo” vale para chave/executável/hash/operação na sessão atual.
+Bloquear, salvar, restaurar, trocar o cofre ou encerrar o Bridge revoga novos
+pedidos. Não pode desfazer chamadas já enviadas ao provedor.
 
-UID/PID/nome/caminho não autenticam um cliente externo: não existe endpoint
-genérico para processos arbitrários pedirem segredos. O inicializador recebe a
-capacidade privada do app e todas as entregas exigem confirmação visual. SHA-256
-detecta mudanças do executável aprovado. Executáveis de até 512 MiB são verificados
-em blocos de 16 KiB, com limite também durante a leitura; isso comporta os binários
-nativos atuais do Claude e do Codex. O hash não prova identidade de seus scripts,
-bibliotecas, plugins, intérpretes ou descendentes. Há corrida residual entre
-verificar o arquivo e executá-lo se malware do mesmo usuário o substituir.
-Não prometer isolamento contra malware com privilégios do usuário, ptrace,
-instrumentação do app ou comprometimento do frontend.
+O socket Unix fica no diretório privado `secrets-bridge` da pasta de dados do app,
+com diretório 0700 e socket 0600. SO_PEERCRED verifica UID/PID; o executável é
+consultado em `/proc` e seu SHA-256/start time são conferidos antes de chamar.
+Nenhum nome informado pelo cliente é usado como identidade. Python/Node identificam
+o interpretador, não o projeto nem plugins/scripts. Não há isolamento contra
+malware da mesma conta, ptrace, root, captura de teclado ou frontend comprometido.
+Copiar um arquivo de cofre criptografado não gera uma notificação.
 
-A cadeia autorizada inclui explicitamente **Konsole, ferramenta e descendentes**.
-Esses processos podem ler, persistir, transmitir e registrar a variável. Revogar
-não recupera uma chave já entregue nem encerra automaticamente consumidores
-existentes. Para revogar uma chave comprometida, revogar também no provedor.
-Esta versão não implementa proxy de inferência nem entrega sem exposição de chave
-ao consumidor; não alterar `.bashrc`, `.profile` ou `environment.d`.
+Destinos HTTPS são fixos; o protocolo não aceita URLs/cabeçalhos do cliente.
+Redirecionamentos e proxies de ambiente estão desativados. Pedido JSON limitado a
+1 MiB, resposta a 4 MiB, leitura inicial com prazo absoluto, aprovação 30 segundos,
+chamada 60 segundos. Streaming, uso remoto/VPS e senhas convencionais não suportados.
+Não há API pública, servidor TCP nem alterações de `.bashrc` ou variáveis globais.
 
-Histórico de acesso nos detalhes lê `bridge-audit.jsonl` na pasta do app: apenas
-horário, resultado e IDs de registro/integração, sem segredo ou senha. Arquivo criado
-com modo 0600, sem seguir symlinks na escrita. A autorização é registrada e
-sincronizada em disco **antes** da entrega; falha de auditoria impede entrega.
-Registro “delivered” significa entregue ao inicializador, não autenticação bem
-sucedida no provedor. Aprovação pode aparecer seguida de negação se o IPC falhar.
-Limite de 10 MiB: arquivar esse log local manualmente antes de atingir o limite;
-um log cheio impede novas entregas. Permissões são guardadas no payload cifrado;
-histórico de autorização/revogação também entra no histórico cifrado do cofre.
+Histórico `bridge-audit.jsonl`: horário, resultado e IDs, sem chave/senha/conteúdo
+das chamadas. Escrita 0600, sem symlinks, sincronizada antes da chamada; falha ou
+limite de 10 MiB impede chamadas novas. “delivered” indica a resposta devolvida,
+não autenticação bem-sucedida no provedor: respostas HTTP de erro também podem
+ser recebidas. A autorização de sessão fica somente na memória e não muda o
+formato criptográfico dos cofres.
 
 Novos registros funcionam nas versões Windows/Fedora construídas deste branch.
 Versões Windows anteriores podem abrir o envelope, mas não conhecem o novo tipo;

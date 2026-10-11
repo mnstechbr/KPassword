@@ -58,7 +58,6 @@ import type {
   ActionHistoryEntry,
   ActionHistoryType,
   BackupFile,
-  BridgeIntegration,
   BackupVerificationReport,
   CredentialCategory,
   CredentialRecord,
@@ -1825,12 +1824,11 @@ export default function App() {
   const isLinux = platform === "linux";
   const [bridgeGeneration, setBridgeGeneration] = useState<number | null>(null);
   const [bridgeBusy, setBridgeBusy] = useState(false);
-  const [bridgeExecutable, setBridgeExecutable] = useState("");
-  const [bridgeName, setBridgeName] = useState("");
-  const [bridgeKind, setBridgeKind] = useState("custom");
   const [bridgeAudit, setBridgeAudit] = useState<Array<{ at: number; outcome: string; integration_id: string }>>([]);
-  const bridgeRequestHandler = useRef<(request: { keyId: string; integrationId: string }) => void>(() => {});
-  const externalBridgeBusy = useRef(false);
+  type AccessRequest = { requestId: string; keyId: string; executable: string; sha256: string; pid: number; provider: string; operation: string; timeoutMs: number };
+  const [bridgeAccessRequest, setBridgeAccessRequest] = useState<AccessRequest | null>(null);
+  const [rememberBridgeAccess, setRememberBridgeAccess] = useState(false);
+  const accessRequestHandler = useRef<(request: AccessRequest) => void>(() => {});
 
   useEffect(() => {
     if (!isLinux) return;
@@ -1838,15 +1836,26 @@ export default function App() {
     let unlisten: (() => void) | undefined;
     const take = async () => {
       try {
-        const request = await invoke<{ keyId: string; integrationId: string } | null>("bridge_take_request");
-        if (!disposed && request) bridgeRequestHandler.current(request);
-      } catch { /* No secret or request contents are logged. */ }
+        const request = await invoke<AccessRequest | null>("bridge_take_access_request");
+        if (!disposed && request) accessRequestHandler.current(request);
+      } catch { /* No request payload or credentials are logged. */ }
     };
-    void listen("kpassword:bridge-request", () => { void take(); }).then((stop) => {
+    void listen("kpassword:bridge-access-request", () => { void take(); }).then((stop) => {
       if (disposed) stop(); else { unlisten = stop; void take(); }
     }).catch(() => {});
     return () => { disposed = true; unlisten?.(); };
   }, [isLinux]);
+
+  useEffect(() => {
+    if (!bridgeAccessRequest) return;
+    const timer = window.setTimeout(() => {
+      void invoke("bridge_answer_access_request", { requestId: bridgeAccessRequest.requestId, approve: false, remember: false }).catch(() => {});
+      setBridgeAccessRequest(null);
+      setRememberBridgeAccess(false);
+    }, bridgeAccessRequest.timeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [bridgeAccessRequest]);
+
   useEffect(() => {
     void invoke<string>("platform_name").then((name) => {
       document.documentElement.dataset.platform = name;
@@ -2289,8 +2298,6 @@ export default function App() {
   const lockVault = useCallback(() => {
     void invoke("bridge_close").catch(() => {});
     setBridgeGeneration(null);
-    setBridgeExecutable("");
-    setBridgeName("");
     setBridgeAudit([]);
     teardownStrengthEngine();
     setVault(null);
@@ -3846,15 +3853,9 @@ export default function App() {
       let applications = credential.apiApplications ?? [];
       if (removeId) {
         applications = applications.filter((a) => a.id !== removeId);
-      } else {
-        const integration = await invoke<BridgeIntegration>("bridge_prepare", { executable: bridgeExecutable, name: bridgeName, kind: bridgeKind });
-        const ok = await askConfirmation({ title: t("bridge.authorize"), message: `${t("bridge.consumerWarning")}\n${integration.name}\n${integration.executable}\nSHA-256: ${integration.sha256}`, confirmText: t("bridge.authorize"), cancelText: t("dialog.cancel") });
-        if (!ok) return;
-        applications = [...applications, integration];
       }
       await persistVaultWithHistory({ ...vault, credentials: vault.credentials.map((c) => c.id === credential.id ? { ...c, apiApplications: applications, updatedAt: new Date().toISOString() } : c) }, createActionHistoryEntry(removeId ? "bridge_revoked" : "bridge_authorized", credential.id));
       setBridgeGeneration(null);
-      setBridgeExecutable(""); setBridgeName("");
     } catch { setMessage(t("bridge.denied")); }
     finally { setBridgeBusy(false); }
   }
@@ -3867,30 +3868,30 @@ export default function App() {
     finally { setBridgeBusy(false); }
   }
 
-  async function launchBridge(credential: CredentialRecord, integration: BridgeIntegration) {
-    if (bridgeGeneration === null || bridgeBusy || mode !== "unlocked") return;
-    const generation = bridgeGeneration;
-    setBridgeBusy(true);
-    try {
-      const ok = await askConfirmation({ title: t("bridge.launch"), message: `${t("bridge.consumerWarning")}\n${credential.title} → ${integration.name}\n${credential.apiIdentifier}\n${integration.executable}\nSHA-256: ${integration.sha256}`, confirmText: t("bridge.launch"), cancelText: t("dialog.cancel") });
-      if (!ok) return;
-      await invoke("bridge_launch", { keyId: credential.id, integrationId: integration.id, generation });
-      setBridgeAudit(await invoke("bridge_history", { keyId: credential.id }));
-      setMessage(t("bridge.sent"));
-    } catch { setMessage(t("bridge.denied")); }
-    finally { setBridgeBusy(false); }
-  }
-
-  bridgeRequestHandler.current = (request) => {
-    const credential = vault?.credentials.find((c) => c.id === request.keyId && c.itemType === "api_key" && !c.deletedAt);
-    const integration = credential?.apiApplications?.find((a) => a.id === request.integrationId);
-    if (externalBridgeBusy.current || bridgeBusy || confirmDialog || mode !== "unlocked" || bridgeGeneration === null || !credential || !integration) {
-      setMessage(t("bridge.denied"));
+  accessRequestHandler.current = (request) => {
+    if (mode !== "unlocked" || bridgeGeneration === null || bridgeBusy || confirmDialog || bridgeAccessRequest) {
+      void invoke("bridge_answer_access_request", { requestId: request.requestId, approve: false, remember: false }).catch(() => {});
       return;
     }
-    externalBridgeBusy.current = true;
-    void launchBridge(credential, integration).finally(() => { externalBridgeBusy.current = false; });
+    setRememberBridgeAccess(false);
+    setBridgeAccessRequest(request);
   };
+
+  async function answerBridgeAccess(approve: boolean) {
+    if (!bridgeAccessRequest) return;
+    const requestId = bridgeAccessRequest.requestId;
+    setBridgeAccessRequest(null);
+    try { await invoke("bridge_answer_access_request", { requestId, approve, remember: approve && rememberBridgeAccess }); }
+    catch { setMessage(t("bridge.denied")); }
+    finally { setRememberBridgeAccess(false); }
+  }
+
+  useEffect(() => {
+    if (mode !== "unlocked" || bridgeGeneration === null) {
+      setBridgeAccessRequest(null);
+      setRememberBridgeAccess(false);
+    }
+  }, [mode, bridgeGeneration]);
 
   async function handleSaveCredential(event: FormEvent) {
     event.preventDefault();
@@ -5117,6 +5118,21 @@ export default function App() {
     </div>
   );
 
+  const bridgeAccessDialogElement = bridgeAccessRequest && mode === "unlocked" ? (
+    <div className="confirmOverlay" onMouseDown={() => void answerBridgeAccess(false)}>
+      <section className="confirmCard" role="dialog" aria-modal="true" aria-labelledby="bridge-access-title" onMouseDown={(event) => event.stopPropagation()}>
+        <h2 id="bridge-access-title">{t("bridge.requestTitle")}</h2>
+        <p>{`${vault?.credentials.find((c) => c.id === bridgeAccessRequest.keyId)?.title ?? "API"}\n${bridgeAccessRequest.provider} · ${bridgeAccessRequest.operation}\n${bridgeAccessRequest.executable}\nPID: ${bridgeAccessRequest.pid}\nSHA-256: ${bridgeAccessRequest.sha256}`}</p>
+        <p>{t("bridge.proxyWarning")}</p>
+        <label className="toggleRow"><input type="checkbox" checked={rememberBridgeAccess} onChange={(e) => setRememberBridgeAccess(e.target.checked)} />{t("bridge.rememberSession")}</label>
+        <div className="confirmActions">
+          <button className="ghostButton" onClick={() => void answerBridgeAccess(false)}>{t("bridge.refuse")}</button>
+          <button className="primaryButton" onClick={() => void answerBridgeAccess(true)}>{t("bridge.approve")}</button>
+        </div>
+      </section>
+    </div>
+  ) : null;
+
   const confirmDialogElement = confirmDialog ? (
     <div className="confirmOverlay" onMouseDown={() => closeConfirmDialog(false)}>
       <section className="confirmCard" onMouseDown={(event) => event.stopPropagation()}>
@@ -5767,7 +5783,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}
+        {confirmDialogElement}{bridgeAccessDialogElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -5851,7 +5867,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}
+        {confirmDialogElement}{bridgeAccessDialogElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -5919,7 +5935,7 @@ export default function App() {
             </footer>
           </section>
         </main>
-        {confirmDialogElement}
+        {confirmDialogElement}{bridgeAccessDialogElement}
         {restoreBackupDialog}
         {newVaultDialog}
       </>
@@ -7307,12 +7323,8 @@ export default function App() {
                   <div><span>{t("api.secret")}</span><strong>{visiblePasswords[detailCredential.id] ? detailCredential.password : "••••••••"}</strong></div>
                 </div>
                 {isLinux && <div className="historyBox">
-                  <h3>Secrets Bridge</h3><p>{t("bridge.consumerWarning")}</p>
-                  <label>{t("bridge.name")}<input value={bridgeName} onChange={(e) => setBridgeName(e.target.value)} /></label>
-                  <label>{t("bridge.consumer")}<select value={bridgeKind} onChange={(e) => setBridgeKind(e.target.value)}><option value="claude">Claude Code CLI</option><option value="codex">Codex CLI</option><option value="custom">{t("bridge.custom")}</option></select></label>
-                  <label>{t("bridge.executable")}<input value={bridgeExecutable} onChange={(e) => setBridgeExecutable(e.target.value)} placeholder="/home/usuario/.local/bin/claude" /></label>
-                  <button type="button" disabled={bridgeBusy || !bridgeExecutable || !bridgeName} onClick={() => void changeBridgeGrant(detailCredential)}>{t("bridge.authorize")}</button>
-                  {(detailCredential.apiApplications ?? []).map((a) => <article key={a.id} className="historyItem"><div><strong>{a.name}</strong><span>{a.executable}</span><code>kpassword --bridge-request {detailCredential.id} {a.id}</code></div><div className="historyActions"><button type="button" disabled={bridgeBusy || bridgeGeneration === null} onClick={() => void launchBridge(detailCredential, a)}>{t("bridge.launch")}</button><button type="button" disabled={bridgeBusy} onClick={() => void changeBridgeGrant(detailCredential, a.id)}>{t("bridge.revoke")}</button></div></article>)}
+                  <h3>Secrets Bridge</h3><p>{t("bridge.description")}</p><p>{t("bridge.connectorHelp")}</p><code>{detailCredential.id}</code>
+                  {(detailCredential.apiApplications ?? []).map((a) => <article key={a.id} className="historyItem"><div><strong>{a.name}</strong><span>{a.executable}</span><span>{t("bridge.exportDisabled")}</span></div><button type="button" disabled={bridgeBusy} onClick={() => void changeBridgeGrant(detailCredential, a.id)}>{t("bridge.revoke")}</button></article>)}
                   <button type="button" onClick={() => { void invoke<typeof bridgeAudit>("bridge_history", { keyId: detailCredential.id }).then(setBridgeAudit).catch(() => setMessage(t("bridge.denied"))); }}>{t("bridge.history")}</button>
                   {bridgeAudit.map((event, i) => <p key={`${event.at}-${i}`}>{formatDate(new Date(event.at).toISOString(), appLanguage)} · {t(`bridge.outcome.${event.outcome}`)} · {event.integration_id}</p>)}
                 </div>}
@@ -8145,7 +8157,7 @@ export default function App() {
       {csvImportDialog}
       {actionHistoryDialog}
       {appDiagnosticsDialog}
-      {confirmDialogElement}
+      {confirmDialogElement}{bridgeAccessDialogElement}
       {restoreBackupDialog}
     </main>
   );

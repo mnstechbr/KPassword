@@ -2506,6 +2506,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(secrets_bridge::BridgeState::default())
         .manage(secrets_bridge::BridgeRequests::default())
+        .manage(secrets_bridge::broker::BrokerState::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -2579,6 +2580,8 @@ pub fn run() {
             secrets_bridge::bridge_launch,
             secrets_bridge::bridge_history,
             secrets_bridge::bridge_take_request,
+            secrets_bridge::broker::bridge_take_access_request,
+            secrets_bridge::broker::bridge_answer_access_request,
             platform_name,
             linux_clipboard,
             linux_capture_qr,

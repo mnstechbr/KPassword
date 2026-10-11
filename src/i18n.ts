@@ -4084,7 +4084,14 @@ const v134Translations: Record<AppLanguage, Record<string, string>> = {
 
 
 const apiTranslations: Record<string, [string, string]> = {
-  "bridge.description": ["Inicializador local opcional, com confirmação por lançamento. Configure as aplicações nos detalhes de uma API Key.", "Optional local launcher with confirmation on every launch. Configure applications in API Key details."],
+  "bridge.description": ["Ponte local opcional: aplicações integradas pedem autorização para chamadas de API. A chave fica no KPassword.", "Optional local bridge: integrated applications request approval for API calls. The key stays in KPassword."],
+  "bridge.requestTitle": ["Aplicação solicitando uma chamada de API", "Application requesting an API call"],
+  "bridge.proxyWarning": ["A chave não será entregue. Esta autorização permite uma chamada ao provedor e pode gerar cobrança. Sem resposta em 30 segundos, o pedido é recusado. O caminho identifica o executável; se for Python, Node ou outro interpretador, não identifica o projeto nem seus scripts. Não há isolamento contra malware da mesma conta.", "The key will not be delivered. This approval permits a provider call and may incur charges. No answer within 30 seconds denies the request. The path identifies the executable; for Python, Node or another interpreter it does not identify the project or scripts. This does not isolate against same-account malware."],
+  "bridge.rememberSession": ["Continuar permitindo esta aplicação, chave e operação nesta sessão do Bridge", "Keep allowing this application, key and operation in this Bridge session"],
+  "bridge.refuse": ["Recusar", "Deny"],
+  "bridge.approve": ["Aprovar chamada", "Approve call"],
+  "bridge.connectorHelp": ["ID da chave para configurar o conector de chamadas (não é uma credencial). OpenAI: responses, chat e embeddings; DeepSeek: chat; Anthropic: messages. Requer adaptação da aplicação. Acesso remoto e streaming ainda não são suportados.", "Key ID for configuring the request connector (not a credential). OpenAI: responses, chat and embeddings; DeepSeek: chat; Anthropic: messages. Requires application adaptation. Remote access and streaming are not supported yet."],
+  "bridge.exportDisabled": ["Entrega da chave ao programa desativada", "Exporting the key to programs is disabled"],
   "bridge.consumerWarning": ["Você autoriza este executável, uma janela dedicada do Konsole e seus descendentes a ler a chave. Eles podem copiá-la ou registrá-la. Não há isolamento contra malware do mesmo usuário.", "You authorize this executable, a dedicated Konsole window and their descendants to read the key. They may copy or log it. This does not isolate against malware running as your user."],
   "bridge.enable": ["Permitir Secrets Bridge neste cofre", "Allow Secrets Bridge for this vault"],
   "bridge.activate": ["Ativar nesta sessão", "Activate for this session"],
@@ -4102,7 +4109,7 @@ const apiTranslations: Record<string, [string, string]> = {
   "bridge.denied": ["Bridge indisponível, sessão expirada ou acesso negado. Verifique permissões e reative a sessão.", "Bridge unavailable, session expired or access denied. Check permissions and reactivate the session."],
   "bridge.sent": ["Chave entregue ao inicializador autorizado.", "Key delivered to the authorized launcher."],
   "bridge.outcome.approved": ["Entrega autorizada", "Delivery approved"],
-  "bridge.outcome.delivered": ["Entregue ao inicializador", "Delivered to launcher"],
+  "bridge.outcome.delivered": ["Resposta entregue pelo Bridge", "Response delivered by Bridge"],
   "bridge.outcome.denied": ["Acesso negado", "Access denied"],
   "actionHistory.type.bridge_authorized": ["Integração autorizada", "Integration authorized"],
   "actionHistory.type.bridge_revoked": ["Integração revogada", "Integration revoked"],
