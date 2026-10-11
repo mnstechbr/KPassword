@@ -537,9 +537,20 @@ textarea { min-height: 100px; }
 .authForm input { min-height: 44px; font-size: 1rem; border-radius: 8px; }
 .authForm .primaryButton, .authForm .windowsHelloButton { min-height: 44px; font-size: 1rem; border-radius: 8px; padding: 10px 16px; }
 .authDeveloperCredit { grid-column: 1 / -1; position: static; margin: 0; padding: 12px 0 0; font-size: .8rem; color: var(--muted); text-align: center; }
-.authSetup .authHeroBlock { grid-row: 2; }
-.authSetup .authPanel { grid-row: 2 / 4; }
-.authSetup .firstUseGuide { grid-column: 1; grid-row: 3; display: grid; grid-template-columns: 1fr; gap: 8px; max-width: none; padding: 0 16px; margin: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
+.authCard.authExperience.authSetup {
+  grid-template-areas: none; grid-template-rows: auto minmax(min-content, 1fr) auto auto;
+  padding: 24px 32px; gap: 16px;
+}
+.authSetup .authUtilityBar { grid-area: 1 / 1 / 2 / -1; }
+.authSetup .authHeroBlock { grid-area: 2 / 1; padding: 12px; }
+.authSetup .authHeroBlock .appLogo.lg { width: 160px; height: 160px; }
+.authSetup .authPanel { grid-area: 2 / 2; }
+.authSetup .firstUseGuide {
+  grid-area: 3 / 1 / 4 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 20px; max-width: none; padding: 0; margin: 0;
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+}
+.authSetup .authDeveloperCredit { grid-area: 4 / 1 / 5 / -1; }
 .firstUseGuide span { color: var(--muted); font-size: .86rem; }
 .authLoadingBar { border-radius: 6px; background: var(--selection); }
 
@@ -616,13 +627,19 @@ textarea { min-height: 100px; }
   .authLoginTools { flex: 1 1 400px; }
   .authCard, .authCard.authExperience { width: min(960px, 100%); }
 }
+@media (min-width: 681px) and (max-width: 800px) {
+  .authCard.authExperience.authSetup { display: grid; padding: 24px; }
+  .authSetup.authExperience .authHeroBlock .appLogo.lg { width: 144px; height: 144px; }
+  .authSetup.authExperience .firstUseGuide { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 800px) {
   .authCard, .authCard.authExperience, .authCard.authLocked, .authCard.authSetup { display: flex; flex-direction: column; padding: 20px; gap: 20px; }
   .authHeroBlock, .authLogoStage { padding: 0; }
   .authHeroBlock .appLogo.lg, .authLogoStage .appLogo.lg, .authLocked .authHeroBlock .vaultLogo { width: 112px; height: 112px; }
   .authPanel, .authUnlockPanel, .authLocked .authUnlockPanel { padding: 0; width: 100%; }
   .authLoginTools { justify-content: flex-start; }
-  .authSetup .firstUseGuide { padding: 0; }
+  .authSetup .firstUseGuide { padding: 0; grid-template-columns: 1fr; }
+  .authSetup .authHeroBlock .appLogo.lg { width: 112px; height: 112px; }
   .backupPage > .designDisclosure:last-child .exportActionGrid { grid-template-columns: 1fr; }
   .backupPage > .designDisclosure:last-child .exportBox { padding: 12px 0; border-right: 0; border-bottom: 1px solid var(--border); }
   .backupPage > .designDisclosure:last-child .exportBox:last-child { border-bottom: 0; }
