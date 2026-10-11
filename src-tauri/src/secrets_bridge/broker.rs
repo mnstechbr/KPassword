@@ -411,8 +411,12 @@ mod linux {
                 let state = app.state::<BrokerState>();
                 let mut hub = state.0.lock().map_err(|_| DENIED)?;
                 if hub.pending.as_ref().is_some_and(|p| p.request.request_id == request_id) { hub.pending = None; }
+                // A different worker may already have presented its approval.
+                // Keep dismissal and pending ownership under the same lock.
+                if hub.pending.is_none() {
+                    if let Some(window) = app.get_webview_window("bridge-approval") { let _ = window.hide(); }
+                }
             }
-            if let Some(window) = app.get_webview_window("bridge-approval") { let _ = window.hide(); }
             if approved {
                 let state = app.state::<BrokerState>();
                 let mut hub = state.0.lock().map_err(|_| DENIED)?;
