@@ -30,6 +30,15 @@ const linuxText: Record<string, [string, string]> = {
   "preferences.updatesDescription": ["Abra o GitHub Releases, baixe o RPM mais recente e instale pelo gestor de pacotes. A instalação requer sua autorização de administrador.", "Open GitHub Releases, download the latest RPM and install it with your package manager. Installation requires your administrator authorization."],
   "updates.checking": ["Abrindo GitHub Releases. Baixe o RPM e atualize com: sudo dnf upgrade ./arquivo.rpm", "Opening GitHub Releases. Download the RPM and update with: sudo dnf upgrade ./file.rpm"],
   "appDiagnostics.updaterValue": ["Atualização RPM pelo gestor de pacotes", "RPM updates through the package manager"],
+  "appDiagnostics.settingsDescription": ["Confira versão, inicialização, bandeja, backups e integração com o desktop.", "Check version, startup, tray, backups and desktop integration."],
+  "appDiagnostics.windowsHello": ["Desbloqueio pelo sistema", "System unlock"],
+  "appDiagnostics.startup": ["Iniciar com a sessão Linux", "Start with the Linux session"],
+  "appDiagnostics.startupName": ["Entrada de autostart", "Autostart entry"],
+  "appDiagnostics.memoryValue": ["Gerenciada pelo desktop e pelo runtime WebKitGTK", "Managed by the desktop and WebKitGTK runtime"],
+  "appDiagnostics.webview": ["Interface WebKitGTK", "WebKitGTK interface"],
+  "appDiagnostics.webviewValue": ["Runtime usado para renderizar a interface no Linux", "Runtime used to render the interface on Linux"],
+  "appDiagnostics.windowsProcessNoteTitle": ["Sobre a interface no Linux", "About the Linux interface"],
+  "appDiagnostics.windowsProcessNote": ["No Linux, o KPassword usa Tauri e WebKitGTK. Bandeja, captura de QR e inicialização dependem da integração disponível no desktop.", "On Linux, KPassword uses Tauri and WebKitGTK. Tray, QR capture and startup depend on the desktop integration available."],
 };
 
 export function linuxTranslation(key: string, language: AppLanguage): string | undefined {
