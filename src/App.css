@@ -14855,3 +14855,31 @@ textarea {
   }
 }
 
+
+.bridgeDesktopApproval { box-sizing: border-box; min-height: 100vh; padding: 20px; color: #e7eaf3; background: #101524; font: 14px/1.45 system-ui,sans-serif; overflow-wrap: anywhere; }
+.bridgeDesktopApproval header,.bridgeDesktopApproval footer { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+.bridgeDesktopApproval h1 { font-size:20px; margin:16px 0; }
+.bridgeDesktopApproval dt { color:#aab5ce; font-size:12px; margin-top:10px; }
+.bridgeDesktopApproval dd { margin:2px 0; }
+.bridgeDesktopApproval label { display:block; margin:14px 0; }
+.bridgeDesktopApproval input[type=checkbox] { margin-right:8px; }
+.bridgeDesktopApproval input[type=number] { display:block; width:100%; box-sizing:border-box; }
+.bridgeDesktopApproval small { display:block; color:#aab5ce; }
+.bridgeDesktopApproval footer { margin-top:20px; position:sticky; bottom:0; background:#101524; padding:8px 0; }
+.bridgeDesktopApproval button { padding:10px 12px; border-radius:12px; }
+.bridgeSessionStatus { position:fixed; bottom:12px; right:12px; max-width:calc(100vw - 48px); z-index:40; display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 14px; border:1px solid #507895; border-radius:14px; background:#101b2f; color:#e7eaf3; font-size:12px; }
+.bridgeSessionStatus button { padding:6px 10px; }
+.bridgePermission { border-top:1px solid #506078; padding:12px 0; display:grid; gap:6px; overflow-wrap:anywhere; }
+.bridgeDesktopApproval { height:100vh; overflow:auto; }
+.bridgeDesktopApproval label { color:#e7eaf3; display:flex; align-items:flex-start; gap:8px; font-size:14px; }
+.bridgeDesktopApproval input[type=checkbox] { appearance:auto; flex:0 0 18px; width:18px; height:18px; min-height:0; padding:0; margin:2px 0 0; box-shadow:none; }
+.bridgeDesktopApproval label:has(input[type=number]) { display:block; }
+.bridgeDesktopApproval input[type=number] { width:100%; min-height:36px; margin-top:6px; padding:6px 10px; color:#e7eaf3; background:#202a3e; }
+.bridgeDesktopApproval footer { align-items:stretch; }
+.bridgeDesktopApproval footer button { width:auto; min-width:88px; min-height:44px; flex:0 0 auto; white-space:normal; }
+.bridgeDesktopApproval footer .primaryButton { flex:1; }
+.bridgeDesktopApproval footer button:first-child { background:#273047; color:#e7eaf3; border:1px solid #63718c; }
+.bridgeDesktopApproval { display:flex; flex-direction:column; overflow:hidden; }
+.bridgeDesktopApproval > header,.bridgeDesktopApproval > h1,.bridgeDesktopApproval > footer { flex-shrink:0; }
+.bridgeApprovalContent { flex:1; min-height:0; overflow:auto; padding-right:6px; }
+.bridgeDesktopApproval footer { position:static; margin-top:12px; padding:8px 0 0; }

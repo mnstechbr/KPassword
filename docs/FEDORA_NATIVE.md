@@ -21,13 +21,13 @@ cargo test --locked --lib --manifest-path src-tauri/Cargo.toml
 npm run tauri -- build --ci --bundles rpm -- --locked
 ```
 
-RPM: `src-tauri/target/release/bundle/rpm/KPassword-1.5.0-1.x86_64.rpm`.
+RPM: `src-tauri/target/release/bundle/rpm/KPassword-1.5.1-1.x86_64.rpm`.
 O nome do pacote RPM é **k-password**, e o executável é `/usr/bin/kpassword`.
 No ambiente desta implementação o cache Cargo temporário foi selecionado por
 `CARGO_HOME=/tmp/kpassword-cargo-home`; o usuário pode usar seu cache normal.
 
 ```bash
-sudo dnf install ./src-tauri/target/release/bundle/rpm/KPassword-1.5.0-1.x86_64.rpm
+sudo dnf install ./src-tauri/target/release/bundle/rpm/KPassword-1.5.1-1.x86_64.rpm
 ```
 
 Para atualizar a partir de um RPM futuro validado, instalar o novo arquivo com
@@ -114,7 +114,7 @@ limitação explícita desta implementação, não equivalência com Windows Hel
 
 O modelo de 1.5.0 foi alterado para **chamadas sem exportação da chave**.
 A aplicação adaptada pede uma operação pelo conector local; o KPassword mostra
-executável/PID/hash, chave, provedor e operação. Aprovar permite a chamada HTTPS;
+executável/script/diretório, chave, provedor, operação e modelo em janela própria na área de trabalho. Aprovar permite a chamada HTTPS;
 recusar ou não responder em 30 segundos impede a chamada. A aplicação recebe
 somente a resposta. O inicializador experimental anterior foi desativado.
 
@@ -123,17 +123,17 @@ O conector Python faz parte do RPM em
 adaptação do aplicativo/projeto; não configura automaticamente Claude/Codex nem
 SDKs OpenAI. Veja [instruções e limites](integrations/CLAUDE.md).
 
-Nas configurações de segurança, permitir Secrets Bridge e ativar para a sessão.
+Nas configurações de segurança, permitir Secrets Bridge e ativar por 24, 48 ou 72 horas (padrão 48), ou até sair/reiniciar.
 A opção começa desabilitada; a senha mestra e o arquivo são verificados no backend.
-“Continuar permitindo” vale para chave/executável/hash/operação na sessão atual.
-Bloquear, salvar, restaurar, trocar o cofre ou encerrar o Bridge revoga novos
-pedidos. Não pode desfazer chamadas já enviadas ao provedor.
+“Continuar permitindo” inclui chave, executável/script/hash, diretório, operação e modelo.
+Bloqueio automático e X preservam a ponte. Bloqueio manual, edição, restauração,
+troca de cofre ou encerramento revogam pedidos. Reabrir/desbloquear preserva a ponte:
+uma gravação autenticada somente de histórico é validada no backend sem modificar a concessão. Não pode desfazer chamadas já enviadas ao provedor.
 
 O socket Unix fica no diretório privado `secrets-bridge` da pasta de dados do app,
 com diretório 0700 e socket 0600. SO_PEERCRED verifica UID/PID; o executável é
 consultado em `/proc` e seu SHA-256/start time são conferidos antes de chamar.
-Nenhum nome informado pelo cliente é usado como identidade. Python/Node identificam
-o interpretador, não o projeto nem plugins/scripts. Não há isolamento contra
+Nenhum nome informado pelo cliente é usado como identidade. Scripts identificáveis e diretório passam a compor a permissão na 1.5.1; a identificação de script suporta Python/Node/Bun/Deno. Interpretadores reconhecidos sem script identificável (incluindo Ruby/Perl/PHP/shell/Java/.NET) recebem somente aprovação única; runtimes desconhecidos não têm garantia de identificação de script. Diretório/script não isolam malware da mesma conta. Não há isolamento contra
 malware da mesma conta, ptrace, root, captura de teclado ou frontend comprometido.
 Copiar um arquivo de cofre criptografado não gera uma notificação.
 
