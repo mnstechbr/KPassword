@@ -1,7 +1,7 @@
 """Local Fedora connector: request an API call, never retrieve an API key.
 
 Import request_api from application code. No environment variable containing a
-provider key is required. Python's executable is the OS identity, not the script.
+provider key is required. The broker observes the process, entry script and working directory; no claimed identity.
 """
 import json
 import os

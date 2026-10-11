@@ -55,7 +55,7 @@ def prepare(run, sha, version, publish=False):
     base = f"https://github.com/{REPO}/releases/download/v{version}"
     manifest = {
         "version": version,
-        "notes": "Windows e Fedora nativo. Assinatura renovada: versões Windows anteriores exigem instalação manual desta versão.",
+        "notes": "Windows e Fedora nativo. Consulte as notas da Release para alterações e requisitos de atualização.",
         "pub_date": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "platforms": {"windows-x86_64": {"url": f"{base}/{exe.name}", "signature": Path(str(exe) + ".sig").read_text().strip()}}
     }
