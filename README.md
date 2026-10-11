@@ -47,7 +47,7 @@ Disponível **localmente no Fedora**. O Bridge não exporta a chave para `.env`,
 4. Integre o conector no processo da aplicação. Quando ela solicitar uma chamada, aparece uma **janela própria de aprovação na área de trabalho**, mesmo com o cofre bloqueado na bandeja.
 5. Escolha **Aprovar uma vez**, **Recusar** ou **Continuar permitindo**. Fechar o popup ou ignorá-lo por 30 segundos recusa o pedido.
 
-A permissão contínua inclui identidade observada do executável/script, diretório de trabalho, credencial, operação e modelo. **Trocar de tarefa no mesmo contexto não exige nova aprovação.** Mudanças nesses elementos exigem outro pedido. Interpretadores sem script identificável aceitam apenas aprovação única.
+A permissão contínua inclui identidade observada do executável/script, diretório de trabalho, credencial, operação e modelo. **Trocar de tarefa no mesmo contexto não exige nova aprovação.** Mudanças nesses elementos exigem outro pedido. A identificação de script suporta Python, Node, Bun e Deno. Interpretadores reconhecidos sem script identificável, incluindo Ruby/Perl/PHP/shell/Java/.NET, aceitam apenas aprovação única; runtimes desconhecidos não têm garantia de identificação de script.
 
 **O bloqueio automático da interface e o X não encerram a ponte.** A sessão termina quando expira, o KPassword é encerrado, o computador reinicia, o cofre é editado/trocado ou o usuário bloqueia manualmente/revoga o acesso. Use o ícone da bandeja para **Revogar todos os acessos da ponte**, ou consulte/revogue permissões individuais em Segurança → Mostrar opções avançadas. As autorizações não ficam salvas em disco; reiniciar exige desbloquear e reativar a ponte.
 

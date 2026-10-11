@@ -55,8 +55,10 @@ O inicializador antigo `--bridge-request` não entrega mais chaves.
 script de entrada quando identificável e diretório. O conector CLI tenta identificar
 o script do lançador em uma cadeia limitada; preferimos integrar request_api no
 processo do projeto. Mudança de script/hash, diretório, modelo ou operação pede
-nova aprovação. Interpretadores sem script identificável aceitam apenas aprovação
-única. Nome declarado pelo cliente não é uma identidade confiável.
+nova aprovação. A identificação de script suporta Python, Node, Bun e Deno. Interpretadores
+reconhecidos sem script identificável, incluindo Ruby/Perl/PHP/shell/Java/.NET,
+aceitam apenas aprovação única; runtimes desconhecidos não têm garantia de
+identificação de script. Nome declarado pelo cliente não é uma identidade confiável.
 
 Isso não é um sandbox contra malware da mesma conta, root, depuração/injeção,
 captura de teclado ou furto da senha mestra. Outro processo comprometido dessa
