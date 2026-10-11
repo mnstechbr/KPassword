@@ -57,6 +57,29 @@ class ConnectorTests(unittest.TestCase):
             with self.assertRaises(bridge.BridgeDenied):
                 bridge.request_api("key-a", "chat", body, socket_path="/nonexistent")
 
+    def test_diagnostic_codes_are_distinct_and_unknown_payloads_are_sanitized(self):
+        for code in ["bridge_inactive","key_not_found","user_denied","approval_expired","session_expired"]:
+            error=bridge.BridgeDenied(code)
+            self.assertEqual(error.code,code)
+            self.assertNotIn("secret",str(error))
+        self.assertEqual(bridge.BridgeDenied("fake-key-secret").code,"request_failed")
+        self.exchange({"ok":False,"error":{"code":"user_denied","message":"do not echo"}},True)
+
+    def test_streaming_records_preserve_events_and_require_completion(self):
+        with tempfile.TemporaryDirectory(prefix="kpassword-stream-test-") as directory:
+            path=Path(directory)/"request.sock"
+            with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as server:
+                server.bind(str(path));path.chmod(0o600);server.listen(1)
+                def respond():
+                    with server.accept()[0] as channel:
+                        with channel.makefile("rb") as reader: request=json.loads(reader.readline())
+                        self.assertTrue(request["body"]["stream"])
+                        for record in [{"ok":True,"status":200,"stream":True},{"event":"message_stop","data":{"type":"message_stop"}},{"done":True}]:
+                            channel.sendall(json.dumps(record).encode()+b"\n")
+                thread=threading.Thread(target=respond);thread.start()
+                events=list(bridge.stream_api("key-a","messages",{"model":"fictional"},socket_path=path));thread.join(3)
+                self.assertEqual(events,[{"event":"message_stop","data":{"type":"message_stop"}}])
+
     def test_non_private_socket_is_denied(self):
         with tempfile.TemporaryDirectory(prefix="kpassword-connector-mode-") as directory:
             path = Path(directory) / "request.sock"
