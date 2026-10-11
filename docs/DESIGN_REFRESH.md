@@ -132,3 +132,23 @@ a transição para 640 px e o retorno a 1120 px, com altura de 720 px. A sequên
 também passou em 800 px com fonte maior, sem rolagem na barra lateral. O build
 passou. É necessário repetir a sequência no WebKitGTK do aplicativo real para
 confirmar a correção do comportamento específico mostrado pelo usuário.
+
+### Limpeza da navegação e alternância rápida
+
+A transição de 180 ms da largura da grade foi retirada: os rótulos eram exibidos
+imediatamente enquanto a coluna ainda crescia, permitindo quebra de texto e
+aumento temporário dos botões. A abertura agora aplica largura e rótulos juntos;
+as transições de cor dos controles continuam disponíveis.
+
+Foram removidos 264 seletores de navegação do CSS legado, eliminando 129 regras
+inteiras e mantendo os demais seletores das regras compartilhadas. Também foram
+retirados os blocos obsoletos do menu responsivo de 980 px e seus comentários.
+`src/design.css` é a única fonte de estilos específica do menu. A limpeza é
+limitada à navegação; outros fluxos ainda têm estruturas na camada `legacy`.
+
+Na prévia, 40 alternâncias consecutivas em 1120, 800, 700 e 1440 px mantiveram
+os botões em 44 px, sem transição de largura e sem rolagem na barra lateral.
+Foram reconferidos o menu horizontal em 360 px, o tema claro e a navegação nas
+seis páginas principais. Os 140 testes passaram novamente e o build passou.
+A confirmação do efeito transitório no WebKitGTK continua sendo feita no app
+nativo pelo usuário.

@@ -128,7 +128,8 @@ textarea { min-height: 100px; }
 .appShell, .appShell.sidebarOpen, .appShell.sidebarClosed {
   height: 100dvh; min-height: 0; width: 100%; min-width: 0; overflow: hidden;
   display: grid; grid-template-rows: minmax(0, 1fr);
-  background: var(--canvas); transition: grid-template-columns 180ms ease;
+  /* Labels and width must change together; intermediate widths wrap menu text. */
+  background: var(--canvas); transition: none;
 }
 .appShell.sidebarOpen { grid-template-columns: 208px minmax(0, 1fr); }
 .appShell.sidebarClosed { grid-template-columns: 72px minmax(0, 1fr); }
@@ -160,13 +161,14 @@ textarea { min-height: 100px; }
 }
 .appLogo.sm { width: 28px; height: 28px; }
 .brandText, .sidebarOpen .brandText { display: block; width: auto; max-width: none; opacity: 1; margin: 0; }
-.brandText strong { font-size: 1rem; }
-.brandText span { font-size: .75rem; color: var(--muted); }
+.brandText strong { display: block; font-size: 1rem; }
+.brandText span { display: block; font-size: .75rem; color: var(--muted); }
 .sidebarClosed .brandText, .sidebarClosed .navLabel { display: none; }
 .navList {
   display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
   grid-template-columns: none; grid-template-rows: none; align-content: start;
   gap: 6px; width: 100%; margin: 0; padding: 0; flex: 0 0 auto;
+  max-height: none; height: auto; overflow: visible;
 }
 .navList button, .lockButton, .sidebarClosed .lockButton {
   display: flex; align-items: center; justify-content: flex-start; width: 100%;
@@ -186,7 +188,6 @@ textarea { min-height: 100px; }
 .sidebarClosed .navList button, .sidebarClosed .lockButton { justify-content: center; padding: 10px; }
 .sidebarFooter { margin-top: auto; width: 100%; min-width: 0; max-width: none; }
 .sidebarBrand, .sidebarFooter { flex-shrink: 0; }
-.navList { max-height: none; height: auto; flex-shrink: 0; overflow: visible; }
 .content, .appShell:not(.authShell) .content {
   display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0;
   grid-area: 1 / 2;
