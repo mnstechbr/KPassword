@@ -32,7 +32,7 @@ def request_api(key_id, operation, body, *, socket_path=None):
         if not expected(meta.st_mode) or meta.st_uid != os.getuid() or meta.st_mode & 0o077:
             raise BridgeDenied("Bridge endpoint is not private")
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as channel:
-        channel.settimeout(95)
+        channel.settimeout(120)
         channel.connect(str(path))
         _, uid, _ = struct.unpack("3i", channel.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
         if uid != os.getuid():

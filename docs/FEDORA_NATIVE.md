@@ -21,13 +21,13 @@ cargo test --locked --lib --manifest-path src-tauri/Cargo.toml
 npm run tauri -- build --ci --bundles rpm -- --locked
 ```
 
-RPM: `src-tauri/target/release/bundle/rpm/KPassword-1.4.1-3.x86_64.rpm`.
+RPM: `src-tauri/target/release/bundle/rpm/KPassword-1.5.0-1.x86_64.rpm`.
 O nome do pacote RPM é **k-password**, e o executável é `/usr/bin/kpassword`.
 No ambiente desta implementação o cache Cargo temporário foi selecionado por
 `CARGO_HOME=/tmp/kpassword-cargo-home`; o usuário pode usar seu cache normal.
 
 ```bash
-sudo dnf install ./src-tauri/target/release/bundle/rpm/KPassword-1.4.1-3.x86_64.rpm
+sudo dnf install ./src-tauri/target/release/bundle/rpm/KPassword-1.5.0-1.x86_64.rpm
 ```
 
 Para atualizar a partir de um RPM futuro validado, instalar o novo arquivo com
