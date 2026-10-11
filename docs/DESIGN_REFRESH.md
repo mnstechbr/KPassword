@@ -152,3 +152,25 @@ Foram reconferidos o menu horizontal em 360 px, o tema claro e a navegação nas
 seis páginas principais. Os 140 testes passaram novamente e o build passou.
 A confirmação do efeito transitório no WebKitGTK continua sendo feita no app
 nativo pelo usuário.
+
+### Animação estável e troca de páginas
+
+O menu recebeu uma nova transição de 200 ms. Rótulos e marca ficam posicionados
+fora do fluxo, com largura fixa, sem quebra de linha, e são recortados enquanto
+a coluna se move. Os ícones mantêm sua posição e os botões sua altura. Com fonte
+maior, a largura expandida aumenta para 240 px para mostrar os nomes completos.
+Isso substitui a transição anterior, que permitia refluência do texto.
+
+As páginas deixam de entrar com opacidade zero: usam somente um deslocamento
+discreto, com conteúdo opaco desde o primeiro quadro. O espaço da barra de
+rolagem é reservado nos runtimes que suportam `scrollbar-gutter`. O retorno ao
+topo usa `useLayoutEffect` para acontecer antes da pintura, evitando um quadro
+na posição de rolagem anterior. Diálogos mantêm sua animação própria.
+
+Na prévia isolada, foram feitas 32 alternâncias em quatro larguras, com botões
+de 44 px, sem transbordamento no menu. As seis páginas mantiveram opacidade 1
+e largura sem transbordamento. A fonte maior preservou nomes completos, sem
+quebra de linha. Com redução de movimento ativada, a duração foi 0 s e a
+animação da página foi desativada; a troca a partir de uma área rolada voltou
+ao topo. A navegação horizontal em 360 px foi reconferida. A percepção visual
+final no aplicativo nativo continua sujeita ao teste do usuário antes do push.

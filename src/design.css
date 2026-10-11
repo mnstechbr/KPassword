@@ -128,22 +128,23 @@ textarea { min-height: 100px; }
 .appShell, .appShell.sidebarOpen, .appShell.sidebarClosed {
   height: 100dvh; min-height: 0; width: 100%; min-width: 0; overflow: hidden;
   display: grid; grid-template-rows: minmax(0, 1fr);
-  /* Labels and width must change together; intermediate widths wrap menu text. */
-  background: var(--canvas); transition: none;
+  --sidebar-expanded-width: 208px;
+  background: var(--canvas); transition: grid-template-columns 200ms cubic-bezier(.2, .8, .2, 1);
 }
-.appShell.sidebarOpen { grid-template-columns: 208px minmax(0, 1fr); }
+.appShell.sidebarOpen { grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr); }
 .appShell.sidebarClosed { grid-template-columns: 72px minmax(0, 1fr); }
+:root[data-font-scale="large"] .appShell { --sidebar-expanded-width: 240px; }
 .sidebar, .sidebarOpen .sidebar, .sidebarClosed .sidebar {
   display: flex; flex-direction: column; justify-content: flex-start; align-self: stretch; align-items: stretch;
   gap: 24px; width: auto; height: 100%; max-height: none; margin: 0;
   grid-area: 1 / 1;
   min-width: 0; min-height: 0; padding: 16px 12px; position: static;
-  overflow: auto; border: 0; border-right: 1px solid var(--border);
+  overflow: hidden auto; border: 0; border-right: 1px solid var(--border);
   background: var(--sidebar); box-shadow: none; backdrop-filter: none;
 }
 .sidebarBrand, .sidebarOpen .sidebarBrand, .sidebarClosed .sidebarBrand {
   display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin: 0; padding: 0;
-  width: 100%; min-width: 0; max-width: none;
+  width: 100%; min-width: 0; max-width: none; position: relative; min-height: 44px; overflow: hidden;
 }
 .sidebarToggle, .sidebarOpen .sidebarToggle, .sidebarClosed .sidebarToggle {
   display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px;
@@ -160,10 +161,17 @@ textarea { min-height: 100px; }
   width: 100%; height: 100%; object-fit: contain; transform: none; filter: none;
 }
 .appLogo.sm { width: 28px; height: 28px; }
-.brandText, .sidebarOpen .brandText { display: block; width: auto; max-width: none; opacity: 1; margin: 0; }
+.brandText, .sidebarOpen .brandText {
+  display: block; position: absolute; left: 54px; width: calc(var(--sidebar-expanded-width) - 80px);
+  max-width: none; white-space: nowrap; opacity: 1; margin: 0;
+  transition: opacity 120ms ease, transform 200ms ease, visibility 0s;
+}
 .brandText strong { display: block; font-size: 1rem; }
 .brandText span { display: block; font-size: .75rem; color: var(--muted); }
-.sidebarClosed .brandText, .sidebarClosed .navLabel { display: none; }
+.sidebarClosed .brandText, .sidebarClosed .navLabel {
+  visibility: hidden; opacity: 0; transform: translateX(-6px); pointer-events: none;
+  transition: opacity 100ms ease, transform 200ms ease, visibility 0s 100ms;
+}
 .navList {
   display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
   grid-template-columns: none; grid-template-rows: none; align-content: start;
@@ -172,7 +180,8 @@ textarea { min-height: 100px; }
 }
 .navList button, .lockButton, .sidebarClosed .lockButton {
   display: flex; align-items: center; justify-content: flex-start; width: 100%;
-  gap: 12px; min-height: 44px; height: auto; min-width: 0; padding: 10px 12px;
+  gap: 12px; min-height: 44px; height: 44px; min-width: 0; padding: 10px 11px;
+  position: relative; overflow: hidden; text-align: left;
   max-width: none; max-height: none; flex: 0 0 auto;
   border: 1px solid transparent; border-radius: 8px; background: transparent;
   color: var(--muted); box-shadow: none; font-size: .95rem; font-weight: 550;
@@ -184,14 +193,19 @@ textarea { min-height: 100px; }
   display: grid; place-items: center; width: 20px; height: 20px; min-width: 20px; min-height: 20px;
   flex: 0 0 20px; margin: 0; padding: 0; background: none; box-shadow: none;
 }
-.navLabel, .sidebarOpen .navLabel { display: block; font-size: inherit; pointer-events: auto; }
-.sidebarClosed .navList button, .sidebarClosed .lockButton { justify-content: center; padding: 10px; }
+.navLabel, .sidebarOpen .navLabel {
+  display: block; position: absolute; left: 44px; width: calc(var(--sidebar-expanded-width) - 80px);
+  max-width: none; white-space: nowrap; line-height: 1.35; font-size: inherit;
+  color: inherit; opacity: 1; pointer-events: none;
+  transition: opacity 120ms ease, transform 200ms ease, visibility 0s;
+}
 .sidebarFooter { margin-top: auto; width: 100%; min-width: 0; max-width: none; }
 .sidebarBrand, .sidebarFooter { flex-shrink: 0; }
 .content, .appShell:not(.authShell) .content {
   display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0;
   grid-area: 1 / 2;
   width: 100%; height: 100%; padding: 24px; overflow: auto;
+  scrollbar-gutter: stable;
 }
 .content > * { flex-shrink: 0; }
 .topbar, .credentialsPanel, .settingsGrid, .preferencesGrid, .analyticsPage,
@@ -595,10 +609,11 @@ textarea { min-height: 100px; }
 .bridgeDesktopApproval .bridgeActions button { min-height: 44px; width: auto; min-width: 0; flex: 1; padding: 10px 12px; border-radius: 8px; font-size: .95rem; }
 .bridgeDesktopApproval .bridgeActions .primaryButton { flex: 2; }
 
-/* Short transform/opacity animations only: no continuous scene or backdrop blur. */
+/* Pages stay opaque while changing; dialogs retain their separate entrance. */
 @keyframes surface-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-.content > .securityPage, .content > .settingsGrid, .content > .preferencesGrid,
-.content > .assistantPage, .content > .trashList, .content > .credentialWorkspace,
+@keyframes page-enter { from { transform: translateY(3px); } to { transform: translateY(0); } }
+.content > .securityPage, .content > .sectionPage, .content > .trashPage,
+.content > .assistantPage, .content > .credentialWorkspace { animation: page-enter 140ms ease-out; }
 .modalOverlay > *, .popupOverlay > *, .confirmOverlay > * { animation: surface-enter 180ms ease-out; }
 .designDisclosure[open] > .settingsAccordionBody { animation: surface-enter 160ms ease-out; }
 
@@ -662,7 +677,7 @@ textarea { min-height: 100px; }
   .sidebarToggle, .sidebarOpen .sidebarToggle, .sidebarClosed .sidebarToggle { width: 36px; height: 36px; min-height: 36px; flex-basis: 36px; }
   .sidebar .brandText, .sidebar .navLabel, .sidebarClosed .navLabel { display: none; }
   .navList { display: flex; flex-direction: row; align-items: center; flex: 1; justify-content: space-around; gap: 2px; width: auto; min-width: 0; }
-  .navList button, .sidebarClosed .navList button, .sidebar .lockButton { width: 36px; min-height: 40px; flex: 0 1 40px; padding: 8px; justify-content: center; }
+  .navList button, .sidebarClosed .navList button, .sidebar .lockButton { width: 36px; min-height: 40px; height: 40px; flex: 0 1 40px; padding: 8px; justify-content: center; }
   .sidebarFooter { flex: 0 0 36px; width: auto; margin: 0; }
   .content, .appShell:not(.authShell) .content { grid-area: 2 / 1; padding: 16px; gap: 16px; }
   .topbar { align-items: center; gap: 10px; }
@@ -716,10 +731,13 @@ textarea { min-height: 100px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none; transition: none; scroll-behavior: auto; }
+  :root .appShell, :root .appShell .brandText, :root .appShell .navLabel,
+  :root .content > *, :root .modalOverlay > *, :root .popupOverlay > *, :root .confirmOverlay > * {
+    animation: none; transition: none;
+  }
 }
 /* Compact, accessible row actions and unboxed metadata. */
 .navLabel, .brandText strong, .brandText span { letter-spacing: 0; font-weight: inherit; text-transform: none; }
-.sidebarOpen .navLabel { width: auto; white-space: normal; line-height: 1.35; }
 .navList button { font-weight: 550; }
 .rowActions button { width: 36px; height: 36px; min-height: 36px; flex: 0 0 36px; padding: 7px; }
 .rowActionLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -749,8 +767,6 @@ textarea { min-height: 100px; }
 /* Neutralize old theme text-fill and label decoration across all components. */
 * { -webkit-text-fill-color: currentColor; }
 label { background: none; border: 0; border-radius: 0; }
-.navLabel, .sidebarOpen .navLabel { max-width: none; width: auto; color: inherit; overflow: visible; text-overflow: clip; opacity: 1; }
-.sidebarClosed .navLabel { display: none; }
 .settingsControlGrid > label, .formGrid > label { padding: 0; border: 0; background: none; box-shadow: none; }
 .settingsControlGrid { width: 100%; max-width: none; }
 .designSection:only-child { grid-column: 1 / -1; }
