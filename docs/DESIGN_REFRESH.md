@@ -116,3 +116,19 @@ rolagem horizontal ou vertical em 1120 × 720, 1120 × 680, 1024 × 600,
 1440 × 900 e 800 × 720; o desbloqueio foi reconferido em 1120 × 720.
 Em larguras de até 680 px, os elementos continuam empilhados e a rolagem vertical
 permanece disponível para acessar todos os campos e avisos.
+
+### Menu após recolher e expandir
+
+O menu vertical usa Flexbox em coluna, com alinhamento inicial e itens que não
+crescem para preencher a altura. Isso evita o dimensionamento de linhas do grid
+dentro da coluna flexível da barra lateral. As propriedades antigas de grid são
+neutralizadas; a altura mínima antiga de 28 px dos ícones também foi substituída
+por 20 px, mantendo os botões em 44 px na fonte padrão. Até 680 px, a navegação
+permanece horizontal.
+
+O alongamento observado no print nativo não foi reproduzido na prévia Chromium.
+Após a mudança, foram conferidos recolher/expandir em 1440, 1120, 800 e 700 px,
+a transição para 640 px e o retorno a 1120 px, com altura de 720 px. A sequência
+também passou em 800 px com fonte maior, sem rolagem na barra lateral. O build
+passou. É necessário repetir a sequência no WebKitGTK do aplicativo real para
+confirmar a correção do comportamento específico mostrado pelo usuário.
