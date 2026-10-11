@@ -32,6 +32,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --locked --release --manifest-path tools/release-signer/Cargo.toml
       - run: python3 tools/release-signer.test.py
+      - run: python3 tools/publish-release.test.py
 
   frontend:
     name: Frontend (tsc + vitest + build)
@@ -137,6 +138,11 @@ jobs:
 
       - name: Install frontend (lockfile exato)
         run: npm ci
+
+      - name: Cache Fedora Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
       - name: Frontend tests
         run: npm test
