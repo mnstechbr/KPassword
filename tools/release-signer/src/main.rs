@@ -46,9 +46,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             write_new(Path::new(&format!("{}.sig", args[3])), &STANDARD.encode(signature.to_string()))?;
         }
         Some("verify") if args.len() == 5 => {
-            let key = PublicKeyBox::from_string(&decode(&fs::read_to_string(&args[2])?)?)?.into_public_key()?;
-            let signature = SignatureBox::from_string(&decode(&fs::read_to_string(&args[4])?)?)?;
+            let public_text = decode(&fs::read_to_string(&args[2])?)?;
+            let signature_text = decode(&fs::read_to_string(&args[4])?)?;
+            let key = PublicKeyBox::from_string(&public_text)?.into_public_key()?;
+            let signature = SignatureBox::from_string(&signature_text)?;
             minisign::verify(&key, &signature, BufReader::new(fs::File::open(&args[3])?), true, false, false)?;
+            // Independent verification with the exact library/version used by
+            // tauri-plugin-updater 2.10.1, not just the signing implementation.
+            let updater_key = minisign_verify::PublicKey::decode(&public_text)?;
+            let updater_signature = minisign_verify::Signature::decode(&signature_text)?;
+            updater_key.verify(&fs::read(&args[3])?, &updater_signature, true)?;
         }
         _ => return Err("Uso: generate CHAVE | sign CHAVE ARQUIVO | verify PUBLICA ARQUIVO ASSINATURA".into()),
     }
