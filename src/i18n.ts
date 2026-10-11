@@ -4164,6 +4164,12 @@ const vaultRemovalTranslations: Record<AppLanguage, Record<string, string>> = {
 
 const redesignTranslations: Record<AppLanguage, Record<string, string>> = {
   "pt": {
+    "ui.preferences.appearance": "Aparência e idioma",
+    "ui.preferences.application": "Aplicativo e cofre",
+    "ui.preferences.maintenance": "Manutenção e ajuda",
+    "ui.backups.storage": "Armazenamento",
+    "ui.backups.backups": "Backups e recuperação",
+    "ui.backups.transfer": "Importar e exportar",
     "ui.backups": "Backups e dados",
     "ui.unlockVault": "Desbloquear cofre",
     "ui.security.access": "Acesso",
@@ -4180,6 +4186,12 @@ const redesignTranslations: Record<AppLanguage, Record<string, string>> = {
     "nav.securityBackup": "Segurança"
   },
   "en": {
+    "ui.preferences.appearance": "Appearance & language",
+    "ui.preferences.application": "Application & vault",
+    "ui.preferences.maintenance": "Maintenance & help",
+    "ui.backups.storage": "Storage",
+    "ui.backups.backups": "Backups & recovery",
+    "ui.backups.transfer": "Import & export",
     "ui.backups": "Backups & data",
     "ui.unlockVault": "Unlock vault",
     "ui.security.access": "Access",
@@ -4196,6 +4208,12 @@ const redesignTranslations: Record<AppLanguage, Record<string, string>> = {
     "nav.securityBackup": "Security"
   },
   "es": {
+    "ui.preferences.appearance": "Apariencia e idioma",
+    "ui.preferences.application": "Aplicación y caja fuerte",
+    "ui.preferences.maintenance": "Mantenimiento y ayuda",
+    "ui.backups.storage": "Almacenamiento",
+    "ui.backups.backups": "Copias y recuperación",
+    "ui.backups.transfer": "Importar y exportar",
     "ui.backups": "Copias y datos",
     "ui.unlockVault": "Desbloquear caja fuerte",
     "ui.security.access": "Acceso",
@@ -4212,6 +4230,12 @@ const redesignTranslations: Record<AppLanguage, Record<string, string>> = {
     "nav.securityBackup": "Seguridad"
   },
   "tr": {
+    "ui.preferences.appearance": "Görünüm ve dil",
+    "ui.preferences.application": "Uygulama ve kasa",
+    "ui.preferences.maintenance": "Bakım ve yardım",
+    "ui.backups.storage": "Depolama",
+    "ui.backups.backups": "Yedekler ve kurtarma",
+    "ui.backups.transfer": "İçe ve dışa aktar",
     "ui.backups": "Yedekler ve veriler",
     "ui.unlockVault": "Kasanın kilidini aç",
     "ui.security.access": "Erişim",

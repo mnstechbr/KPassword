@@ -133,17 +133,21 @@ textarea { min-height: 100px; }
 .appShell.sidebarOpen { grid-template-columns: 208px minmax(0, 1fr); }
 .appShell.sidebarClosed { grid-template-columns: 72px minmax(0, 1fr); }
 .sidebar, .sidebarOpen .sidebar, .sidebarClosed .sidebar {
-  display: flex; flex-direction: column; gap: 24px; width: auto; height: auto;
+  display: flex; flex-direction: column; justify-content: flex-start; align-self: stretch; align-items: stretch;
+  gap: 24px; width: auto; height: 100%; max-height: none; margin: 0;
+  grid-area: 1 / 1;
   min-width: 0; min-height: 0; padding: 16px 12px; position: static;
   overflow: auto; border: 0; border-right: 1px solid var(--border);
   background: var(--sidebar); box-shadow: none; backdrop-filter: none;
 }
 .sidebarBrand, .sidebarOpen .sidebarBrand, .sidebarClosed .sidebarBrand {
   display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin: 0; padding: 0;
+  width: 100%; min-width: 0; max-width: none;
 }
 .sidebarToggle, .sidebarOpen .sidebarToggle, .sidebarClosed .sidebarToggle {
   display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px;
   flex: 0 0 44px; margin: 0; padding: 0; background: transparent;
+  min-width: 0; max-width: none; max-height: none; pointer-events: auto; cursor: pointer;
   border: 1px solid transparent; box-shadow: none; border-radius: 10px; transform: none;
 }
 .sidebarToggle:hover { background: var(--selection); border-color: var(--border); }
@@ -155,14 +159,15 @@ textarea { min-height: 100px; }
   width: 100%; height: 100%; object-fit: contain; transform: none; filter: none;
 }
 .appLogo.sm { width: 28px; height: 28px; }
-.brandText, .sidebarOpen .brandText { display: block; width: auto; opacity: 1; margin: 0; }
+.brandText, .sidebarOpen .brandText { display: block; width: auto; max-width: none; opacity: 1; margin: 0; }
 .brandText strong { font-size: 1rem; }
 .brandText span { font-size: .75rem; color: var(--muted); }
 .sidebarClosed .brandText, .sidebarClosed .navLabel { display: none; }
-.navList { display: grid; gap: 6px; width: 100%; }
+.navList { display: grid; grid-template-columns: 1fr; align-content: start; justify-items: stretch; gap: 6px; width: 100%; margin: 0; padding: 0; flex: 0 0 auto; }
 .navList button, .lockButton, .sidebarClosed .lockButton {
   display: flex; align-items: center; justify-content: flex-start; width: 100%;
   gap: 12px; min-height: 44px; height: auto; min-width: 0; padding: 10px 12px;
+  max-width: none; max-height: none; flex: 0 0 auto;
   border: 1px solid transparent; border-radius: 8px; background: transparent;
   color: var(--muted); box-shadow: none; font-size: .95rem; font-weight: 550;
   transition: background-color 150ms ease, color 150ms ease;
@@ -173,11 +178,14 @@ textarea { min-height: 100px; }
   display: grid; place-items: center; width: 20px; height: 20px; min-width: 20px;
   flex: 0 0 20px; margin: 0; padding: 0; background: none; box-shadow: none;
 }
-.navLabel { font-size: inherit; }
+.navLabel, .sidebarOpen .navLabel { display: block; font-size: inherit; pointer-events: auto; }
 .sidebarClosed .navList button, .sidebarClosed .lockButton { justify-content: center; padding: 10px; }
-.sidebarFooter { margin-top: auto; width: 100%; }
+.sidebarFooter { margin-top: auto; width: 100%; min-width: 0; max-width: none; }
+.sidebarBrand, .sidebarFooter { flex-shrink: 0; }
+.navList { max-height: none; height: auto; flex-shrink: 0; overflow: visible; }
 .content, .appShell:not(.authShell) .content {
   display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0;
+  grid-area: 1 / 2;
   width: 100%; height: 100%; padding: 24px; overflow: auto;
 }
 .content > * { flex-shrink: 0; }
@@ -194,7 +202,7 @@ textarea { min-height: 100px; }
 .topbarTitle > .appLogo { display: none; }
 .topbar h1, .topbarTitle h1 { font-size: 1.7rem; margin: 0; line-height: 1.2; font-weight: 700; }
 .topbarTitle .eyebrow { margin: 0 0 3px; font-size: .75rem; letter-spacing: .04em; }
-.topbarActions { display: flex; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; min-height: 0; }
+.topbarActions { display: flex; flex: 0 1 auto; width: auto; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; min-height: 0; }
 .addItemIconButton { display: inline-flex; width: auto; min-width: 0; height: auto; min-height: 40px; font-size: .95rem; padding: 9px 14px; }
 .addItemIconButton > span { font-size: inherit; }
 .languageSelectButton { min-height: 40px; height: auto; border-radius: 8px; background: var(--surface); }
@@ -270,6 +278,13 @@ textarea { min-height: 100px; }
 
 /* Settings: one surface per subject, plain rows within it. */
 .settingsGrid, .preferencesGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; }
+.sectionPage { width: 100%; min-width: 0; }
+.settingsGrid[data-active-section="storage"] > [data-section]:not([data-section="storage"]),
+.settingsGrid[data-active-section="backups"] > [data-section]:not([data-section="backups"]),
+.settingsGrid[data-active-section="transfer"] > [data-section]:not([data-section="transfer"]),
+.preferencesGrid[data-active-section="appearance"] > [data-section]:not([data-section="appearance"]),
+.preferencesGrid[data-active-section="application"] > [data-section]:not([data-section="application"]),
+.preferencesGrid[data-active-section="maintenance"] > [data-section]:not([data-section="maintenance"]) { display: none; }
 .settingsGrid .wideCard, .preferencesGrid .wideCard { grid-column: auto; }
 .wideCard, .preferenceCard, .designSection, .designDisclosure,
 .assistantHero, .assistantNextCard, .assistantSideCard, .assistantQueueCard,
@@ -290,6 +305,10 @@ textarea { min-height: 100px; }
 .settingsSectionHeader > button { flex: 0 1 auto; white-space: normal; }
 .actionHistorySettingsSummary, .updateSummary { padding: 12px 0 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
 .actionHistorySettingsSummary span, .actionHistorySettingsSummary small { color: var(--muted); }
+.updateSummary { display: grid; grid-template-columns: 1fr; gap: 16px; margin: 16px 0; }
+.updateSummary > div { display: grid; gap: 4px; padding: 0; min-height: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.compactInfoGrid { grid-template-columns: 1fr; gap: 16px; }
+.compactInfoGrid > div { display: grid; align-content: start; gap: 4px; padding: 0; min-height: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
 .designDisclosure { display: block; padding: 0; overflow: hidden; }
 .designDisclosure > summary { display: flex; padding: 20px; list-style: none; cursor: pointer; gap: 16px; align-items: center; }
 .designDisclosure > summary::-webkit-details-marker { display: none; }
@@ -318,7 +337,7 @@ textarea { min-height: 100px; }
 .toggleRow small { color: var(--muted); font-weight: 400; }
 .pathGrid, .exportActionGrid { display: grid; grid-template-columns: 1fr; gap: 16px; }
 .pathBox, .hiddenPathsBox, .exportBox, .windowsHelloPanel, .startupStatusBox, .languagePreferenceBox,
-.updateSummary > div, .compactInfoGrid > div, .localSecurityNotice, .securityNotes, .generatorPanel,
+.localSecurityNotice, .securityNotes, .generatorPanel,
 .totpEasyCard, .credentialDiagnosisBox, .appDiagnosticsNote, .csvImportReadyHint {
   background: none; border: 0; border-radius: 0; box-shadow: none; padding: 12px 0; min-width: 0;
 }
@@ -333,7 +352,7 @@ textarea { min-height: 100px; }
 .backupList > div { border: 0; border-radius: 0; border-bottom: 1px solid var(--border); padding: 12px 0; background: none; }
 .backupList strong { overflow-wrap: anywhere; font-size: .95rem; }
 .backupList span { color: var(--muted); }
-.backupPage > .designDisclosure:last-child { grid-column: 1 / -1; }
+.backupPage > .designDisclosure:last-child, .backupPage > .storageCard { grid-column: 1 / -1; }
 .backupPage > .designDisclosure:last-child .exportActionGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .backupPage > .designDisclosure:last-child .exportBox { padding: 0 16px 0 0; border-bottom: 0; border-right: 1px solid var(--border); }
 .backupPage > .designDisclosure:last-child .exportBox:last-child { border-right: 0; }
@@ -361,6 +380,11 @@ textarea { min-height: 100px; }
 .emptyState p { color: var(--muted); }
 .trashItem { background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 16px 0 0; box-shadow: none; }
 .trashItem span, .trashItem small { color: var(--muted); }
+.trashPage { width: 100%; min-width: 0; }
+.trashPage .trashItem { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; }
+.trashPage .trashItem > div:first-child { flex: 1 1 240px; min-width: 0; }
+.trashPage .trashItem strong, .trashPage .trashItem span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.trashActions { flex-direction: row; }
 
 /* Dialogs share the same surface and controls, with bounded vertical scrolling. */
 .popupOverlay, .modalOverlay, .confirmOverlay, :root[data-platform="linux"] .modalOverlay {
@@ -382,12 +406,17 @@ textarea { min-height: 100px; }
 .csvImportModal > .modalActions, .csvExportModal > .modalActions { padding: 16px 20px; }
 .modalHeader, .csvExportModal .modalHeader, .detailHeader { position: static; margin: 0; background: var(--surface); backdrop-filter: none; }
 .csvImportBody, .csvExportBody { padding: 20px; }
+.csvImportModal .csvImportPreview { padding: 20px; border: 0; border-radius: 0; background: none; }
+.csvMappingGrid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.csvPreviewItem { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; padding: 12px 0; }
+.csvPreviewItem.invalid { background: var(--danger-bg); color: var(--danger); }
+.languageSelect, .languageDropdown, .quickFilterDropdown { z-index: 20; }
 .csvRiskPanel, .csvRecommendedPanel, .csvExportCleanupReminder, .csvAcknowledgeBox { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); box-shadow: none; }
 .csvExportActions .dangerConfirmButton { min-height: 40px; }
 .credentialModal .modalHeader { align-items: flex-start; padding: 0 0 16px; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
 .modalHeader h2, .credentialModal .modalHeader h2 { margin: 0; font-size: 1.3rem; }
 .modalHeader .eyebrow { color: var(--muted); }
-.formGrid { gap: 16px; }
+.formGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .formGrid label { min-width: 0; }
 .passwordInput { display: flex; gap: 8px; }
 .passwordInput input { flex: 1; }
@@ -447,20 +476,22 @@ textarea { min-height: 100px; }
   border-color: var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); box-shadow: none;
 }
 
-/* Entry, creation and restore states have a single card, with unboxed sections. */
+/* Entry is the window itself; there is no second application-shaped frame. */
 .authShell, .authDesktopShell, .authSetupShell {
-  display: grid; place-items: center; width: 100%; height: 100dvh; min-height: 0;
-  padding: 24px; overflow: auto; background: var(--canvas);
+  display: block; width: 100%; height: 100dvh; min-height: 0;
+  padding: 0; overflow: auto; background: var(--canvas);
 }
 .authCard, .authCard.authExperience, .authCard.authLocked, .authCard.authSetup {
   display: grid; grid-template-columns: minmax(180px, .85fr) minmax(280px, 1fr);
   grid-template-rows: auto 1fr auto; gap: 24px; position: relative;
-  width: min(100%, 960px); max-width: 960px; min-width: 0; height: auto;
-  min-height: 0; max-height: none; margin: auto; padding: 28px;
-  overflow: visible; background: var(--surface); color: var(--text);
-  border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow);
+  width: 100%; max-width: none; min-width: 0; height: auto;
+  min-height: 100dvh; max-height: none; margin: 0; padding: 32px;
+  overflow: visible; background: var(--canvas); color: var(--text);
+  border: 0; border-radius: 0; box-shadow: none;
 }
 .authCard::before, .authCard::after { content: none; }
+.authLogoStage::before, .authLogoStage::after, .authHeroBlock::before, .authHeroBlock::after { content: none; }
+.authHeroBlock .appLogo::before, .authHeroBlock .appLogo::after { content: none; }
 .authUtilityBar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; position: static; width: 100%; padding: 0 0 20px; margin: 0; border-bottom: 1px solid var(--border); background: none; }
 .authProductMark { display: flex; gap: 10px; align-items: center; }
 .authProductMark strong { color: var(--text); }
@@ -476,7 +507,7 @@ textarea { min-height: 100px; }
 .authLanguageSlot .languageSelectButton { width: 40px; }
 .authHeroBlock, .authLogoStage, .authLocked .authHeroBlock, .authUnlockTyping .authHeroBlock,
 .authUnlockSuccess .authHeroBlock {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
   position: static; grid-column: 1; grid-row: 2; width: auto; height: auto;
   max-width: none; min-height: 0; padding: 24px; margin: 0;
   opacity: 1; transform: none; background: none; overflow: visible;
@@ -493,11 +524,11 @@ textarea { min-height: 100px; }
 }
 .authHeroBlock .appLogo.lg.opening { transform: perspective(800px) rotateY(8deg) translateY(-3px); }
 .authHeroBlock h1 { font-size: 1.65rem; text-align: center; margin: 16px 0 8px; }
-.authHeroBlock p { color: var(--muted); text-align: center; }
+.authHeroBlock p { color: var(--muted); text-align: center; font-size: .95rem; line-height: 1.5; margin: 8px 0 0; }
 .authHeroBlock .eyebrow { margin-top: 16px; }
 .authPanel, .authUnlockPanel, .authLocked .authUnlockPanel {
   display: block; grid-column: 2; grid-row: 2; position: static; align-self: center;
-  width: 100%; max-width: none; min-width: 0; height: auto; max-height: none;
+  width: 100%; max-width: 440px; justify-self: center; min-width: 0; height: auto; max-height: none;
   padding: 12px 0; margin: 0; border: 0; background: none; box-shadow: none;
   border-radius: 0; transform: none; opacity: 1; overflow: visible;
 }
@@ -508,7 +539,7 @@ textarea { min-height: 100px; }
 .authDeveloperCredit { grid-column: 1 / -1; position: static; margin: 0; padding: 12px 0 0; font-size: .8rem; color: var(--muted); text-align: center; }
 .authSetup .authHeroBlock { grid-row: 2; }
 .authSetup .authPanel { grid-row: 2 / 4; }
-.authSetup .firstUseGuide { grid-column: 1; grid-row: 3; display: grid; gap: 8px; max-width: none; padding: 0 16px; margin: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
+.authSetup .firstUseGuide { grid-column: 1; grid-row: 3; display: grid; grid-template-columns: 1fr; gap: 8px; max-width: none; padding: 0 16px; margin: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
 .firstUseGuide span { color: var(--muted); font-size: .86rem; }
 .authLoadingBar { border-radius: 6px; background: var(--selection); }
 

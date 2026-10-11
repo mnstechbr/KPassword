@@ -71,3 +71,38 @@ janela real da ponte. No Windows, confira WebView2, Hello, autostart e bandeja.
 Verifique também a mudança de tema do SO com o modo Sistema selecionado.
 
 Entrega em commit local. Push, merge e publicação aguardam o teste do usuário.
+
+## Correção após o teste visual do usuário
+
+A entrada ocupa a janela sem cartão externo, borda ou moldura de aplicativo.
+Configurações usa abas de aparência/idioma, aplicativo/cofre e manutenção/ajuda.
+Backups usa abas de armazenamento, backups/recuperação e importação/exportação,
+com os mesmos controles de navegação de Segurança. Todas as opções anteriores
+continuam disponíveis; os painéis inativos ficam ocultos sem apagar seu estado.
+A troca de página ou aba volta ao início da área de conteúdo.
+
+Foram corrigidas interferências do CSS histórico no posicionamento do conteúdo
+e no menu em 800 px, no título em 360 px, nas dimensões dos botões de navegação,
+na largura e direção da Lixeira e na decoração da primeira criação. Os campos
+de edição usam duas colunas em telas maiores e uma em telas estreitas. Ajuda e
+prévia CSV perderam superfícies internas desnecessárias; menus ficam abaixo dos
+diálogos.
+
+Verificação desta correção, com comandos nativos simulados e dados fictícios:
+
+| Área | Inspeção |
+| --- | --- |
+| Seis páginas principais | Capturas em 360, 800, 1120 e 1440 px; medição da largura de conteúdo e interseção entre botões |
+| Tema claro e fonte maior | Todas as seis páginas em 800 px; correção adicional da Lixeira após inspecionar as capturas |
+| Navegação | Menu aberto/recolhido, todas as abas de Segurança, Configurações e Backups |
+| Itens | Seis tipos de formulário em 360 px e detalhes em 800 px; detalhes ao lado da lista em 1440 px |
+| Diálogos | Histórico, diagnóstico, 2FA manual, prévia CSV com arquivo de exemplo, aviso de exportação, novo cofre e restauração |
+| Entrada | Desbloqueio e primeira criação em 1120/360 px; retirada da decoração que gerava transbordamento horizontal |
+| Secrets Bridge | Janela de 440 × 620 px, incluindo identidade expandida, sem aprovar pedidos |
+
+Nos cenários medidos das páginas principais e formulários não houve interseção
+entre botões nem largura de rolagem maior que a área disponível. Capturas e
+medições temporárias ficam em `/tmp/kpassword-visual-qa`. O build e os 140 testes
+passaram novamente; permanece o aviso de tamanho de chunks. Esta inspeção não
+certifica a janela nativa, desempenho WebKitGTK/WebView2 ou funções de integração
+com o sistema. O teste no aplicativo real continua necessário antes do push.
