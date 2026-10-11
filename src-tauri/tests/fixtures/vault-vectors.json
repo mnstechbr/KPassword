@@ -1,0 +1,41 @@
+{
+  "password": "KPassword-fictitious-vector-only-2026",
+  "plaintext": "{\"version\":1,\"createdAt\":\"2026-01-01T00:00:00.000Z\",\"updatedAt\":\"2026-01-01T00:00:00.000Z\",\"credentials\":[{\"id\":\"test-only\",\"itemType\":\"credential\",\"title\":\"Exemplo ç 🔑\",\"username\":\"test@example.invalid\",\"password\":\"fake-secret-only\"}],\"settings\":{\"autoLockMinutes\":3,\"backupIntervalHours\":4,\"clipboardClearSeconds\":60}}",
+  "v1": {
+    "version": 1,
+    "app": "KPassword",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "cryptoVersion": 1,
+    "crypto": {
+      "algorithm": "AES-GCM",
+      "kdf": "PBKDF2-SHA-256",
+      "iterations": 10000,
+      "salt": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "iv": "AAECAwQFBgcICQoL"
+    },
+    "payload": "ZXJr11fS3qlO11AlDLLJnzTMWramySgHk6NunaKT57QKECu+DD/sZjkGXbVngPfDyOt97j4y7fe7Q/aEuGNceRuJ1n62prlMI0KkVtwSAnfoWE0G+L5jErzwe6nL0H2CFQ+p1n0SMTm4QJwuvWjpbhXOPlONW5SndbnOdrGJFMM26p+0vvXr8xoksM6XbLFJJTLJK/50SV9nKizMs0EycN3DYEcd9sINs9k9vfTj7KZuRkC5ORUzH8NsWgp+Eax3XVd4X/smDlUg6U5DxHXNP08bBU3X51KyUbY18dKwOMEAcHIKSK84pJgsH6a5Peiw7J2VH5Ui4g/jEAN3nTwgdkscrXxd0M0H3cKs7qYuFFkLwubVgPSn2hogYhL1yGKzGkU4thaAbE7AqH+YAmdlKfbt5x0UWWQlT+W4DaZgSJe77KtfyvSbGCOehfIX/M2JtdRWpQ=="
+  },
+  "v2": {
+    "version": 1,
+    "app": "KPassword",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "cryptoVersion": 2,
+    "kdf": {
+      "algorithm": "argon2id",
+      "params": {
+        "memoryKiB": 65536,
+        "timeCost": 3,
+        "parallelism": 1,
+        "outputLength": 32
+      },
+      "salt": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+    },
+    "cipher": {
+      "algorithm": "AES-256-GCM",
+      "nonce": "AAECAwQFBgcICQoL"
+    },
+    "payload": "MdixC+v24DH0ceJy84JrLWPw3nuQOtRNC10oPc157KFrCypmVg4jCdH42Nh8cJFv6ECZGZ0fJgQYK3h9KiLbhVNv9HOvRusYgpBl/HR6fVW2jeJZT06bRhB3IWVK0DzLEfADe1rDjY0I55OUvuP5GgUj4duJ4NSANT7NLYfUxBbIz544IFKK5LUQJ8PHFTDsI5/f++rh2ewwMTEkmOwjDoRshp1pncLqwComXcKnGw41KLIk5DnRD0EXRMJfMBgoyvvmvNqB3Iv0kfDvQCb9WnrB3reqbEEmsmPVMvc8N9KJIRWVaLoWrCSPHROfW1u0OAAOPNb0AFcXQEzVIbh8rfCyRI3bhiikw+ID4JEibdYloDpp2GapAj7hyRKw66x2D4aD3tUqRUCczGB3f8r4AIQIEJsl3PtfTOqNyndmeikc5uX73/ROyx7RCsipoCO5SyD2Kw=="
+  }
+}

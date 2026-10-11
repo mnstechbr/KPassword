@@ -1,0 +1,29 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": [
+      "rpm"
+    ],
+    "createUpdaterArtifacts": false,
+    "resources": {
+      "resources/sounds/metro-arrival.wav": "resources/sounds/metro-arrival.wav",
+      "../tools/kpassword_bridge_client.py": "bridge/kpassword_bridge_client.py"
+    },
+    "linux": {
+      "rpm": {
+        "release": "1",
+        "depends": [
+          "gtk3",
+          "python3",
+          "webkit2gtk4.1",
+          "libappindicator-gtk3",
+          "xdg-utils",
+          "konsole",
+          "xdg-desktop-portal",
+          "xdg-desktop-portal-kde",
+          "xorg-x11-server-Xwayland"
+        ]
+      }
+    }
+  }
+}

@@ -8,10 +8,40 @@ use std::{
 
 use base64::{engine::general_purpose, Engine as _};
 use serde::Serialize;
+#[cfg(not(target_os = "linux"))]
 use tauri_plugin_notification::NotificationExt;
 use zeroize::Zeroize;
 
 mod crypto_vault;
+mod vault_removal;
+#[cfg(test)]
+mod vault_compatibility_tests;
+mod secrets_bridge;
+#[cfg(target_os = "linux")]
+pub fn secrets_bridge_child() -> Result<(), String> { secrets_bridge::child() }
+#[cfg(target_os = "linux")]
+mod linux_platform;
+#[cfg(target_os = "linux")]
+pub fn configure_linux_graphics() { linux_platform::configure_graphics(); }
+
+#[tauri::command]
+fn platform_name() -> &'static str { std::env::consts::OS }
+
+#[tauri::command]
+async fn linux_clipboard(app: AppHandle, value: Option<String>) -> Result<String, String> {
+    #[cfg(target_os = "linux")]
+    { return linux_platform::clipboard(app, value).await; }
+    #[cfg(not(target_os = "linux"))]
+    { let _ = (app, value); Err("Clipboard Linux indisponível.".into()) }
+}
+
+#[tauri::command]
+async fn linux_capture_qr() -> Result<String, String> {
+    #[cfg(target_os = "linux")]
+    { return linux_platform::capture_qr().await; }
+    #[cfg(not(target_os = "linux"))]
+    { Err("Portal Linux indisponível.".into()) }
+}
 use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
@@ -547,6 +577,7 @@ fn save_vault_file(
     vault_name: Option<String>,
     force_backup: Option<bool>,
 ) -> Result<StorageInfo, String> {
+    secrets_bridge::close(&app);
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
     let temp_path = vault_path.with_extension("kpvault.tmp");
 
@@ -586,6 +617,7 @@ fn restore_vault_file(
     vault_name: Option<String>,
     expected_vault_name: Option<String>,
 ) -> Result<RestoreOutcome, String> {
+    secrets_bridge::close(&app);
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
 
     // Identidade estavel: o alvo resolvido tem de ser o que o usuario confirmou.
@@ -606,6 +638,18 @@ fn restore_vault_file(
 #[tauri::command]
 fn get_storage_info(app: AppHandle, vault_name: Option<String>) -> Result<StorageInfo, String> {
     build_storage_info(&app, vault_name)
+}
+
+#[tauri::command]
+fn delete_vault_file(app: AppHandle, vault_name: String, expected_vault_name: String, master_password: String) -> Result<String, String> {
+    let password = zeroize::Zeroizing::new(master_password);
+    let (path, backups, safe_name) = storage_paths(&app, Some(vault_name))?;
+    if safe_name != sanitize_vault_name(Some(expected_vault_name))? {
+        return Err("Cofre selecionado mudou; exclusão cancelada.".into());
+    }
+    let (_, hello, _) = vault_and_hello_paths(&app, Some(safe_name))?;
+    secrets_bridge::close(&app);
+    vault_removal::remove(&path, &hello, &backups, &password)
 }
 
 #[tauri::command]
@@ -1330,6 +1374,7 @@ async fn enable_windows_hello(
         Ok(WindowsHelloStatus {
             available: false,
             enabled: false,
+            state: HELLO_STATE_DISABLED.to_string(),
             reason: "not_windows".to_string(),
             vault_name: safe_vault_name,
         })
@@ -1355,6 +1400,7 @@ async fn disable_windows_hello(
         Ok(WindowsHelloStatus {
             available: false,
             enabled: false,
+            state: HELLO_STATE_DISABLED.to_string(),
             reason: "not_windows".to_string(),
             vault_name: safe_vault_name,
         })
@@ -1673,7 +1719,7 @@ fn is_startup_enabled_impl() -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "linux")))]
 fn is_startup_enabled_impl() -> bool {
     false
 }
@@ -1700,7 +1746,7 @@ fn set_startup_enabled_impl(enabled: bool) -> Result<(), String> {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "linux")))]
 fn set_startup_enabled_impl(_enabled: bool) -> Result<(), String> {
     Err("Inicialização com Windows disponível apenas no Windows.".to_string())
 }
@@ -1708,6 +1754,23 @@ fn set_startup_enabled_impl(_enabled: bool) -> Result<(), String> {
 #[tauri::command]
 fn is_startup_enabled() -> bool {
     is_startup_enabled_impl()
+}
+
+#[cfg(target_os = "linux")]
+fn is_startup_enabled_impl() -> bool { linux_platform::startup_enabled() }
+
+#[cfg(target_os = "linux")]
+fn set_startup_enabled_impl(enabled: bool) -> Result<(), String> { linux_platform::set_startup(enabled) }
+
+#[cfg(target_os = "linux")]
+fn get_startup_status_impl() -> StartupStatus {
+    StartupStatus {
+        enabled: is_startup_enabled_impl(),
+        registry_key: linux_platform::autostart_path().map(|p| p.display().to_string()).unwrap_or_default(),
+        value_name: "KPassword".into(),
+        command_line: std::env::current_exe().map(|p| format!("{} --startup", p.display())).unwrap_or_default(),
+        startup_argument: "--startup".into(),
+    }
 }
 
 #[cfg(windows)]
@@ -1721,7 +1784,7 @@ fn get_startup_status_impl() -> StartupStatus {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "linux")))]
 fn get_startup_status_impl() -> StartupStatus {
     StartupStatus {
         enabled: false,
@@ -1767,6 +1830,15 @@ fn hide_to_tray(
         let body = notification_body
             .unwrap_or_else(|| "O KPassword continua protegido na bandeja.".to_string());
 
+        #[cfg(target_os = "linux")]
+        {
+            // The notification plugin itself spawns onto Tokio. Call the
+            // blocking Linux backend directly on a regular thread instead.
+            std::thread::spawn(move || {
+                let _ = notify_rust::Notification::new().summary(&title).body(&body).show();
+            });
+        }
+        #[cfg(not(target_os = "linux"))]
         let _ = app.notification().builder().title(title).body(body).show();
     }
 }
@@ -2432,13 +2504,18 @@ mod qr_safety_tests {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(secrets_bridge::BridgeState::default())
+        .manage(secrets_bridge::BridgeRequests::default())
+        .manage(secrets_bridge::broker::BrokerState::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             show_main_window(app);
+            secrets_bridge::queue_request(app, &args);
         }))
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
+            secrets_bridge::queue_request(app.handle(), &std::env::args().collect::<Vec<_>>());
             let open_full_item =
                 MenuItem::with_id(app, "open_full", "Abrir APP Completo", true, None::<&str>)?;
             let open_compact_item = MenuItem::with_id(
@@ -2497,6 +2574,17 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            secrets_bridge::bridge_open,
+            secrets_bridge::bridge_close,
+            secrets_bridge::bridge_prepare,
+            secrets_bridge::bridge_launch,
+            secrets_bridge::bridge_history,
+            secrets_bridge::bridge_take_request,
+            secrets_bridge::broker::bridge_take_access_request,
+            secrets_bridge::broker::bridge_answer_access_request,
+            platform_name,
+            linux_clipboard,
+            linux_capture_qr,
             hide_to_tray,
             is_startup_enabled,
             get_startup_status,
@@ -2506,6 +2594,7 @@ pub fn run() {
             restore_vault_file,
             get_storage_info,
             list_vault_files,
+            delete_vault_file,
             list_backup_files,
             read_backup_file,
             create_pre_argon2_backup,

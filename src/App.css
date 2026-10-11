@@ -14806,3 +14806,52 @@ textarea {
 }
 /* === KPassword v1.3.5 unified loading/login layout END === */
 
+/* WebKitGTK: keep dialogs above the language/menu controls (z-index 80/500).
+   QR capture overlays retain their existing higher layer. Windows is unchanged. */
+:root[data-platform="linux"] .popupOverlay,
+:root[data-platform="linux"] .modalOverlay {
+  z-index: 1000;
+}
+
+:root[data-platform="linux"] .confirmOverlay {
+  z-index: 1100;
+}
+
+:root[data-platform="linux"] .confirmCard {
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+:root[data-platform="linux"] .confirmCard p {
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+/* Let the setup form grow with password validation; the guide owns its row. */
+:root[data-platform="linux"] .authCard.authExperience.authSetup {
+  height: auto !important;
+  grid-template-rows: auto minmax(min-content, 1fr) auto auto !important;
+  grid-template-areas: "bar bar" "logo panel" "guide guide" "footer footer" !important;
+  align-content: stretch !important;
+  row-gap: 24px !important;
+}
+:root[data-platform="linux"] .authSetup .firstUseGuide {
+  grid-area: guide !important;
+  margin-top: 0 !important;
+}
+:root[data-platform="linux"] .authSetupShell {
+  height: 100dvh !important;
+  overflow: auto !important;
+}
+@media (max-width: 900px) {
+  :root[data-platform="linux"] .authCard.authExperience.authSetup {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto auto auto auto !important;
+    grid-template-areas: "bar" "logo" "panel" "guide" "footer" !important;
+  }
+}
+@media (max-width: 600px) {
+  :root[data-platform="linux"] .authSetup .firstUseGuide {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
