@@ -6,6 +6,7 @@
     ],
     "createUpdaterArtifacts": false,
     "resources": {
+      "resources/sounds/metro-arrival.wav": "resources/sounds/metro-arrival.wav",
       "../tools/kpassword_bridge_client.py": "bridge/kpassword_bridge_client.py"
     },
     "linux": {
