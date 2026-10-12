@@ -20,7 +20,16 @@ const MAX_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 #[serde(deny_unknown_fields)]
 pub struct Integration { pub id: String, pub name: String, pub executable: String, pub sha256: String, #[serde(default="custom_kind")] pub kind: String }
 fn custom_kind() -> String { "custom".into() }
-struct Key { secret: Zeroizing<String>, identifier: String, integrations: Vec<Integration>, label: String, #[cfg(target_os = "linux")] config: providers::Config }
+struct Key {
+    secret: Zeroizing<String>,
+    identifier: String,
+    // Legacy delivery fixtures; production uses the proxy broker permissions.
+    #[cfg(test)]
+    integrations: Vec<Integration>,
+    label: String,
+    #[cfg(target_os = "linux")]
+    config: providers::Config,
+}
 struct Session { generation: u64, expires: Instant, vault_name: String, file_hash: Vec<u8>, content_hash: Vec<u8>, keys: HashMap<String, Key> }
 #[derive(Default)]
 struct Core { generation: u64, session: Option<Session>, close_reason: &'static str }
@@ -67,6 +76,7 @@ impl Core {
         self.session = Some(session);
         Ok(())
     }
+    #[cfg(test)]
     fn authorize(&self, generation: u64, key_id: &str, integration_id: &str) -> Result<(&Key, &Integration), String> {
         let session = self.session.as_ref().ok_or(DENIED)?;
         if session.generation != generation || session.expires <= Instant::now() { return Err(DENIED.into()); }
@@ -117,7 +127,15 @@ fn parse_keys(plain: &Value) -> Result<HashMap<String, Key>, String> {
             if !c.base_url.is_empty() && c.base_url.contains(secret) { return Err(DENIED.into()); }
             c
         };
-        keys.insert(id, Key { #[cfg(target_os = "linux")] config, secret: Zeroizing::new(secret.into()), identifier: identifier.into(), integrations, label });
+        keys.insert(id, Key {
+            #[cfg(target_os = "linux")]
+            config,
+            secret: Zeroizing::new(secret.into()),
+            identifier: identifier.into(),
+            #[cfg(test)]
+            integrations,
+            label,
+        });
     }
     Ok(keys)
 }
