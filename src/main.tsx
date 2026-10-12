@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import BridgeApproval from "./BridgeApproval";
 import "./App.css";
+import "./design.css";
 import { setupTrayGuard } from "./tray-guard";
 
 const approvalWindow = (window as Window & { __KPASSWORD_BRIDGE_APPROVAL__?: boolean }).__KPASSWORD_BRIDGE_APPROVAL__ === true;

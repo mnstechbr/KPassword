@@ -130,8 +130,6 @@ const ptTranslations = {
   "preferences.darkDescription": "Menos brilho e mais contraste.",
   "preferences.light": "Claro",
   "preferences.lightDescription": "Fundo claro com letras escuras.",
-  "preferences.mixed": "Misto",
-  "preferences.mixedDescription": "Menu escuro e conteúdo mais claro.",
   "preferences.accessibility": "Acessibilidade",
   "preferences.accessibilityDescription": "Ajustes visuais para deixar o uso mais confortável sem pesar o app.",
   "preferences.largeFont": "Fonte maior",
@@ -466,8 +464,6 @@ const dictionaries: Record<AppLanguage, Partial<Record<TranslationKey, string>>>
   "preferences.darkDescription": "Less brightness and more contrast.",
   "preferences.light": "Light",
   "preferences.lightDescription": "Light background with dark text.",
-  "preferences.mixed": "Mixed",
-  "preferences.mixedDescription": "Dark menu and lighter content.",
   "preferences.accessibility": "Accessibility",
   "preferences.accessibilityDescription": "Visual adjustments to make usage more comfortable without making the app heavy.",
   "preferences.largeFont": "Larger font",
@@ -795,8 +791,6 @@ const dictionaries: Record<AppLanguage, Partial<Record<TranslationKey, string>>>
   "preferences.darkDescription": "Less brightness and more contrast.",
   "preferences.light": "Claro",
   "preferences.lightDescription": "Light background with dark text.",
-  "preferences.mixed": "Mixto",
-  "preferences.mixedDescription": "Dark menu and lighter content.",
   "preferences.accessibility": "Accesibilidad",
   "preferences.accessibilityDescription": "Visual adjustments to make usage more comfortable without making the app heavy.",
   "preferences.largeFont": "Fuente más grande",
@@ -1124,8 +1118,6 @@ const dictionaries: Record<AppLanguage, Partial<Record<TranslationKey, string>>>
   "preferences.darkDescription": "Less brightness and more contrast.",
   "preferences.light": "Açık",
   "preferences.lightDescription": "Light background with dark text.",
-  "preferences.mixed": "Karma",
-  "preferences.mixedDescription": "Dark menu and lighter content.",
   "preferences.accessibility": "Erişilebilirlik",
   "preferences.accessibilityDescription": "Visual adjustments to make usage more comfortable without making the app heavy.",
   "preferences.largeFont": "Daha büyük yazı",
@@ -4162,13 +4154,104 @@ const vaultRemovalTranslations: Record<AppLanguage, Record<string, string>> = {
   },
 };
 
+const redesignTranslations: Record<AppLanguage, Record<string, string>> = {
+  "pt": {
+    "ui.preferences.appearance": "Aparência e idioma",
+    "ui.preferences.application": "Aplicativo e cofre",
+    "ui.preferences.maintenance": "Manutenção e ajuda",
+    "ui.backups.storage": "Armazenamento",
+    "ui.backups.backups": "Backups e recuperação",
+    "ui.backups.transfer": "Importar e exportar",
+    "ui.backups": "Backups e dados",
+    "ui.unlockVault": "Desbloquear cofre",
+    "ui.security.access": "Acesso",
+    "ui.security.locking": "Bloqueio",
+    "ui.security.clipboard": "Área de transferência",
+    "ui.security.integrations": "Integrações e permissões",
+    "ui.behavior": "Comportamento do aplicativo",
+    "ui.technicalDetails": "Detalhes técnicos",
+    "ui.vaultSwitchLocked": "Para criar ou trocar de cofre, bloqueie e use a tela inicial.",
+    "ui.closeDetail": "Fechar detalhes",
+    "preferences.system": "Sistema",
+    "preferences.systemDescription": "Acompanha a aparência do sistema.",
+    "preferences.sensitiveActionsDescription": "Restaure tema, tamanho da fonte, movimento e densidade da lista. Seus dados do cofre são preservados.",
+    "nav.securityBackup": "Segurança"
+  },
+  "en": {
+    "ui.preferences.appearance": "Appearance & language",
+    "ui.preferences.application": "Application & vault",
+    "ui.preferences.maintenance": "Maintenance & help",
+    "ui.backups.storage": "Storage",
+    "ui.backups.backups": "Backups & recovery",
+    "ui.backups.transfer": "Import & export",
+    "ui.backups": "Backups & data",
+    "ui.unlockVault": "Unlock vault",
+    "ui.security.access": "Access",
+    "ui.security.locking": "Locking",
+    "ui.security.clipboard": "Clipboard",
+    "ui.security.integrations": "Integrations & permissions",
+    "ui.behavior": "Application behavior",
+    "ui.technicalDetails": "Technical details",
+    "ui.vaultSwitchLocked": "To create or switch vaults, lock and use the start screen.",
+    "ui.closeDetail": "Close details",
+    "preferences.system": "System",
+    "preferences.systemDescription": "Follow the system appearance.",
+    "preferences.sensitiveActionsDescription": "Reset theme, font size, motion and list density. Your vault data is preserved.",
+    "nav.securityBackup": "Security"
+  },
+  "es": {
+    "ui.preferences.appearance": "Apariencia e idioma",
+    "ui.preferences.application": "Aplicación y caja fuerte",
+    "ui.preferences.maintenance": "Mantenimiento y ayuda",
+    "ui.backups.storage": "Almacenamiento",
+    "ui.backups.backups": "Copias y recuperación",
+    "ui.backups.transfer": "Importar y exportar",
+    "ui.backups": "Copias y datos",
+    "ui.unlockVault": "Desbloquear caja fuerte",
+    "ui.security.access": "Acceso",
+    "ui.security.locking": "Bloqueo",
+    "ui.security.clipboard": "Portapapeles",
+    "ui.security.integrations": "Integraciones y permisos",
+    "ui.behavior": "Comportamiento de la aplicación",
+    "ui.technicalDetails": "Detalles técnicos",
+    "ui.vaultSwitchLocked": "Para crear o cambiar de caja fuerte, bloquea y usa la pantalla inicial.",
+    "ui.closeDetail": "Cerrar detalles",
+    "preferences.system": "Sistema",
+    "preferences.systemDescription": "Sigue la apariencia del sistema.",
+    "preferences.sensitiveActionsDescription": "Restablece tema, fuente, movimiento y densidad. Se conservan los datos de tu caja fuerte.",
+    "nav.securityBackup": "Seguridad"
+  },
+  "tr": {
+    "ui.preferences.appearance": "Görünüm ve dil",
+    "ui.preferences.application": "Uygulama ve kasa",
+    "ui.preferences.maintenance": "Bakım ve yardım",
+    "ui.backups.storage": "Depolama",
+    "ui.backups.backups": "Yedekler ve kurtarma",
+    "ui.backups.transfer": "İçe ve dışa aktar",
+    "ui.backups": "Yedekler ve veriler",
+    "ui.unlockVault": "Kasanın kilidini aç",
+    "ui.security.access": "Erişim",
+    "ui.security.locking": "Kilitleme",
+    "ui.security.clipboard": "Pano",
+    "ui.security.integrations": "Entegrasyonlar ve izinler",
+    "ui.behavior": "Uygulama davranışı",
+    "ui.technicalDetails": "Teknik ayrıntılar",
+    "ui.vaultSwitchLocked": "Kasa oluşturmak veya değiştirmek için kilitleyin ve başlangıç ekranını kullanın.",
+    "ui.closeDetail": "Ayrıntıları kapat",
+    "preferences.system": "Sistem",
+    "preferences.systemDescription": "Sistem görünümünü izle.",
+    "preferences.sensitiveActionsDescription": "Tema, yazı tipi, hareket ve liste yoğunluğunu sıfırla. Kasa verileri korunur.",
+    "nav.securityBackup": "Güvenlik"
+  }
+};
+
 export function translate(language: AppLanguage, key: TranslationKey, values: TranslationValues = {}) {
   if (vaultRemovalTranslations[language][key]) {
     return vaultRemovalTranslations[language][key].replace(/\{(\w+)\}/g, (_, name: string) =>
       values[name] === undefined ? `{${name}}` : String(values[name]));
   }
   if (apiTranslations[key]) return apiTranslations[key][language === "pt" ? 0 : 1];
-  const template = v134Translations[language]?.[key] ?? v134Translations.en[key] ?? v134Translations.pt[key] ?? v133Translations[language]?.[key] ?? v133Translations.en[key] ?? v133Translations.pt[key] ?? v132Translations[language]?.[key] ?? v132Translations.en[key] ?? v132Translations.pt[key] ?? v130Translations[language]?.[key] ?? v130Translations.en[key] ?? v130Translations.pt[key] ?? v100Translations[language]?.[key] ?? v100Translations.en[key] ?? v100Translations.pt[key] ?? v095Translations[language]?.[key] ?? v095Translations.en[key] ?? v095Translations.pt[key] ?? v094Translations[language]?.[key] ?? v094Translations.en[key] ?? v094Translations.pt[key] ?? v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
+  const template = redesignTranslations[language]?.[key] ?? v134Translations[language]?.[key] ?? v134Translations.en[key] ?? v134Translations.pt[key] ?? v133Translations[language]?.[key] ?? v133Translations.en[key] ?? v133Translations.pt[key] ?? v132Translations[language]?.[key] ?? v132Translations.en[key] ?? v132Translations.pt[key] ?? v130Translations[language]?.[key] ?? v130Translations.en[key] ?? v130Translations.pt[key] ?? v100Translations[language]?.[key] ?? v100Translations.en[key] ?? v100Translations.pt[key] ?? v095Translations[language]?.[key] ?? v095Translations.en[key] ?? v095Translations.pt[key] ?? v094Translations[language]?.[key] ?? v094Translations.en[key] ?? v094Translations.pt[key] ?? v080Translations[language]?.[key] ?? v080Translations.en[key] ?? v080Translations.pt[key] ?? v071Translations[language]?.[key] ?? v071Translations.en[key] ?? v071Translations.pt[key] ?? v070RefinedTranslations[language]?.[key] ?? v070RefinedTranslations.en[key] ?? v070RefinedTranslations.pt[key] ?? v070Translations[language]?.[key] ?? v070Translations.en[key] ?? v070Translations.pt[key] ?? v061Translations[language]?.[key] ?? v061Translations.en[key] ?? v061Translations.pt[key] ?? v051Translations[language]?.[key] ?? v051Translations.en[key] ?? v051Translations.pt[key] ?? v050Translations[language]?.[key] ?? v050Translations.en[key] ?? v050Translations.pt[key] ?? v041Translations[language]?.[key] ?? v041Translations.en[key] ?? v041Translations.pt[key] ?? v040Translations[language]?.[key] ?? v040Translations.en[key] ?? v040Translations.pt[key] ?? dictionaries[language][key] ?? dictionaries.en[key] ?? (ptTranslations as Record<string, string>)[key] ?? key;
 
   return String(template).replace(/\{(\w+)\}/g, (_, name: string) =>
     values[name] === undefined ? `{${name}}` : String(values[name]),

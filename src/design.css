@@ -1,0 +1,782 @@
+/* Shared design system. Component-specific compatibility layouts live in the
+   lower-priority legacy layer; this file owns appearance and responsive shells. */
+:root {
+  --surface: #101b28;
+  --surface-raised: #142232;
+  --canvas: #0b1420;
+  --sidebar: #0d1825;
+  --field: #0e1926;
+  --text: #e8eef7;
+  --muted: #a5b4c7;
+  --border: #293b4e;
+  --accent: #55ceef;
+  --selection: #123b53;
+  --primary: #1265eb;
+  --primary-hover: #2378f5;
+  --on-primary: #fff;
+  --danger: #ff9caa;
+  --danger-bg: #3b1d2b;
+  --success: #8adbb3;
+  --success-bg: #142c25;
+  --warning: #f5cc74;
+  --warning-bg: #342b18;
+  --shadow: 0 12px 32px #00000026;
+  --radius: 12px;
+  --control-height: 40px;
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--canvas);
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+:root[data-theme="light"] {
+  --surface: #fff;
+  --surface-raised: #f1f5fa;
+  --canvas: #f5f7fb;
+  --sidebar: #edf2f8;
+  --field: #fff;
+  --text: #17263a;
+  --muted: #53657b;
+  --border: #d5dfea;
+  --accent: #006c9c;
+  --selection: #e3f2fc;
+  --primary: #075dd9;
+  --primary-hover: #034ebc;
+  --danger: #b12742;
+  --danger-bg: #fff0f2;
+  --success: #196842;
+  --success-bg: #eaf8f0;
+  --warning: #795305;
+  --warning-bg: #fff7df;
+  --shadow: 0 10px 30px #182d4610;
+  color-scheme: light;
+}
+:root[data-font-scale="large"] { font-size: 17px; }
+html, body, #root { width: 100%; height: 100%; min-width: 320px; }
+body { background: var(--canvas); color: var(--text); overflow: hidden; }
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+*::-webkit-scrollbar { display: block; width: 7px; height: 7px; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+button, input, select, textarea { font: inherit; color: var(--text); }
+button { min-width: 0; overflow: visible; font-weight: 600; line-height: 1.3; }
+button, a, input, select, textarea, summary { -webkit-tap-highlight-color: transparent; }
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+}
+button:disabled { opacity: .5; cursor: not-allowed; }
+h1, h2, h3, strong, b { color: var(--text); text-shadow: none; -webkit-text-stroke: 0; }
+h1 { font-size: 1.7rem; font-weight: 700; line-height: 1.2; letter-spacing: -.025em; }
+h2 { font-size: 1.15rem; font-weight: 650; line-height: 1.35; letter-spacing: -.015em; }
+h3 { font-size: 1rem; font-weight: 650; }
+strong, b { font-weight: 650; }
+p { color: var(--muted); line-height: 1.55; }
+small { color: var(--muted); font-size: .86rem; line-height: 1.5; }
+label { color: var(--text); font-size: .95rem; font-weight: 500; gap: 8px; }
+input, select, textarea {
+  min-height: var(--control-height); border: 1px solid var(--border);
+  border-radius: 8px; background: var(--field); color: var(--text);
+  padding: 9px 12px; box-shadow: none;
+}
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .85; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: none; }
+select option { color: var(--text); background: var(--surface); }
+input[type="checkbox"], input[type="radio"] {
+  appearance: auto; width: 18px; height: 18px; min-height: 0; padding: 0;
+  flex: 0 0 18px; accent-color: var(--primary); box-shadow: none;
+}
+input[type="range"] { padding: 0; accent-color: var(--primary); }
+input[type="file"] { max-width: 100%; }
+textarea { min-height: 100px; }
+.uiIcon { display: block; flex: 0 0 20px; }
+:where(.primaryButton, .secondaryButton, .ghostButton, .dangerConfirmButton,
+ .dangerButton, .windowsHelloButton, .iconButton, .authToolButton, .fileImportButton,
+ .detailActions button, .rowActions button, .trashActions button, .historyActions button,
+ .languageSelectButton, .quickFilterMenuButton, .bridgePermission button) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--control-height); height: auto; min-width: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface-raised); color: var(--text); font-weight: 600;
+  padding: 9px 14px; box-shadow: none; text-shadow: none;
+  overflow: visible; white-space: normal; overflow-wrap: anywhere;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+:where(.primaryButton, .secondaryButton, .ghostButton, .dangerConfirmButton,
+ .dangerButton, .windowsHelloButton, .iconButton, .authToolButton,
+ .detailActions button, .rowActions button, .trashActions button):not(:disabled):hover {
+  border-color: var(--accent); background: var(--selection);
+}
+:where(.primaryButton, .secondaryButton, .authToolButton):not(:disabled):active { transform: translateY(1px); }
+.primaryButton, .authForm .primaryButton, .addItemIconButton {
+  background: linear-gradient(180deg, var(--primary-hover), var(--primary));
+  color: var(--on-primary); border-color: var(--primary);
+  box-shadow: inset 0 1px 0 #ffffff30, 0 3px 8px #075dd91c;
+}
+.primaryButton:not(:disabled):hover, .authForm .primaryButton:not(:disabled):hover {
+  color: var(--on-primary); background: var(--primary-hover);
+}
+.dangerConfirmButton, .dangerButton, .detailActions .dangerButton {
+  background: var(--danger-bg); color: var(--danger); border-color: var(--border);
+}
+.dangerConfirmButton:hover, .dangerButton:hover { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
+.ghostButton { background: transparent; }
+.iconButton { width: 40px; height: 40px; flex: 0 0 40px; padding: 6px; font-size: 1.3rem; align-self: flex-start; }
+.eyebrow { color: var(--muted); font-size: .78rem; font-weight: 600; letter-spacing: .06em; margin: 0 0 6px; }
+
+/* Navigation and full-window workspace. */
+.appShell, .appShell.sidebarOpen, .appShell.sidebarClosed {
+  height: 100dvh; min-height: 0; width: 100%; min-width: 0; overflow: hidden;
+  display: grid; grid-template-rows: minmax(0, 1fr);
+  --sidebar-expanded-width: 208px;
+  background: var(--canvas); transition: grid-template-columns 200ms cubic-bezier(.2, .8, .2, 1);
+}
+.appShell.sidebarOpen { grid-template-columns: var(--sidebar-expanded-width) minmax(0, 1fr); }
+.appShell.sidebarClosed { grid-template-columns: 72px minmax(0, 1fr); }
+:root[data-font-scale="large"] .appShell { --sidebar-expanded-width: 240px; }
+.sidebar, .sidebarOpen .sidebar, .sidebarClosed .sidebar {
+  display: flex; flex-direction: column; justify-content: flex-start; align-self: stretch; align-items: stretch;
+  gap: 24px; width: auto; height: 100%; max-height: none; margin: 0;
+  grid-area: 1 / 1;
+  min-width: 0; min-height: 0; padding: 16px 12px; position: static;
+  overflow: hidden auto; border: 0; border-right: 1px solid var(--border);
+  background: var(--sidebar); box-shadow: none; backdrop-filter: none;
+}
+.sidebarBrand, .sidebarOpen .sidebarBrand, .sidebarClosed .sidebarBrand {
+  display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin: 0; padding: 0;
+  width: 100%; min-width: 0; max-width: none; position: relative; min-height: 44px; overflow: hidden;
+}
+.sidebarToggle, .sidebarOpen .sidebarToggle, .sidebarClosed .sidebarToggle {
+  display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px;
+  flex: 0 0 44px; margin: 0; padding: 0; background: transparent;
+  min-width: 0; max-width: none; max-height: none; pointer-events: auto; cursor: pointer;
+  border: 1px solid transparent; box-shadow: none; border-radius: 10px; transform: none;
+}
+.sidebarToggle:hover { background: var(--selection); border-color: var(--border); }
+.appLogo, .appLogo.md, .sidebarToggle .appLogo.md {
+  display: grid; place-items: center; width: 36px; height: 36px;
+  min-width: 0; margin: 0; border: 0; background: none; box-shadow: none; filter: none;
+}
+.appLogo img, .appLogo.md img, .sidebarToggle .appLogo.md img {
+  width: 100%; height: 100%; object-fit: contain; transform: none; filter: none;
+}
+.appLogo.sm { width: 28px; height: 28px; }
+.brandText, .sidebarOpen .brandText {
+  display: block; position: absolute; left: 54px; width: calc(var(--sidebar-expanded-width) - 80px);
+  max-width: none; white-space: nowrap; opacity: 1; margin: 0;
+  transition: opacity 120ms ease, transform 200ms ease, visibility 0s;
+}
+.brandText strong { display: block; font-size: 1rem; }
+.brandText span { display: block; font-size: .75rem; color: var(--muted); }
+.sidebarClosed .brandText, .sidebarClosed .navLabel {
+  visibility: hidden; opacity: 0; transform: translateX(-6px); pointer-events: none;
+  transition: opacity 100ms ease, transform 200ms ease, visibility 0s 100ms;
+}
+.navList {
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+  grid-template-columns: none; grid-template-rows: none; align-content: start;
+  gap: 6px; width: 100%; margin: 0; padding: 0; flex: 0 0 auto;
+  max-height: none; height: auto; overflow: visible;
+}
+.navList button, .lockButton, .sidebarClosed .lockButton {
+  display: flex; align-items: center; justify-content: flex-start; width: 100%;
+  gap: 12px; min-height: 44px; height: 44px; min-width: 0; padding: 10px 11px;
+  position: relative; overflow: hidden; text-align: left;
+  max-width: none; max-height: none; flex: 0 0 auto;
+  border: 1px solid transparent; border-radius: 8px; background: transparent;
+  color: var(--muted); box-shadow: none; font-size: .95rem; font-weight: 550;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.navList button:hover, .lockButton:hover { background: var(--surface-raised); color: var(--text); }
+.navList button.active { background: var(--selection); border-color: var(--border); color: var(--accent); }
+.navIcon, .lockButton .navIcon, .sidebarClosed .lockButton .navIcon {
+  display: grid; place-items: center; width: 20px; height: 20px; min-width: 20px; min-height: 20px;
+  flex: 0 0 20px; margin: 0; padding: 0; background: none; box-shadow: none;
+}
+.navLabel, .sidebarOpen .navLabel {
+  display: block; position: absolute; left: 44px; width: calc(var(--sidebar-expanded-width) - 80px);
+  max-width: none; white-space: nowrap; line-height: 1.35; font-size: inherit;
+  color: inherit; opacity: 1; pointer-events: none;
+  transition: opacity 120ms ease, transform 200ms ease, visibility 0s;
+}
+.sidebarFooter { margin-top: auto; width: 100%; min-width: 0; max-width: none; }
+.sidebarBrand, .sidebarFooter { flex-shrink: 0; }
+.content, .appShell:not(.authShell) .content {
+  display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0;
+  grid-area: 1 / 2;
+  width: 100%; height: 100%; padding: 24px; overflow: auto;
+  scrollbar-gutter: stable;
+}
+.content > * { flex-shrink: 0; }
+.topbar, .settingsGrid, .preferencesGrid, .trashList, .wideCard, .assistantPage {
+  width: 100%; max-width: none; margin-inline: 0;
+}
+.topbar {
+  display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: space-between;
+  min-height: 48px; padding: 0; margin: 0; gap: 16px; border: 0; border-radius: 0;
+  background: none; box-shadow: none;
+}
+.topbarTitle { display: flex; flex: 1; width: auto; gap: 0; min-width: 0; }
+.topbarTitle > .appLogo { display: none; }
+.topbar h1, .topbarTitle h1 { font-size: 1.7rem; margin: 0; line-height: 1.2; font-weight: 700; }
+.topbarTitle .eyebrow { margin: 0 0 3px; font-size: .75rem; letter-spacing: .04em; }
+.topbarActions { display: flex; flex: 0 1 auto; width: auto; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; min-height: 0; }
+.addItemIconButton { display: inline-flex; width: auto; min-width: 0; height: auto; min-height: 40px; font-size: .95rem; padding: 9px 14px; }
+.addItemIconButton > span { font-size: inherit; }
+.languageSelectButton { min-height: 40px; height: auto; border-radius: 8px; background: var(--surface); }
+.languageOptions, .quickFilterMenu { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.languageOption, .quickFilterMenuItem { color: var(--text); background: transparent; border-radius: 6px; }
+.languageOption:hover, .languageOption.active, .quickFilterMenuItem:hover, .quickFilterMenuItem.active { background: var(--selection); color: var(--accent); }
+.languageOptionCode, .languageOption.active .languageOptionCode { background: var(--surface-raised); color: var(--text); }
+.languageOptionLabel, .languageOptionCheck, .quickFilterMenuItem span { color: inherit; }
+
+/* List, selection and detail. Metadata wraps instead of disappearing. */
+.credentialWorkspace { min-width: 0; display: grid; gap: 20px; align-items: start; }
+.vaultListPane { min-width: 0; }
+.toolbar, .vaultSearchToolbar { display: flex; align-items: center; gap: 12px; padding: 0; margin: 0 0 12px; background: none; border: 0; }
+.vaultSearchToolbar input { min-width: 0; flex: 1; }
+.quickFilterMenuButton { min-height: 40px; height: auto; padding: 9px 14px; border-radius: 8px; background: var(--surface); }
+.quickFilterMenuButton span, .quickFilterMenuButton strong { color: var(--text); }
+.quickFilterMenuButton strong { background: var(--surface-raised); }
+.quickFilterDropdown { flex: 0 0 auto; }
+.credentialRows { display: grid; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.credentialRow {
+  display: grid; grid-template-columns: 24px 28px minmax(160px, 1fr) minmax(90px, .5fr) minmax(100px, .45fr) minmax(120px, .5fr) auto;
+  grid-template-areas: "order star main secret type health actions";
+  gap: 12px; align-items: center; min-width: 0; min-height: 80px;
+  padding: 16px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
+  background: transparent; color: var(--text); box-shadow: none;
+  cursor: pointer; transition: background-color 150ms ease;
+}
+.credentialRow:last-child { border-bottom: 0; }
+.credentialRow:hover { background: var(--surface-raised); transform: none; box-shadow: none; }
+.credentialRow.selected { background: var(--selection); box-shadow: inset 3px 0 0 var(--accent); }
+.credentialRow .reorderControls { grid-area: order; }
+.credentialRow .rowStar { grid-area: star; }
+.credentialRow .rowMain { grid-area: main; }
+.credentialRow .rowPassword { grid-area: secret; }
+.credentialRow .rowCategory { grid-area: type; }
+.credentialRow .rowHealth { grid-area: health; }
+.credentialRow .rowActions { grid-area: actions; }
+.rowMain { display: grid; gap: 3px; min-width: 0; }
+.rowMain strong { font-size: 1rem; overflow-wrap: anywhere; }
+.rowMain small { color: var(--muted); font-size: .9rem; overflow-wrap: anywhere; }
+.rowPassword { display: block; color: var(--muted); font-size: .95rem; min-width: 0; overflow-wrap: anywhere; }
+.rowCategory { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; background: var(--surface-raised); color: var(--muted); padding: 4px 8px; border-radius: 6px; font-size: .8rem; }
+.rowHealth { display: flex; flex-wrap: wrap; gap: 5px; color: var(--muted); font-size: .8rem; min-width: 0; }
+.rowHealth > span { background: transparent; padding: 0; }
+.rowActions, .trashActions, .inlineActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.rowActions button { min-height: 36px; font-size: .86rem; padding: 7px 10px; }
+.rowStar { display: grid; place-items: center; width: 28px; height: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 1.3rem; }
+.rowStar.active { color: var(--warning); }
+.reorderControls button { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); }
+.reorderControls button:not(:disabled):hover { color: var(--accent); background: var(--selection); }
+.credentialTags, .credentialTags.compact { display: flex; flex-wrap: wrap; min-width: 0; gap: 5px; max-height: none; overflow: visible; }
+.tagPill, .credentialTags.compact .tagPill { font-size: .8rem; padding: 3px 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-raised); color: var(--muted); max-width: 100%; }
+.detailPopup {
+  display: flex; flex-direction: column; width: min(720px, 100%); max-width: 100%;
+  height: auto; max-height: calc(100dvh - 32px); min-height: 0; gap: 0;
+  padding: 0; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); overflow: hidden; box-shadow: var(--shadow);
+}
+.detailHeader { padding: 20px; gap: 12px; align-items: flex-start; border-bottom: 1px solid var(--border); }
+.detailHeader span { color: var(--muted); font-size: .82rem; letter-spacing: 0; font-weight: 500; text-transform: none; }
+.detailHeader h2 { margin: 5px 0 0; font-size: 1.25rem; }
+.detailBody { padding: 20px; display: grid; gap: 20px; overflow: auto; min-height: 0; }
+.detailGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.detailGrid > div { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.detailGrid span, .notesBox > span { color: var(--muted); font-size: .86rem; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.detailGrid strong { font-size: 1rem; font-weight: 550; overflow-wrap: anywhere; }
+.detailActions { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--border); background: var(--surface); }
+.detailActions button { flex: 1 1 130px; font-size: .9rem; }
+.detailBody .notesBox, .detailBody .historyBox, .detailBody .attachmentsBox, .detailBody .credentialDiagnosisBox { padding: 16px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: none; box-shadow: none; }
+.notesBox p { color: var(--text); }
+.historyItem { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; box-shadow: none; }
+
+/* Settings: one surface per subject, plain rows within it. */
+.settingsGrid, .preferencesGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; }
+.sectionPage { width: 100%; min-width: 0; }
+.settingsGrid[data-active-section="storage"] > [data-section]:not([data-section="storage"]),
+.settingsGrid[data-active-section="backups"] > [data-section]:not([data-section="backups"]),
+.settingsGrid[data-active-section="transfer"] > [data-section]:not([data-section="transfer"]),
+.preferencesGrid[data-active-section="appearance"] > [data-section]:not([data-section="appearance"]),
+.preferencesGrid[data-active-section="application"] > [data-section]:not([data-section="application"]),
+.preferencesGrid[data-active-section="maintenance"] > [data-section]:not([data-section="maintenance"]) { display: none; }
+.settingsGrid .wideCard, .preferencesGrid .wideCard { grid-column: auto; }
+.wideCard, .preferenceCard, .designSection, .designDisclosure, .assistantHero, .assistantNextCard, .assistantQueueCard, .assistantSafeCard, .assistantNeedsYouCard, .assistantRulesCard {
+  padding: 20px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); box-shadow: none; min-width: 0;
+}
+.wideCard h2, .preferenceCard h2, .assistantPage h2 { font-size: 1.15rem; font-weight: 650; margin-bottom: 8px; text-shadow: none; }
+.wideCard p, .preferenceCard p, .assistantPage p { color: var(--muted); font-size: .95rem; line-height: 1.55; }
+.wideCard small, .assistantPage small { color: var(--muted); }
+.cardTitleRow, .settingsSectionHeader { align-items: flex-start; gap: 16px; padding: 0; }
+.cardTitleRow > div, .settingsSectionHeader > span { min-width: 0; }
+.cardTitleRow button { flex-shrink: 0; }
+.settingsSectionHeader strong { color: var(--text); font-size: 1.1rem; }
+.settingsSectionHeader small { color: var(--muted); }
+.settingsSectionHeader { display: flex; flex-wrap: wrap; }
+.settingsSectionHeader > span { flex: 1 1 200px; }
+.settingsSectionHeader > button { flex: 0 1 auto; white-space: normal; }
+.actionHistorySettingsSummary, .updateSummary { padding: 12px 0 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.actionHistorySettingsSummary span, .actionHistorySettingsSummary small { color: var(--muted); }
+.updateSummary { display: grid; grid-template-columns: 1fr; gap: 16px; margin: 16px 0; }
+.updateSummary > div { display: grid; gap: 4px; padding: 0; min-height: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.compactInfoGrid { grid-template-columns: 1fr; gap: 16px; }
+.compactInfoGrid > div { display: grid; align-content: start; gap: 4px; padding: 0; min-height: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.designDisclosure { display: block; padding: 0; overflow: hidden; }
+.designDisclosure > summary { display: flex; padding: 20px; list-style: none; cursor: pointer; gap: 16px; align-items: center; }
+.designDisclosure > summary::-webkit-details-marker { display: none; }
+.designDisclosure > summary::after { content: "+"; font-size: 1.4rem; color: var(--accent); margin-left: auto; }
+.designDisclosure[open] > summary::after { content: "−"; }
+.designDisclosure > summary > span { display: grid; gap: 6px; }
+.designDisclosure[open] > summary { border-bottom: 1px solid var(--border); }
+.settingsAccordionBody { display: grid; padding: 20px; gap: 16px; }
+.sectionTabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; padding: 0 0 8px; }
+.sectionTabs button { padding: 9px 14px; min-height: 40px; border: 0; border-radius: 8px; background: none; color: var(--muted); }
+.sectionTabs button.active { color: var(--accent); background: var(--selection); }
+.securityFootnote { max-width: 80ch; color: var(--muted); font-size: .85rem; margin: 20px 0 0; }
+.settingsControlGrid, .changePasswordForm, .backupVerifyPanel { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 16px; margin: 16px 0; }
+.changePasswordForm { grid-template-columns: 1fr; }
+.changePasswordForm > button { justify-self: start; }
+.backupFrequency { margin: 16px 0; max-width: 280px; }
+.toggleList { display: grid; gap: 0; margin: 12px 0 0; }
+.toggleRow, .securityActionCard .toggleRow {
+  display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 20px;
+  min-height: 56px; padding: 14px 0; border: 0; border-bottom: 1px solid var(--border);
+  border-radius: 0; background: none; box-shadow: none; color: var(--text);
+}
+.toggleRow:last-child { border-bottom: 0; }
+.toggleRow > span { display: grid; min-width: 0; gap: 4px; }
+.toggleRow strong { font-size: .95rem; }
+.toggleRow small { color: var(--muted); font-weight: 400; }
+.pathGrid, .exportActionGrid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.pathBox, .hiddenPathsBox, .exportBox, .windowsHelloPanel, .startupStatusBox, .languagePreferenceBox,
+.localSecurityNotice, .securityNotes, .generatorPanel,
+.totpEasyCard, .credentialDiagnosisBox, .appDiagnosticsNote, .csvImportReadyHint {
+  background: none; border: 0; border-radius: 0; box-shadow: none; padding: 12px 0; min-width: 0;
+}
+.pathBox strong, .startupStatusBox dd { color: var(--text); overflow-wrap: anywhere; }
+.hiddenPathsBox span, .exportBox span, .windowsHelloPanelText span, .startupStatusBox span, .securityGrid span { color: var(--muted); }
+.folderActionGrid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.folderActionGrid button { flex: 0 1 auto; min-height: 40px; }
+.exportBox { display: grid; gap: 8px; border-bottom: 1px solid var(--border); }
+.exportBox:last-child { border-bottom: 0; }
+.exportBox > button, .exportBox > .fileImportButton { justify-self: start; }
+.backupList { display: grid; gap: 0; margin: 16px 0; }
+.backupList > div { border: 0; border-radius: 0; border-bottom: 1px solid var(--border); padding: 12px 0; background: none; }
+.backupList strong { overflow-wrap: anywhere; font-size: .95rem; }
+.backupList span { color: var(--muted); }
+.backupPage > .designDisclosure:last-child, .backupPage > .storageCard { grid-column: 1 / -1; }
+.backupPage > .designDisclosure:last-child .exportActionGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.backupPage > .designDisclosure:last-child .exportBox { padding: 0 16px 0 0; border-bottom: 0; border-right: 1px solid var(--border); }
+.backupPage > .designDisclosure:last-child .exportBox:last-child { border-right: 0; }
+.windowsHelloPanel { display: flex; flex-wrap: wrap; align-items: start; gap: 16px; }
+.windowsHelloPanelText { flex: 1 1 240px; }
+.windowsHelloPanelText strong { color: var(--text); }
+.windowsHelloPanelText small { color: var(--muted); }
+.bridgePermission { padding: 12px 0; border-color: var(--border); overflow-wrap: anywhere; }
+.technicalDetails { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.technicalDetails > summary { cursor: pointer; color: var(--muted); font-weight: 550; padding: 6px 0; }
+.securityGrid { display: flex; flex-wrap: wrap; gap: 12px; }
+.securityGrid span { padding: 0; background: none; border: 0; font-size: .85rem; }
+.optionGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.optionButton {
+  padding: 14px 12px; display: flex; flex-direction: column; align-items: flex-start;
+  gap: 8px; min-height: 124px; min-width: 0; height: auto; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--surface); color: var(--text); overflow: visible; box-shadow: none;
+}
+.optionButton.active { background: var(--selection); border-color: var(--accent); }
+.optionButton strong { font-size: 1rem; }
+.optionButton small { color: var(--muted); font-weight: 400; }
+.currentVaultCard > strong { display: block; margin: 12px 0; }
+.currentVaultCard .inlineActions { justify-content: flex-start; }
+.emptyState { border: 1px dashed var(--border); background: transparent; color: var(--muted); border-radius: var(--radius); padding: 32px; }
+.emptyState p { color: var(--muted); }
+.trashItem { background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 16px 0 0; box-shadow: none; }
+.trashItem span, .trashItem small { color: var(--muted); }
+.trashPage { width: 100%; min-width: 0; }
+.trashPage .trashItem { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; }
+.trashPage .trashItem > div:first-child { flex: 1 1 240px; min-width: 0; }
+.trashPage .trashItem strong, .trashPage .trashItem span { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.trashActions { flex-direction: row; }
+
+/* Dialogs share the same surface and controls, with bounded vertical scrolling. */
+.popupOverlay, .modalOverlay, .confirmOverlay, :root[data-platform="linux"] .modalOverlay {
+  position: fixed; inset: 0; display: grid; place-items: center; padding: 16px;
+  overflow: auto; background: #020b16a3; backdrop-filter: none; z-index: 50;
+}
+.confirmOverlay { z-index: 80; }
+.confirmCard, .restoreDialog, .credentialModal, .csvImportModal, .csvExportModal,
+.totpEasyModal, .actionHistoryModal, .appDiagnosticsModal {
+  color: var(--text); background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px;
+  width: min(760px, 100%); max-width: 100%; max-height: calc(100dvh - 32px);
+  min-width: 0; overflow: auto;
+}
+.confirmCard { width: min(460px, 100%); }
+.csvImportModal { width: min(1040px, 100%); }
+.csvImportModal, .csvExportModal { overflow: hidden; padding: 0; }
+.csvImportModal > .modalHeader, .csvExportModal > .modalHeader { padding: 20px; }
+.csvImportModal > .modalActions, .csvExportModal > .modalActions { padding: 16px 20px; }
+.modalHeader, .csvExportModal .modalHeader, .detailHeader { position: static; margin: 0; background: var(--surface); backdrop-filter: none; }
+.csvExportBody { padding: 20px; }
+.csvImportModal .csvImportPreview { padding: 20px; border: 0; border-radius: 0; background: none; }
+.csvMappingGrid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.csvPreviewItem { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; padding: 12px 0; }
+.csvPreviewItem.invalid { background: var(--danger-bg); color: var(--danger); }
+.languageSelect, .quickFilterDropdown { z-index: 20; }
+.csvRiskPanel, .csvRecommendedPanel, .csvExportCleanupReminder, .csvAcknowledgeBox { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); box-shadow: none; }
+.csvExportActions .dangerConfirmButton { min-height: 40px; }
+.credentialModal .modalHeader { align-items: flex-start; padding: 0 0 16px; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
+.modalHeader h2, .credentialModal .modalHeader h2 { margin: 0; font-size: 1.3rem; }
+.modalHeader .eyebrow { color: var(--muted); }
+.formGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.formGrid label { min-width: 0; }
+.passwordInput { display: flex; gap: 8px; }
+.passwordInput input { flex: 1; }
+.passwordInput button { min-height: 40px; border-radius: 8px; background: var(--surface-raised); color: var(--text); padding: 8px 12px; border: 1px solid var(--border); }
+.generatorOptions label { background: transparent; border-color: var(--border); color: var(--text); padding: 8px; }
+.generatorPanel { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 16px; }
+.generatorPanel > label span { color: var(--text); }
+.modalActions, .confirmActions { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.confirmCard p, .restoreDialog p, .credentialModal p { color: var(--muted); }
+.confirmIcon { background: var(--selection); color: var(--accent); border-radius: 10px; box-shadow: none; }
+.confirmIcon.danger { background: var(--danger-bg); color: var(--danger); }
+:where(.message, .updateStatus, .diagnosticFilterBanner, .tagFilterBanner) {
+  padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px;
+  margin: 0; background: var(--surface-raised); color: var(--text); font-size: .95rem;
+}
+.message.success, .backupVerifyResult.success { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+.message.error, .totpEasyError, .backupVerifyResult.failure { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+:where(.dangerBadge, .diagnosticMiniBadge.issue-weak, .diagnosticMiniBadge.issue-expired) { background: var(--danger-bg); color: var(--danger); }
+:where(.expiryBadge.ok, .expiryBadge.safe) { background: var(--success-bg); color: var(--success); }
+.totpEasyChoice, .totpManualPanel, .totpPreviewPanel, .totpEasyNotice, .attachmentItem, .csvImportStats > div, .actionHistoryEmpty { background: var(--surface-raised); color: var(--text); border-color: var(--border); box-shadow: none; border-radius: 8px; }
+.totpEasyChoice strong, .totpEasyChoice span, .totpEasyChoice small, .csvImportStats span, .attachmentItem span, .actionHistoryItem span { color: var(--muted); }
+.actionHistoryItem { background: transparent; border-color: var(--border); border-radius: 0; }
+.appDiagnosticsList > div { padding: 12px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; box-shadow: none; }
+.appDiagnosticsList dt { color: var(--muted); }
+.appDiagnosticsList dd { color: var(--text); }
+.detailBody .totpBox { padding: 16px 0 0; background: none; border: 0; border-top: 1px solid var(--border); border-radius: 0; box-shadow: none; }
+.detailBody .totpBox button { flex-shrink: 0; white-space: nowrap; }
+.actionHistoryFilters button { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
+.actionHistoryFilters button.active { background: var(--selection); color: var(--accent); }
+
+/* Assistant retains its complete workflow with calmer surfaces. */
+.assistantPage { gap: 20px; }
+.assistantHero { padding: 20px; min-height: 0; }
+.assistantHero h2 { font-size: 1.4rem; }
+.assistantHero p { max-width: 72ch; margin-bottom: 0; }
+.assistantPulse { min-width: 96px; width: auto; min-height: 80px; background: var(--selection); border: 1px solid var(--border); border-radius: 12px; box-shadow: none; }
+.assistantPulse span, .assistantPulse strong { color: var(--accent); }
+.assistantNextCard { min-height: 0; padding: 24px; }
+.assistantNextCard::before, .assistantNextCard::after { content: none; }
+.assistantNextCard.tone-danger { border-left: 3px solid var(--danger); }
+.assistantNextCard.tone-warning { border-left: 3px solid var(--warning); }
+.assistantQueueItem { border-color: var(--border); background: transparent; box-shadow: none; color: var(--text); border-radius: 8px; }
+.assistantPage strong, .assistantPage h3 { color: var(--text); }
+.assistantPage span { color: var(--muted); }
+.assistantActionButtons { display: flex; flex-wrap: wrap; gap: 8px; }
+.assistantActionButtons button { min-height: 40px; }
+.assistantSuggestionButton, .assistantIssueChips button, .assistantIssueLine, .assistantTagRail {
+  border-color: var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); box-shadow: none;
+}
+
+/* Entry is the window itself; there is no second application-shaped frame. */
+.authShell, .authDesktopShell, .authSetupShell {
+  display: block; width: 100%; height: 100dvh; min-height: 0;
+  padding: 0; overflow: auto; background: var(--canvas);
+}
+.authCard, .authCard.authExperience, .authCard.authLocked, .authCard.authSetup {
+  display: grid; grid-template-columns: minmax(180px, .85fr) minmax(280px, 1fr);
+  grid-template-rows: auto 1fr auto; gap: 24px; position: relative;
+  width: 100%; max-width: none; min-width: 0; height: auto;
+  min-height: 100dvh; max-height: none; margin: 0; padding: 32px;
+  overflow: visible; background: var(--canvas); color: var(--text);
+  border: 0; border-radius: 0; box-shadow: none;
+}
+.authCard::before, .authCard::after { content: none; }
+.authLogoStage::before, .authLogoStage::after, .authHeroBlock::before, .authHeroBlock::after { content: none; }
+.authHeroBlock .appLogo::before, .authHeroBlock .appLogo::after { content: none; }
+.authUtilityBar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; position: static; width: 100%; padding: 0 0 20px; margin: 0; border-bottom: 1px solid var(--border); background: none; }
+.authProductMark { display: flex; gap: 10px; align-items: center; }
+.authProductMark strong { color: var(--text); }
+.authProductMark span { color: var(--muted); }
+.authLoginTools { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; position: static; width: auto; height: auto; max-width: none; padding: 0; margin: 0; background: none; border: 0; box-shadow: none; overflow: visible; }
+.authThemeSlot, .authVaultActions, .authLanguageSlot { display: flex; align-items: center; gap: 6px; width: auto; height: auto; border: 0; background: none; padding: 0; margin: 0; position: static; }
+.authThemeButtons { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: none; }
+.authThemeButton { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; width: auto; padding: 6px 8px; border: 0; border-radius: 5px; background: none; color: var(--muted); font-size: .8rem; }
+.authThemeButton.active { color: var(--accent); background: var(--selection); }
+.authVaultActions { flex-wrap: wrap; }
+.authToolButton { font-size: .85rem; padding: 9px 10px; }
+.authVaultSelect { width: auto; max-width: 200px; min-height: 40px; padding: 9px 10px; color: var(--text); background: var(--field); }
+.authLanguageSlot .languageSelectButton { width: 40px; }
+.authHeroBlock, .authLogoStage, .authLocked .authHeroBlock, .authUnlockTyping .authHeroBlock,
+.authUnlockSuccess .authHeroBlock {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  position: static; grid-column: 1; grid-row: 2; width: auto; height: auto;
+  max-width: none; min-height: 0; padding: 24px; margin: 0;
+  opacity: 1; transform: none; background: none; overflow: visible;
+}
+.authHeroBlock .appLogo.lg, .authLogoStage .appLogo.lg, .authLocked .authHeroBlock .vaultLogo,
+.authUnlockTyping .authHeroBlock .vaultLogo, .authUnlockSuccess .authHeroBlock .vaultLogo {
+  width: 200px; height: 200px; max-width: 100%; margin: 0;
+  opacity: 1; position: static; transform: perspective(800px) rotateY(-8deg);
+  filter: drop-shadow(0 14px 18px #00000030);
+  transition: transform 220ms ease;
+}
+.authHeroBlock .appLogo.lg img, .authLogoStage .appLogo.lg img {
+  width: 100%; height: 100%; opacity: 1; filter: none; transform: none;
+}
+.authHeroBlock .appLogo.lg.opening { transform: perspective(800px) rotateY(8deg) translateY(-3px); }
+.authHeroBlock h1 { font-size: 1.65rem; text-align: center; margin: 16px 0 8px; }
+.authHeroBlock p { color: var(--muted); text-align: center; font-size: .95rem; line-height: 1.5; margin: 8px 0 0; }
+.authHeroBlock .eyebrow { margin-top: 16px; }
+.authPanel, .authUnlockPanel, .authLocked .authUnlockPanel {
+  display: block; grid-column: 2; grid-row: 2; position: static; align-self: center;
+  width: 100%; max-width: 440px; justify-self: center; min-width: 0; height: auto; max-height: none;
+  padding: 12px 0; margin: 0; border: 0; background: none; box-shadow: none;
+  border-radius: 0; transform: none; opacity: 1; overflow: visible;
+}
+.authPanelLabel { display: block; font-size: 1.1rem; font-weight: 650; color: var(--text); margin: 0 0 16px; }
+.authForm, .authUnlockForm { gap: 16px; margin: 0; }
+.authForm input { min-height: 44px; font-size: 1rem; border-radius: 8px; }
+.authForm .primaryButton, .authForm .windowsHelloButton { min-height: 44px; font-size: 1rem; border-radius: 8px; padding: 10px 16px; }
+.authDeveloperCredit { grid-column: 1 / -1; position: static; margin: 0; padding: 12px 0 0; font-size: .8rem; color: var(--muted); text-align: center; }
+.authCard.authExperience.authSetup {
+  grid-template-areas: none; grid-template-rows: auto minmax(min-content, 1fr) auto auto;
+  padding: 24px 32px; gap: 16px;
+}
+.authSetup .authUtilityBar { grid-area: 1 / 1 / 2 / -1; }
+.authSetup .authHeroBlock { grid-area: 2 / 1; padding: 12px; }
+.authSetup .authHeroBlock .appLogo.lg { width: 160px; height: 160px; }
+.authSetup .authPanel { grid-area: 2 / 2; }
+.authSetup .firstUseGuide {
+  grid-area: 3 / 1 / 4 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 20px; max-width: none; padding: 0; margin: 0;
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+}
+.authSetup .authDeveloperCredit { grid-area: 4 / 1 / 5 / -1; }
+.firstUseGuide span { color: var(--muted); font-size: .86rem; }
+.authLoadingBar { border-radius: 6px; background: var(--selection); }
+
+/* Separate approval window: short summary, optional technical detail, fixed actions. */
+.bridgeDesktopApproval {
+  display: flex; flex-direction: column; width: 100%; height: 100dvh; min-height: 0;
+  box-sizing: border-box; overflow: hidden; padding: 20px; gap: 16px;
+  color: var(--text); background: var(--surface); font: inherit;
+}
+.bridgeDesktopApproval > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.bridgeBrand { display: flex; align-items: center; gap: 10px; }
+.bridgeBrand img { width: 28px; height: 28px; object-fit: contain; }
+.bridgeCountdown { padding: 4px 8px; border-radius: 6px; background: var(--selection); color: var(--accent); font-variant-numeric: tabular-nums; }
+.bridgeCountdown.urgent { background: var(--warning-bg); color: var(--warning); }
+.bridgeTitle { display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0; }
+.bridgeTitle > .uiIcon { width: 24px; height: 24px; color: var(--accent); margin-top: 3px; }
+.bridgeDesktopApproval h1 { font-size: 1.35rem; line-height: 1.3; margin: 0 0 6px; }
+.bridgeTitle p { font-size: .9rem; line-height: 1.45; margin: 0; }
+.bridgeApprovalContent { flex: 1; min-height: 0; overflow: auto; padding-right: 6px; }
+.bridgeDesktopApproval .bridgeRequestSummary { display: grid; grid-template-columns: minmax(85px, .4fr) minmax(0, 1fr); align-items: baseline; gap: 10px 16px; padding: 14px; margin: 0; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; }
+.bridgeDesktopApproval dt { color: var(--muted); font-size: .86rem; margin: 0; }
+.bridgeDesktopApproval dd { margin: 0; color: var(--text); font-size: .95rem; overflow-wrap: anywhere; }
+.bridgePermissionControls { margin: 12px 0; }
+.bridgeDesktopApproval label { color: var(--text); font-size: .9rem; }
+.bridgeDesktopApproval label:has(input[type="number"]) { display: grid; gap: 8px; }
+.bridgeDesktopApproval input[type="number"] { color: var(--text); background: var(--field); padding: 9px 12px; min-height: 40px; margin: 0; }
+.bridgeDesktopApproval input[type="checkbox"] { appearance: auto; margin: 0; }
+.bridgePermissionControls p { font-size: .85rem; margin: 8px 0; }
+.bridgeDesktopApproval .technicalDetails dl { display: grid; gap: 6px; margin: 12px 0; }
+.bridgeDesktopApproval .technicalDetails dd { margin-bottom: 8px; }
+.bridgeDesktopApproval small { color: var(--muted); font-size: .8rem; }
+.bridgeWarning { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--warning); border-radius: 8px; background: var(--warning-bg); flex-shrink: 0; }
+.bridgeWarning > span { display: grid; place-items: center; width: 18px; height: 18px; flex: 0 0 18px; border-radius: 50%; background: var(--warning); color: var(--surface); font-weight: 700; }
+.bridgeWarning p { color: var(--warning); font-size: .85rem; margin: 0; line-height: 1.4; }
+.bridgeDesktopApproval footer { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; width: 100%; gap: 10px; flex-shrink: 0; position: static; padding: 0; margin: 0; background: none; }
+.bridgeActions { display: flex; width: 100%; gap: 10px; }
+.bridgeDesktopApproval .bridgeActions button { min-height: 44px; width: auto; min-width: 0; flex: 1; padding: 10px 12px; border-radius: 8px; font-size: .95rem; }
+.bridgeDesktopApproval .bridgeActions .primaryButton { flex: 2; }
+
+/* Pages stay opaque while changing; dialogs retain their separate entrance. */
+@keyframes surface-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes page-enter { from { transform: translateY(3px); } to { transform: translateY(0); } }
+.content > .securityPage, .content > .sectionPage, .content > .trashPage,
+.content > .assistantPage, .content > .credentialWorkspace { animation: page-enter 140ms ease-out; }
+.modalOverlay > *, .popupOverlay > *, .confirmOverlay > * { animation: surface-enter 180ms ease-out; }
+.designDisclosure[open] > .settingsAccordionBody { animation: surface-enter 160ms ease-out; }
+
+/* Screen width changes layout, never availability of item information. */
+@media (min-width: 1200px) {
+  .credentialWorkspace.hasDetail { grid-template-columns: minmax(0, 1.15fr) minmax(380px, 1fr); }
+  .credentialWorkspace.hasDetail > .popupOverlay {
+    position: sticky; inset: auto; top: 0; display: block; z-index: auto;
+    min-width: 0; padding: 0; overflow: visible; background: none; backdrop-filter: none;
+  }
+  .credentialWorkspace.hasDetail .detailPopup { width: 100%; max-height: calc(100dvh - 136px); box-shadow: none; }
+  .hasDetail .credentialRow {
+    grid-template-columns: 24px 28px minmax(0, 1fr) auto;
+    grid-template-areas: "order star main actions" ". . type type" ". . secret health";
+    gap: 8px 10px; padding: 16px;
+  }
+  .hasDetail .rowActions { flex-direction: column; gap: 6px; }
+}
+@media (max-width: 1199px) {
+  .credentialRow {
+    grid-template-columns: 24px 28px minmax(0, 1fr) auto;
+    grid-template-areas: "order star main actions" ". . secret type" ". . health health";
+    gap: 8px 10px;
+  }
+  .rowHealth { justify-content: flex-start; }
+}
+@media (max-width: 1100px) {
+  .settingsGrid, .preferencesGrid { grid-template-columns: 1fr; }
+  .content, .appShell:not(.authShell) .content { padding: 20px; }
+  .authUtilityBar { align-items: flex-start; }
+  .authLoginTools { flex: 1 1 400px; }
+  .authCard, .authCard.authExperience { width: min(960px, 100%); }
+}
+@media (min-width: 681px) and (max-width: 800px) {
+  .authCard.authExperience.authSetup { display: grid; padding: 24px; }
+  .authSetup.authExperience .authHeroBlock .appLogo.lg { width: 144px; height: 144px; }
+  .authSetup.authExperience .firstUseGuide { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 800px) {
+  .authCard, .authCard.authExperience, .authCard.authLocked, .authCard.authSetup { display: flex; flex-direction: column; padding: 20px; gap: 20px; }
+  .authHeroBlock, .authLogoStage { padding: 0; }
+  .authHeroBlock .appLogo.lg, .authLogoStage .appLogo.lg, .authLocked .authHeroBlock .vaultLogo { width: 112px; height: 112px; }
+  .authPanel, .authUnlockPanel, .authLocked .authUnlockPanel { padding: 0; width: 100%; }
+  .authLoginTools { justify-content: flex-start; }
+  .authSetup .firstUseGuide { padding: 0; grid-template-columns: 1fr; }
+  .authSetup .authHeroBlock .appLogo.lg { width: 112px; height: 112px; }
+  .backupPage > .designDisclosure:last-child .exportActionGrid { grid-template-columns: 1fr; }
+  .backupPage > .designDisclosure:last-child .exportBox { padding: 12px 0; border-right: 0; border-bottom: 1px solid var(--border); }
+  .backupPage > .designDisclosure:last-child .exportBox:last-child { border-bottom: 0; }
+}
+@media (max-width: 680px) {
+  .appShell, .appShell.sidebarOpen, .appShell.sidebarClosed, .appShell.sidebarHorizontal {
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: 60px minmax(0, 1fr);
+    height: 100dvh; min-height: 0;
+  }
+  .sidebar, .sidebarOpen .sidebar, .sidebarClosed .sidebar {
+    flex-direction: row; align-items: center; gap: 6px; padding: 6px 8px;
+    grid-area: 1 / 1; overflow: visible; border-right: 0; border-bottom: 1px solid var(--border); min-height: 0;
+  }
+  .sidebarBrand { flex: 0 0 36px; }
+  .sidebarToggle, .sidebarOpen .sidebarToggle, .sidebarClosed .sidebarToggle { width: 36px; height: 36px; min-height: 36px; flex-basis: 36px; }
+  .sidebar .brandText, .sidebar .navLabel, .sidebarClosed .navLabel { display: none; }
+  .navList { display: flex; flex-direction: row; align-items: center; flex: 1; justify-content: space-around; gap: 2px; width: auto; min-width: 0; }
+  .navList button, .sidebarClosed .navList button, .sidebar .lockButton { width: 36px; min-height: 40px; height: 40px; flex: 0 1 40px; padding: 8px; justify-content: center; }
+  .sidebarFooter { flex: 0 0 36px; width: auto; margin: 0; }
+  .content, .appShell:not(.authShell) .content { grid-area: 2 / 1; padding: 16px; gap: 16px; }
+  .topbar { align-items: center; gap: 10px; }
+  .topbar h1, .topbarTitle h1 { font-size: 1.45rem; }
+  .topbarActions { flex-wrap: nowrap; }
+  .topbarActions > .languageSelect { display: none; }
+  .addItemIconButton { padding: 9px 10px; }
+  .settingsGrid, .preferencesGrid { grid-template-columns: 1fr; }
+  .wideCard, .preferenceCard, .assistantHero, .assistantNextCard { padding: 16px; }
+  .designDisclosure { padding: 0; }
+  .designDisclosure > summary, .settingsAccordionBody { padding: 16px; }
+  .backupPage > .designDisclosure:last-child { grid-column: auto; }
+  .optionGrid { grid-template-columns: 1fr; }
+  .optionButton { flex-direction: row; flex-wrap: wrap; align-items: center; min-height: 72px; }
+  .optionButton small { flex-basis: 100%; }
+  .cardTitleRow { flex-wrap: wrap; }
+  .credentialRow { grid-template-columns: 20px 24px minmax(0, 1fr); grid-template-areas: "order star main" ". . type" ". . secret" ". . health" ". . actions"; padding: 12px; }
+  .rowActions { justify-content: flex-start; }
+  .rowActions button { flex: 0 1 auto; width: auto; }
+  .detailGrid { grid-template-columns: 1fr; }
+  .detailHeader, .detailBody { padding: 16px; }
+  .detailActions { padding: 12px 16px; }
+  .confirmCard, .restoreDialog, .credentialModal { padding: 20px; }
+  .csvImportModal, .csvExportModal { padding: 0; }
+  .modalActions button, .confirmActions button { flex: 1 1 120px; width: auto; }
+  .formGrid { grid-template-columns: 1fr; }
+  .formGrid .full { grid-column: 1; }
+  .authShell, .authDesktopShell { padding: 16px; }
+  .authLoginTools { flex-basis: auto; justify-content: flex-start; }
+  .authThemeButtons { width: auto; }
+  .authVaultActions { width: 100%; }
+  .authVaultSelect { flex: 1; max-width: none; min-width: 100px; }
+  .authUtilityBar { padding-bottom: 16px; }
+  .assistantPulse { min-width: 80px; min-height: 72px; width: auto; }
+}
+@media (max-width: 400px) {
+  .content, .appShell:not(.authShell) .content { padding: 12px; }
+  .quickFilterMenuButton { padding: 9px 10px; }
+  .authThemeButton > span:last-child { display: none; }
+  .bridgeDesktopApproval { padding: 14px; gap: 12px; }
+  .bridgeDesktopApproval h1 { font-size: 1.2rem; }
+}
+@media (max-height: 500px) {
+  .bridgeDesktopApproval { padding: 12px; gap: 8px; }
+  .bridgeTitle p, .bridgeDesktopApproval footer > small { display: none; }
+  .bridgeWarning { padding: 8px; }
+}
+:root[data-density="compact"] .credentialRow { padding-block: 10px; min-height: 64px; }
+:root[data-motion="reduced"] *, :root[data-motion="reduced"] *::before, :root[data-motion="reduced"] *::after {
+  animation: none; transition: none; scroll-behavior: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none; transition: none; scroll-behavior: auto; }
+  :root .appShell, :root .appShell .brandText, :root .appShell .navLabel,
+  :root .content > *, :root .modalOverlay > *, :root .popupOverlay > *, :root .confirmOverlay > * {
+    animation: none; transition: none;
+  }
+}
+/* Compact, accessible row actions and unboxed metadata. */
+.navLabel, .brandText strong, .brandText span { letter-spacing: 0; font-weight: inherit; text-transform: none; }
+.navList button { font-weight: 550; }
+.rowActions button { width: 36px; height: 36px; min-height: 36px; flex: 0 0 36px; padding: 7px; }
+.rowActionLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.rowActions button[data-copied="true"] { color: var(--success); background: var(--success-bg); }
+.hasDetail .rowActions { flex-direction: row; flex-wrap: nowrap; }
+.credentialRow .rowMain strong, .credentialRow .rowMain small { margin: 0; }
+.tagFilterBar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0; border: 0; background: none; margin: 12px 0; box-shadow: none; }
+.tagFilterBar > span { color: var(--muted); letter-spacing: 0; font-size: .8rem; }
+.tagFilterChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tagFilterChips button { border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--muted); padding: 4px 8px; min-height: 28px; }
+.tagFilterChips button.active { color: var(--accent); background: var(--selection); border-color: var(--accent); }
+.detailTagList { border: 0; border-radius: 0; padding: 0; background: none; box-shadow: none; }
+.detailTagList > span { color: var(--muted); }
+.detailBody button:not(.tagPill), .attachmentsBox .fileImportButton { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); }
+.authVaultActions { flex-direction: row; flex-wrap: wrap; }
+.authVaultActions .authToolButton { width: auto; min-width: 0; flex: 0 1 auto; }
+.authThemeButton > span, .authThemeButton > .uiIcon { width: auto; max-width: none; opacity: 1; }
+.authThemeButton { white-space: nowrap; overflow-wrap: normal; }
+.authThemeButton > span { white-space: nowrap; }
+.authThemeButton .uiIcon { width: 16px; height: 16px; }
+.authPanelLabel { text-transform: none; letter-spacing: 0; }
+.authForm label { text-align: left; }
+@media (min-width: 1200px) {
+  .hasDetail .credentialRow { grid-template-areas: "order star main actions" ". . type health" ". . secret secret"; }
+}
+@media (max-width: 400px) { .authThemeButton > span:last-child { display: inline; } }
+/* Neutralize old theme text-fill and label decoration across all components. */
+* { -webkit-text-fill-color: currentColor; }
+label { background: none; border: 0; border-radius: 0; }
+.settingsControlGrid > label, .formGrid > label { padding: 0; border: 0; background: none; box-shadow: none; }
+.settingsControlGrid { width: 100%; max-width: none; }
+.designSection:only-child { grid-column: 1 / -1; }
+.designSection:only-child .toggleList { max-width: 720px; }
+.designSection:only-child > label, .designSection:only-child .settingsControlGrid { max-width: 400px; }
+.rowCategory .uiIcon { width: 16px; height: 16px; flex-basis: 16px; }
+.detailHeader > div > span { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.itemTypeSwitch { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 0; }
+.itemTypeButton { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 10px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); box-shadow: none; }
+.itemTypeButton.active { color: var(--accent); border-color: var(--accent); background: var(--selection); }
+.itemTypeButton strong { white-space: normal; overflow: visible; text-overflow: clip; font-size: .9rem; font-weight: 550; }
+.itemTypeButton .uiIcon { width: 18px; height: 18px; }
+@media (max-width: 680px) { .itemTypeSwitch { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.authLogoStage, .authHeroBlock, .authPanel { filter: none; }
+.authLogoStage .appLogo img, .authHeroBlock .appLogo img { animation: none; }
+.toggleRow > span { letter-spacing: 0; }
+@media (max-width: 680px) { .sidebar .navLabel { display: none; } }
+/* File import labels are controls, rather than decorative form labels. */
+.fileImportButton { display: inline-flex; align-items: center; justify-content: center; padding: 9px 14px; min-height: 40px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); cursor: pointer; }
+.credentialTags.compact { margin-top: 2px; }
+@media (min-width: 1000px) and (max-width: 1199px) {
+  .credentialWorkspace:not(.hasDetail) .credentialRow {
+    grid-template-columns: 24px 28px minmax(0, 1fr) minmax(120px, .5fr) auto;
+    grid-template-areas: "order star main secret actions" ". . health type actions";
+  }
+}

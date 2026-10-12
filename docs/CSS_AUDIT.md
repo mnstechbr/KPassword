@@ -1,5 +1,9 @@
 # Auditoria inicial do CSS
 
+> Registro histórico da v0.7.2. A repaginada atual e as regras de compatibilidade
+> estão descritas em [DESIGN_REFRESH.md](DESIGN_REFRESH.md). O tema misto foi
+> substituído pelo modo Sistema.
+
 O `src/App.css` tem aproximadamente 170,617 caracteres e acumulou várias camadas de ajustes/hotfixes durante a evolução visual do app.
 
 ## Decisão da v0.7.2
