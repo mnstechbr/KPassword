@@ -4,21 +4,21 @@ Gerenciador local de senhas e chaves de API para **Windows e Fedora Linux**, com
 
 As senhas e backups ficam no seu computador. Não é necessária conta nem nuvem para usar o cofre. O **Secrets Bridge**, opcional no Fedora, permite chamadas de API autorizadas: o KPassword usa a chave internamente e devolve somente a resposta ao programa. Essas chamadas enviam o conteúdo solicitado ao provedor e podem gerar cobrança.
 
-## Download e instalação — v1.5.2
+## Download e instalação — v1.6.0
 
-[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.5.2](docs/releases/v1.5.2.md)
+[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.6.0](docs/releases/v1.6.0.md)
 
 | Plataforma | Instalador | Atualizações |
 | --- | --- | --- |
-| Windows x64 | `KPassword-Setup-v1.5.2.exe` | Atualizador com assinatura, após a instalação manual da 1.5.0 ou mais recente |
-| Fedora 44 x86_64 | `KPassword-1.5.2-1.x86_64.rpm` | O app abre a Release; instalação/atualização pelo DNF |
+| Windows x64 | `KPassword-Setup-v1.6.0.exe` | Atualizador com assinatura, após a instalação manual da 1.5.0 ou mais recente |
+| Fedora 44 x86_64 | `KPassword-1.6.0-1.x86_64.rpm` | O app abre a Release; instalação/atualização pelo DNF |
 
 No Windows, execute o `.exe`. A chave pública de atualização foi renovada na 1.5.0: versões anteriores precisam de uma atualização manual, sem apagar cofres ou dados.
 
 No Fedora, baixe o RPM e execute na pasta do download:
 
 ```bash
-sudo dnf install ./KPassword-1.5.2-1.x86_64.rpm
+sudo dnf install ./KPassword-1.6.0-1.x86_64.rpm
 ```
 
 Abra o KPassword, crie ou desbloqueie seu cofre e guarde a senha mestra: ela não pode ser recuperada pelo projeto. Faça backups criptografados antes de atualizar. Cofres legados PBKDF2 e atuais Argon2id/AES-GCM continuam compatíveis entre plataformas.
@@ -32,7 +32,7 @@ Abra o KPassword, crie ou desbloqueie seu cofre e guarde a senha mestra: ela nã
 - Backups criptografados `.kpvault`, verificação e restauração.
 - Importação CSV com prévia e exportação CSV com aviso: CSV não é criptografado.
 - Exclusão de cofre com senha mestra, confirmação e cópia criptografada de recuperação.
-- Temas escuro, claro e misto, seleção de idioma e bandeja do sistema.
+- Temas escuro, claro e sistema, seleção de idioma e bandeja do sistema.
 - Windows Hello/PIN/biometria opcional no Windows; senha mestra no Fedora.
 - Clipboard, notificações e inicialização automática com configurações próprias por plataforma.
 - Adaptação gráfica para Fedora com NVIDIA/Wayland, preservando a versão Windows.
@@ -42,14 +42,14 @@ Abra o KPassword, crie ou desbloqueie seu cofre e guarde a senha mestra: ela nã
 Disponível **localmente no Fedora**. O Bridge não exporta a chave para `.env`, argumentos, clipboard ou para o aplicativo consumidor. É necessário adaptar o projeto: dizer “minha chave está no KPassword” na conversa não configura automaticamente Claude, Codex, um SDK ou outro programa.
 
 1. Cadastre um item **Chave de API** com o identificador do provedor.
-2. Em **Segurança → Mostrar opções avançadas**, habilite Secrets Bridge, escolha 24, 48 ou 72 horas e ative a sessão com o cofre desbloqueado. O padrão é 48 horas.
+2. Em **Segurança → Integrações e permissões**, habilite Secrets Bridge, escolha 24, 48 ou 72 horas e ative a sessão com o cofre desbloqueado. O padrão é 48 horas.
 3. Informe ao projeto o **ID da credencial** mostrado no KPassword e o caminho do conector. Esse ID é uma referência, não é a chave secreta.
 4. Integre o conector no processo da aplicação. Quando ela solicitar uma chamada, aparece uma **janela própria de aprovação na área de trabalho**, mesmo com o cofre bloqueado na bandeja.
 5. Escolha **Aprovar uma vez**, **Recusar** ou **Continuar permitindo**. Fechar o popup ou ignorá-lo por 30 segundos recusa o pedido.
 
 A permissão contínua inclui identidade observada do executável/script, diretório de trabalho, credencial, operação e modelo. **Trocar de tarefa no mesmo contexto não exige nova aprovação.** Mudanças nesses elementos exigem outro pedido. A identificação de script suporta Python, Node, Bun e Deno. Interpretadores reconhecidos sem script identificável, incluindo Ruby/Perl/PHP/shell/Java/.NET, aceitam apenas aprovação única; runtimes desconhecidos não têm garantia de identificação de script.
 
-**O bloqueio automático da interface e o X não encerram a ponte.** A sessão termina quando expira, o KPassword é encerrado, o computador reinicia, o cofre é editado/trocado ou o usuário bloqueia manualmente/revoga o acesso. Use o ícone da bandeja para **Revogar todos os acessos da ponte**, ou consulte/revogue permissões individuais em Segurança → Mostrar opções avançadas. As autorizações não ficam salvas em disco; reiniciar exige desbloquear e reativar a ponte.
+**O bloqueio automático da interface e o X não encerram a ponte.** A sessão termina quando expira, o KPassword é encerrado, o computador reinicia, o cofre é editado/trocado ou o usuário bloqueia manualmente/revoga o acesso. Use o ícone da bandeja para **Revogar todos os acessos da ponte**, ou consulte/revogue permissões individuais em Segurança → Integrações e permissões. As autorizações não ficam salvas em disco; reiniciar exige desbloquear e reativar a ponte.
 
 Cada permissão tem um limite de chamadas escolhido no popup (padrão: 10.000), máximo de 60 chamadas/minuto e teto de 8.192 tokens de saída por chamada de geração. Esses limites não são um orçamento monetário: configure também limites no provedor. Um pedido autorizado já enviado ao provedor pode terminar após a revogação. Histórico/backup sem mudança de conteúdo preservam a ponte. Seu estado e tempo restante aparecem somente nas configurações de Segurança.
 
