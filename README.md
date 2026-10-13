@@ -4,21 +4,21 @@ Gerenciador local de senhas e chaves de API para **Windows e Fedora Linux**, com
 
 As senhas e backups ficam no seu computador. Não é necessária conta nem nuvem para usar o cofre. O **Secrets Bridge**, opcional no Fedora, permite chamadas de API autorizadas: o KPassword usa a chave internamente e devolve somente a resposta ao programa. Essas chamadas enviam o conteúdo solicitado ao provedor e podem gerar cobrança.
 
-## Download e instalação — v1.6.0
+## Download e instalação — v1.7.0
 
 [Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.7.0](docs/releases/v1.7.0.md)
 
 | Plataforma | Instalador | Atualizações |
 | --- | --- | --- |
-| Windows x64 | `KPassword-Setup-v1.6.0.exe` | Atualizador com assinatura, após a instalação manual da 1.5.0 ou mais recente |
-| Fedora 44 x86_64 | `KPassword-1.6.0-1.x86_64.rpm` | O app abre a Release; instalação/atualização pelo DNF |
+| Windows x64 | `KPassword-Setup-v1.7.0.exe` | Atualizador com assinatura, após a instalação manual da 1.5.0 ou mais recente |
+| Fedora 44 x86_64 | `KPassword-1.7.0-1.x86_64.rpm` | O app abre a Release; instalação/atualização pelo DNF |
 
 No Windows, execute o `.exe`. A chave pública de atualização foi renovada na 1.5.0: versões anteriores precisam de uma atualização manual, sem apagar cofres ou dados.
 
 No Fedora, baixe o RPM e execute na pasta do download:
 
 ```bash
-sudo dnf install ./KPassword-1.6.0-1.x86_64.rpm
+sudo dnf install ./KPassword-1.7.0-1.x86_64.rpm
 ```
 
 Abra o KPassword, crie ou desbloqueie seu cofre e guarde a senha mestra: ela não pode ser recuperada pelo projeto. Faça backups criptografados antes de atualizar. Cofres legados PBKDF2 e atuais Argon2id/AES-GCM continuam compatíveis entre plataformas.
@@ -53,21 +53,52 @@ A permissão contínua inclui identidade observada do executável/script, diret�
 
 Não é preciso escolher uma quantidade de chamadas: a permissão vale para esse contexto durante a sessão do aplicativo, até encerrar a ponte. O núcleo limita automaticamente frequência (60 chamadas/minuto por credencial), concorrência (4 chamadas) e saída (8.192 tokens/chamada). O HTTP também faz reservas conservadoras de saída por hora para limitar consumo; veja o guia universal. Esses limites não são um orçamento monetário: configure também limites no provedor. Um pedido autorizado já enviado ao provedor pode terminar após a revogação. Histórico/backup sem mudança de conteúdo preservam a ponte. Seu estado e tempo restante aparecem somente nas configurações de Segurança.
 
-### Conector e exemplo
+### Configurar MCP no Codex
 
-O RPM inclui `/usr/lib/KPassword/bridge/kpassword_bridge_client.py`. No código-fonte, use `tools/kpassword_bridge_client.py`. Para Python:
+No Fedora com o RPM instalado, adicione à configuração MCP do Codex
+(`~/.codex/config.toml`):
 
-```python
-import sys
-sys.path.insert(0, "/usr/lib/KPassword/bridge")
-from kpassword_bridge_client import request_api
-
-resposta = request_api("ID_DA_CREDENCIAL", "responses", {
-    "model": "MODELO_DISPONIVEL_NA_SUA_CONTA",
-    "input": "Resuma este texto sem informações sensíveis.",
-    "max_output_tokens": 1024,
-})
+```toml
+[mcp_servers.kpassword]
+url = "http://127.0.0.1:8765/mcp"
+http_headers_helper = "python3 /usr/lib/KPassword/bridge/kpassword_mcp.py --headers"
+startup_timeout_sec = 20
+tool_timeout_sec = 180
+enabled_tools = ["api_request"]
 ```
+
+O helper provisiona um token local temporário pelo socket privado. **Não coloque
+a chave real do provedor nessa configuração.** Reinicie ou recarregue as conexões
+MCP do Codex após configurar e mantenha a sessão do Bridge ativa no KPassword.
+Essa configuração é feita uma vez por cliente, sem criar uma conexão por projeto.
+
+Para clientes que não suportam o helper HTTP, configure MCP stdio com comando
+`python3` e argumento `/usr/lib/KPassword/bridge/kpassword_mcp.py`. Esse adaptador
+usa o mesmo servidor Rust; não inicia outro gateway. No código-fonte, substitua
+o caminho pelo caminho absoluto de `tools/kpassword_mcp.py`.
+
+### Usar a ferramenta MCP
+
+Peça ao agente para chamar `api_request` com o identificador da chave cadastrada.
+Por exemplo, os argumentos para DeepSeek v4.1 Flash são:
+
+```json
+{
+  "provider": "DEEPSEEK_API_KEY",
+  "operation": "chat",
+  "body": {
+    "model": "deepseek-flash",
+    "messages": [{"role": "user", "content": "Responda apenas OK."}],
+    "max_tokens": 64,
+    "thinking": {"type": "disabled"}
+  }
+}
+```
+
+O KPassword resolve a credencial internamente e apresenta a autorização. Se houver
+mais de uma chave compatível, acrescente `credential_id` com o ID da credencial.
+A resposta contém o resultado da API, sem a chave secreta. Aprovar a sessão
+reutiliza a permissão para a mesma sessão, credencial, operação e modelo.
 
 | Identificador da chave no cofre | Operações |
 | --- | --- |
@@ -80,25 +111,29 @@ resposta = request_api("ID_DA_CREDENCIAL", "responses", {
 | `MERCADO_PAGO_ACCESS_TOKEN` | operações de pagamento, preferência e assinatura |
 | `MERCADO_PAGO_WEBHOOK_SECRET` | `mercadopago.verify_webhook` (resultado da verificação, sem entregar o segredo) |
 
-A integração deve chamar esse conector em vez de procurar a chave em arquivos ou pedir que o usuário a cole. [Guia para Claude, Codex e projetos](docs/integrations/CLAUDE.md).
+### Gateway de inferência e compatibilidade
 
-O conector também oferece `stream_api` para streaming. Para usar Claude Code com DeepSeek sem exportar a chave real:
+MCP fornece ferramentas de API; **não troca o modelo principal do agente**.
+Para clientes compatíveis que desejam usar o provedor como modelo principal,
+o gateway tem base URL `http://127.0.0.1:8765/v1` e rotas `/chat/completions`,
+`/responses` e `/messages`, com JSON ou SSE nativos do provedor. O cliente precisa
+provisionar seu próprio token local temporário; não compartilhe tokens entre
+processos e não use a chave real como autenticação do gateway.
 
-```bash
-python3 /usr/lib/KPassword/bridge/kpassword_claude_proxy.py --key-id ID_DA_CREDENCIAL --model deepseek-flash -- claude
-```
-
-O cliente recebe um token temporário para o proxy em loopback; esse token não é a chave do provedor. A autorização identifica o adaptador, seu script e o projeto. Não é necessário modificar o `.env` para incluir uma chave real. Lançadores antigos que exigem a chave devem ser substituídos por esse comando.
+Veja o [guia universal de MCP e gateway](docs/integrations/UNIVERSAL-BRIDGE.md)
+para provisionamento, escopos de sessão e integração dos clientes. O conector Unix
+`kpassword_bridge_client.py` e o proxy `kpassword_claude_proxy.py` continuam
+disponíveis por compatibilidade, com exemplos no [guia dos conectores legados](docs/integrations/CLAUDE.md).
 
 **Outros provedores:** no item Chave de API, selecione o formato (OpenAI, Anthropic ou JSON) e a URL HTTPS oficial. Isso atende outros serviços compatíveis sem cadastrar cada marca no código. O destino é configuração autenticada do cofre; mudar essa configuração revoga a sessão. Nomes de serviço sozinhos não definem seu protocolo.
 
-**Limites atuais:** pedidos até 1 MiB, respostas JSON/eventos até 4 MiB e stream até 128 MiB/120 segundos de conexão com o provedor. O adaptador Anthropic oferece `/v1/messages`, com ferramentas e streaming; não oferece Files API ou contagem de tokens. Não há integração automática de todos os SDKs, respostas binárias, OAuth interativo, suporte a senhas comuns pelo Bridge, cliente Windows do Bridge ou acesso remoto.
+**Limites atuais:** pedidos até 1 MiB, respostas JSON/eventos até 4 MiB e stream até 128 MiB/120 segundos de conexão com o provedor. O gateway atende os três protocolos quando o provedor é compatível; não traduz protocolos nem oferece `/models`, Files API, contagem de tokens ou entrada HTTP chunked. Não há integração automática de todos os SDKs, respostas binárias, OAuth interativo, suporte a senhas comuns pelo Bridge, cliente Windows do Bridge ou acesso remoto.
 
 ## Segurança e privacidade
 
 O cofre é criptografado em repouso. Com a ponte ativa, as chaves de API permanecem disponíveis na memória do backend, mesmo com a interface bloqueada; as demais credenciais e a senha mestra são removidas da interface ao bloquear. O usuário deve revogar a ponte quando não quiser mais autorizar chamadas.
 
-O socket Unix fica em diretório privado (0700), com permissão 0600. O adaptador opcional abre somente loopback, com token temporário e rejeição de requisições de navegador. A identidade é obtida do processo pelo sistema, incluindo executável, script quando identificável e diretório; o pedido não pode simplesmente declarar “sou Claude”. Isso **não é isolamento contra malware da mesma conta, root, injeção/depuração ou captura de teclado**. Copiar o arquivo criptografado não gera popup. A ponte controla pedidos feitos pelo conector.
+O socket Unix fica em diretório privado (0700), com permissão 0600. O servidor MCP/gateway abre somente loopback enquanto a ponte está ativa, com tokens temporários e validação de Host/Origin. A identidade é obtida do processo pelo sistema, incluindo executável, script quando identificável e diretório; o pedido não pode simplesmente declarar “sou Claude”. Isso **não é isolamento contra malware da mesma conta, root, injeção/depuração ou captura de teclado**. Copiar o arquivo criptografado não gera popup. A ponte controla pedidos feitos pelo MCP, gateway e conectores compatíveis.
 
 Os destinos HTTPS são fixos pelos perfis de provedor ou pela configuração autenticada do cofre, sem redirecionamentos ou proxies do ambiente. Histórico não contém chaves nem conteúdo de pedidos/respostas. Autorizar uma aplicação também autoriza o envio de seus dados ao provedor e o consumo de sua cota.
 
