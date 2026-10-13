@@ -1,5 +1,7 @@
-//! Opt-in local delivery. No TCP listener or public secret API.
+//! Opt-in local API execution; provider secrets never leave the backend.
 pub mod broker;
+#[cfg(target_os = "linux")]
+pub mod universal;
 #[cfg(target_os = "linux")]
 mod services;
 #[cfg(target_os = "linux")]
@@ -34,7 +36,7 @@ struct Session { generation: u64, expires: Instant, vault_name: String, file_has
 #[derive(Default)]
 struct Core { generation: u64, session: Option<Session>, close_reason: &'static str }
 #[derive(Default)]
-pub struct BridgeState(Mutex<Core>);
+pub struct BridgeState(Mutex<Core>, Mutex<()>);
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -87,12 +89,20 @@ impl Core {
 }
 
 pub fn close(app: &AppHandle) {
+    let state=app.state::<BridgeState>();
+    let Ok(_lifecycle)=state.1.lock() else { return; };
+    close_unlocked(app);
+}
+fn close_unlocked(app: &AppHandle) {
+    if let Some(state) = app.try_state::<BridgeState>() {
+        if let Ok(mut core) = state.0.lock() { core.close(); }
+    }
+
+    #[cfg(target_os="linux")]
+    universal::stop(app);
     broker::revoke(app);
     if let Some(state) = app.try_state::<BridgeRequests>() {
         if let Ok(mut pending) = state.0.lock() { *pending = None; }
-    }
-    if let Some(state) = app.try_state::<BridgeState>() {
-        if let Ok(mut core) = state.0.lock() { core.close(); }
     }
 }
 
@@ -205,7 +215,8 @@ pub fn bridge_close(app: AppHandle) { close(&app); }
 
 #[tauri::command]
 pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String, master_password: String, duration_hours: Option<u64>) -> Result<u64, String> {
-    broker::revoke(&app);
+    let _lifecycle=state.1.lock().map_err(|_| DENIED)?;
+    close_unlocked(&app);
     let generation = {
         let mut core = state.0.lock().map_err(|_| DENIED)?;
         core.close();
@@ -227,16 +238,19 @@ pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String
     let mut core = state.0.lock().map_err(|_| DENIED)?;
     core.install_session(generation, Session { generation, expires: Instant::now() + Duration::from_secs(minutes * 60), vault_name: name, file_hash: Sha256::digest(&raw).to_vec(), content_hash:content_hash?, keys })?;
     drop(core);
-    if broker::start(&app).is_err() { close(&app); return Err(DENIED.into()); }
+    if broker::start(&app).is_err() { close_unlocked(&app); return Err(DENIED.into()); }
     #[cfg(target_os="linux")]
     {
+        if universal::start(&app, generation).is_err() { close_unlocked(&app); return Err("A porta local 8765 não está disponível.".into()); }
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_secs(minutes*60)).await;
-            if let Some(state)=app.try_state::<BridgeState>() {
-                if let Ok(mut core)=state.0.lock() {
-                    if core.generation==generation { core.close(); core.close_reason="session_expired"; }
-                }
+            let state=app.state::<BridgeState>();
+            let Ok(_lifecycle)=state.1.lock() else { return; };
+            let expired = app.try_state::<BridgeState>().is_some_and(|state| state.0.lock().is_ok_and(|core| core.generation==generation));
+            if expired {
+                close_unlocked(&app);
+                if let Some(state)=app.try_state::<BridgeState>() { if let Ok(mut core)=state.0.lock() { core.close_reason="session_expired"; } }
             }
         });
     }

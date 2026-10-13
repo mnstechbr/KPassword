@@ -10,14 +10,10 @@ export default function BridgeApproval() {
   useAppearance();
   const [request, setRequest] = useState<Request | null>(null);
   const [remember, setRemember] = useState(false);
-  const [maxCalls, setMaxCalls] = useState(10000);
   const [remaining, setRemaining] = useState(30);
   const [busy, setBusy] = useState(false);
   const english = localStorage.getItem("kpassword:language") === "en";
   const text = (pt: string, en: string) => english ? en : pt;
-  useEffect(() => {
-    if (remember) document.querySelector<HTMLInputElement>(".bridgeDesktopApproval input[type=number]")?.scrollIntoView({block:"nearest"});
-  }, [remember]);
   useEffect(() => {
     document.documentElement.dataset.platform = "linux";
     let disposed = false;
@@ -43,7 +39,7 @@ export default function BridgeApproval() {
   async function answer(approve: boolean) {
     if (!request || busy) return;
     setBusy(true);
-    try { await invoke("bridge_answer_access_request", { requestId:request.requestId, approve, remember:approve && remember, maxCalls }); }
+    try { await invoke("bridge_answer_access_request", { requestId:request.requestId, approve, remember:approve && remember }); }
     catch { /* Expired/revoked requests stay denied. */ }
     finally { setRequest(null); setBusy(false); await getCurrentWindow().hide(); }
   }
@@ -67,9 +63,9 @@ export default function BridgeApproval() {
           <dt>{text("Operação / modelo", "Operation / model")}</dt><dd>{request.operation} · {request.model}</dd>
         </dl>
         <div className="bridgePermissionControls">
-          <label className="toggleRow"><span>{text("Permitir durante esta sessão da ponte", "Allow during this Bridge session")}</span><input type="checkbox" checked={remember} disabled={!request.rememberAllowed} onChange={e => setRemember(e.target.checked)} /></label>
+          <label className="toggleRow"><span>{text("Permitir esta operação e modelo para esta sessão do aplicativo", "Allow this operation and model for this application session")}</span><input type="checkbox" checked={remember} disabled={!request.rememberAllowed} onChange={e => setRemember(e.target.checked)} /></label>
           {!request.rememberAllowed && <p>{text("Interpretador sem script identificável: somente aprovação única. Integre o conector ao projeto para autorizar uso contínuo.", "Interpreter without an identifiable script: one-time approval only. Integrate the connector into the project for continued access.")}</p>}
-          {remember && <label>{text("Limite de chamadas nesta permissão", "Call limit for this permission")}<input type="number" min={1} max={100000} value={maxCalls} onChange={e => setMaxCalls(Math.max(1, Math.min(100000, Number(e.target.value) || 1)))} /></label>}
+
         </div>
         <details className="technicalDetails">
           <summary>{text("Identidade e caminhos completos", "Identity and full paths")}</summary>

@@ -60,20 +60,23 @@ pub fn peer(stream: &UnixStream) -> Result<Peer, String> {
     let mut len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
     if unsafe { libc::getsockopt(stream.as_raw_fd(), libc::SOL_SOCKET, libc::SO_PEERCRED, &mut cred as *mut _ as *mut _, &mut len) } != 0
         || len as usize != std::mem::size_of::<libc::ucred>() || cred.uid != unsafe { libc::geteuid() } || cred.pid <= 0 { return Err(DENIED.into()); }
-    let (mut parent, started, executable, sha256) = process(cred.pid)?;
-    let project = fs::canonicalize(fs::read_link(format!("/proc/{}/cwd", cred.pid)).map_err(|_| DENIED)?).map_err(|_| DENIED)?.to_str().ok_or(DENIED)?.to_owned();
+    observed(cred.pid, cred.uid)
+}
+fn observed(pid: i32, uid: u32) -> Result<Peer, String> {
+    let (mut parent, started, executable, sha256) = process(pid)?;
+    let project = fs::canonicalize(fs::read_link(format!("/proc/{}/cwd", pid)).map_err(|_| DENIED)?).map_err(|_| DENIED)?.to_str().ok_or(DENIED)?.to_owned();
     let mut application = executable.clone();
     let mut application_hash = sha256.clone();
-    let mut script = entry(cred.pid, &executable);
+    let mut script = entry(pid, &executable);
     let transport_script = script.clone();
     // The packaged connector is a transport, not an application. Inspect a
     // bounded launcher chain; never trust names sent in the request or env vars.
-    if script.as_ref().is_some_and(|(p, _)| Path::new(p).file_name().is_some_and(|n| n == "kpassword_bridge_client.py")) {
+    if script.as_ref().is_some_and(|(p, _)| Path::new(p).file_name().is_some_and(|n| n == "kpassword_bridge_client.py" || n == "kpassword_mcp.py")) {
         script = None;
         for _ in 0..6 {
             if parent <= 1 { break; }
             use std::os::unix::fs::MetadataExt;
-            if !fs::metadata(format!("/proc/{parent}")).is_ok_and(|m| m.uid() == cred.uid) { break; }
+            if !fs::metadata(format!("/proc/{parent}")).is_ok_and(|m| m.uid() == uid) { break; }
             let Ok((next, _, exe, hash)) = process(parent) else { break; };
             if let Some(found) = entry(parent, &exe) { application = exe; application_hash = hash; script = Some(found); break; }
             let name = Path::new(&exe).file_name().unwrap_or_default().to_string_lossy();
@@ -87,8 +90,49 @@ pub fn peer(stream: &UnixStream) -> Result<Peer, String> {
     let (entry_script, script_hash) = script.map(|(p,h)| (Some(p),h)).unwrap_or((None,String::new()));
     let encoded = serde_json::to_vec(&(&executable, &sha256, &transport_script, &application, &application_hash, &entry_script, &script_hash, &project)).map_err(|_| DENIED)?;
     let identity = format!("{:x}", Sha256::digest(encoded));
-    Ok(Peer { pid:cred.pid, started, executable, sha256, application, entry_script, project, identity, remember_allowed })
+    Ok(Peer { pid:pid, started, executable, sha256, application, entry_script, project, identity, remember_allowed })
 }
+/// TCP has no SO_PEERCRED. Correlate the reverse connected socket with /proc.
+/// Deny hidden /proc, ambiguous inherited sockets and other users; never fall
+/// back to a client-supplied pid, name, User-Agent or token label.
+pub fn tcp_peer(stream: &std::net::TcpStream) -> Result<Peer, String> {
+    use std::os::unix::fs::MetadataExt;
+    let local = stream.local_addr().map_err(|_| DENIED)?;
+    let remote = stream.peer_addr().map_err(|_| DENIED)?;
+    fn address(a: std::net::SocketAddr) -> Result<String,String> {
+        let std::net::IpAddr::V4(ip) = a.ip() else { return Err(DENIED.into()); };
+        if !ip.is_loopback() { return Err(DENIED.into()); }
+        Ok(format!("{:08X}:{:04X}", u32::from_le_bytes(ip.octets()), a.port()))
+    }
+    let client = address(remote)?; let server = address(local)?;
+    let uid = unsafe { libc::geteuid() };
+    let table = fs::read_to_string("/proc/net/tcp").map_err(|_| DENIED)?;
+    let mut inodes = Vec::new();
+    for row in table.lines().skip(1) {
+        let f: Vec<_> = row.split_whitespace().collect();
+        if f.len() > 9 && f[1] == client && f[2] == server && f[3] == "01"
+            && f[7].parse::<u32>().ok() == Some(uid) && f[9] != "0" { inodes.push(f[9].to_string()); }
+    }
+    if inodes.len() != 1 { return Err(DENIED.into()); }
+    let wanted = format!("socket:[{}]",inodes[0]);
+    let mut owner = None;
+    for item in fs::read_dir("/proc").map_err(|_| DENIED)?.take(65536).flatten() {
+        let Some(pid) = item.file_name().to_str().and_then(|s| s.parse::<i32>().ok()) else { continue; };
+        if !item.metadata().is_ok_and(|m| m.uid() == uid) { continue; }
+        let Ok(fds) = fs::read_dir(item.path().join("fd")) else { continue; };
+        if fds.take(65536).flatten().any(|fd| fs::read_link(fd.path()).is_ok_and(|p| p.as_os_str() == wanted.as_str())) {
+            if owner.replace(pid).is_some() { return Err(DENIED.into()); }
+        }
+    }
+    observed(owner.ok_or(DENIED)?, uid)
+}
+
+pub fn alive(peer: &Peer) -> bool {
+    fs::read_to_string(format!("/proc/{}/stat",peer.pid)).ok()
+        .and_then(|s| s.rsplit_once(')').and_then(|(_,f)| f.split_whitespace().nth(19)).map(str::to_owned))
+        .is_some_and(|s| s==peer.started)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,6 +142,15 @@ mod tests {
         assert_eq!(p.pid, std::process::id() as i32);
         assert_eq!(p.project, fs::canonicalize(std::env::current_dir().unwrap()).unwrap().to_str().unwrap());
         assert_eq!(peer(&a).unwrap(), p);
+    }
+    #[test] fn actual_loopback_connection_has_kernel_observed_identity() {
+        let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let _client=std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server,_)=listener.accept().unwrap();
+        let p=tcp_peer(&server).unwrap();
+        assert_eq!(p.pid,std::process::id() as i32);
+        assert!(alive(&p));
+        assert_eq!(tcp_peer(&server).unwrap(),p);
     }
     #[test] fn generic_interpreters_are_distinguished_from_native_binaries() {
         assert!(interpreter("/usr/bin/python3.14")); assert!(interpreter("/usr/bin/node"));
