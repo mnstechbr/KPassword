@@ -1,5 +1,5 @@
 //! Linux local request/approval broker. This is not a same-UID malware sandbox.
-use std::{collections::HashMap, sync::{Mutex, mpsc}, time::{Duration, Instant}};
+use std::{collections::HashMap, sync::{Mutex, mpsc, atomic::{AtomicUsize, Ordering}}, time::{Duration, Instant}};
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 use super::{DENIED, BridgeState};
@@ -24,18 +24,21 @@ pub struct Request {
     pub remember_allowed: bool,
 }
 type Grant = (u64, String, String, String, String);
-struct Permit { remaining: u32, minute: Instant, calls: u32, request: Request }
+struct Permit { minute: Instant, calls: u32, request: Request }
 struct Pending { request: Request, generation: u64, deadline: Instant, reply: mpsc::Sender<Result<(), &'static str>>, presented: bool }
+struct Usage { minute: Instant, calls: u32, hour: Instant, output: u64 }
+struct Flight<'a>(&'a AtomicUsize);
+impl Drop for Flight<'_> { fn drop(&mut self) { self.0.fetch_sub(1,Ordering::SeqCst); } }
 #[derive(Default)]
-struct Hub { listening: bool, pending: Option<Pending>, grants: HashMap<Grant, Permit>, policy_revision: u64 }
+struct Hub { usage: HashMap<(u64,String), Usage>, listening: bool, pending: Option<Pending>, grants: HashMap<Grant, Permit>, policy_revision: u64 }
 #[derive(Default)]
-pub struct BrokerState(Mutex<Hub>);
+pub struct BrokerState(Mutex<Hub>, AtomicUsize);
 
 /// Only stable codes cross IPC; never exception text, paths, URLs or bodies.
-fn public_error_code(error: &str) -> &'static str {
+pub(super) fn public_error_code(error: &str) -> &'static str {
     match error {
         "bridge_inactive" => "bridge_inactive", "session_expired" => "session_expired",
-        "key_not_found" => "key_not_found", "user_denied" => "user_denied",
+        "key_not_found" => "key_not_found", "credential_ambiguous" => "credential_ambiguous", "user_denied" => "user_denied",
         "approval_expired" => "approval_expired", "permission_revoked" => "permission_revoked",
         "quota_exceeded" => "quota_exceeded", "bridge_busy" => "bridge_busy",
         "unsupported_operation" => "unsupported_operation", "invalid_request" => "invalid_request",
@@ -46,8 +49,8 @@ fn public_error_code(error: &str) -> &'static str {
 
 fn consume(permit: &mut Permit) -> bool {
     if permit.minute.elapsed() >= Duration::from_secs(60) { permit.minute = Instant::now(); permit.calls = 0; }
-    if permit.remaining == 0 || permit.calls >= 60 { return false; }
-    permit.remaining -= 1; permit.calls += 1; true
+    if permit.calls >= 60 { return false; }
+    permit.calls += 1; true
 }
 
 #[derive(Serialize)]
@@ -55,7 +58,7 @@ fn consume(permit: &mut Permit) -> bool {
 pub struct Status { active: bool, remaining_seconds: u64, grants: Vec<Permission> }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Permission { key_id: String, identity: String, application: String, entry_script: Option<String>, project: String, operation: String, model: String, remaining_calls: u32 }
+pub struct Permission { key_id: String, identity: String, application: String, entry_script: Option<String>, project: String, operation: String, model: String, calls_this_minute: u32 }
 #[tauri::command]
 pub fn bridge_status(window: tauri::WebviewWindow, app: AppHandle) -> Result<Status,String> {
     if window.label() != "main" { return Err(DENIED.into()); }
@@ -64,7 +67,7 @@ pub fn bridge_status(window: tauri::WebviewWindow, app: AppHandle) -> Result<Sta
         core.session.as_ref().map(|s| s.expires.saturating_duration_since(Instant::now()).as_secs()).unwrap_or(0)
     };
     let state = app.state::<BrokerState>(); let hub = state.0.lock().map_err(|_| DENIED)?;
-    let grants = if remaining_seconds > 0 { hub.grants.values().map(|p| Permission { key_id:p.request.key_id.clone(), identity:p.request.identity.clone(), application:p.request.application.clone(), entry_script:p.request.entry_script.clone(), project:p.request.project.clone(), operation:p.request.operation.clone(), model:p.request.model.clone(), remaining_calls:p.remaining }).collect() } else { Vec::new() };
+    let grants = if remaining_seconds > 0 { hub.grants.values().map(|p| Permission { key_id:p.request.key_id.clone(), identity:p.request.identity.clone(), application:p.request.application.clone(), entry_script:p.request.entry_script.clone(), project:p.request.project.clone(), operation:p.request.operation.clone(), model:p.request.model.clone(), calls_this_minute:if p.minute.elapsed() < Duration::from_secs(60) { p.calls } else { 0 } }).collect() } else { Vec::new() };
     Ok(Status { active:remaining_seconds > 0, remaining_seconds, grants })
 }
 #[tauri::command]
@@ -121,10 +124,23 @@ pub fn revoke(app: &AppHandle) {
         if let Ok(mut hub) = state.0.lock() {
             hub.policy_revision = hub.policy_revision.wrapping_add(1);
             hub.grants.clear();
+            hub.usage.clear();
             if let Some(p) = hub.pending.take() { let _ = p.reply.send(Err("permission_revoked")); }
         }
     }
     if let Some(window) = app.get_webview_window("bridge-approval") { let _ = window.hide(); }
+}
+
+#[cfg(target_os="linux")]
+pub(super) fn revoke_identity(app: &AppHandle, identity: &str) {
+    let state=app.state::<BrokerState>();
+    if let Ok(mut hub)=state.0.lock() {
+        hub.policy_revision=hub.policy_revision.wrapping_add(1);
+        hub.grants.retain(|(_,_,id,_,_),_| id!=identity);
+        if hub.pending.as_ref().is_some_and(|p| p.request.identity==identity) {
+            if let Some(p)=hub.pending.take() { let _=p.reply.send(Err("permission_revoked")); }
+        }
+    };
 }
 
 #[tauri::command]
@@ -140,7 +156,7 @@ pub fn bridge_take_access_request(window: tauri::WebviewWindow, state: State<Bro
 }
 
 #[tauri::command]
-pub fn bridge_answer_access_request(app: AppHandle, window: tauri::WebviewWindow, request_id: String, approve: bool, remember: bool, max_calls: Option<u32>) -> Result<(), String> {
+pub fn bridge_answer_access_request(app: AppHandle, window: tauri::WebviewWindow, request_id: String, approve: bool, remember: bool) -> Result<(), String> {
     if window.label() != "bridge-approval" { return Err(DENIED.into()); }
     let state = app.state::<BrokerState>();
     let mut hub = state.0.lock().map_err(|_| DENIED)?;
@@ -155,13 +171,13 @@ pub fn bridge_answer_access_request(app: AppHandle, window: tauri::WebviewWindow
         if !p.request.remember_allowed { let _ = p.reply.send(Err("permission_revoked")); return Err(DENIED.into()); }
         if hub.grants.len() >= 256 { let _ = p.reply.send(Err("permission_revoked")); return Err(DENIED.into()); }
         let grant = (p.generation, p.request.key_id.clone(), p.request.identity.clone(), p.request.operation.clone(), p.request.model.clone());
-        hub.grants.insert(grant, Permit { remaining:max_calls.unwrap_or(10_000).clamp(1,100_000), minute:Instant::now(), calls:0, request:p.request.clone() });
+        hub.grants.insert(grant, Permit { minute:Instant::now(), calls:0, request:p.request.clone() });
     }
     p.reply.send(if approve { Ok(()) } else { Err("user_denied") }).map_err(|_| DENIED.into())
 }
 
 #[cfg(target_os = "linux")]
-mod linux {
+pub(super) mod linux {
     use super::*;
     use std::{fs, io::{Read, Write}, os::{unix::{fs::{FileTypeExt, MetadataExt, PermissionsExt}, net::{UnixListener, UnixStream}}}, path::PathBuf};
     use serde::Deserialize;
@@ -172,9 +188,11 @@ mod linux {
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
     struct WireRequest { version: u32, key_id: String, operation: String, body: serde_json::Value }
+    impl Drop for WireRequest { fn drop(&mut self) { super::super::erase_json(&mut self.body); } }
     fn parse_request(raw: &[u8]) -> Result<WireRequest, String> {
         let r: WireRequest = serde_json::from_slice(raw).map_err(|_| DENIED)?;
         if r.version != 1 || r.key_id.is_empty() || r.key_id.len() > 128 || !r.key_id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') { return Err(DENIED.into()); }
+        if r.body.get("n").is_some_and(|n| n.as_u64()!=Some(1)) { return Err("invalid_request".into()); }
         if !r.body.is_object() || r.body.get("stream").is_some_and(|v| !v.is_boolean())  { return Err(DENIED.into()); }
         if !["responses", "chat", "embeddings", "messages"].contains(&r.operation.as_str()) {
             if r.body.get("stream").is_some() { return Err("invalid_request".into()); }
@@ -189,7 +207,7 @@ mod linux {
         }
         Ok(r)
     }
-    fn endpoint(identifier: &str, operation: &str) -> Result<(&'static str, &'static str), String> {
+    pub(crate) fn endpoint(identifier: &str, operation: &str) -> Result<(&'static str, &'static str), String> {
         if let Some(provider) = super::super::services::provider(identifier,operation) { return Ok((provider,"")); }
         match (identifier, operation) {
             ("OPENAI_API_KEY", "responses") => Ok(("OpenAI", "https://api.openai.com/v1/responses")),
@@ -198,6 +216,7 @@ mod linux {
             ("ZAI_API_KEY" | "Z_AI_API_KEY", "chat") => Ok(("Z.AI", "https://api.z.ai/api/paas/v4/chat/completions")),
             ("MIMO_API_KEY" | "XIAOMI_API_KEY", "chat") => Ok(("Xiaomi MiMo", "https://api.xiaomimimo.com/v1/chat/completions")),
             ("DEEPSEEK_API_KEY", "messages") => Ok(("DeepSeek", "https://api.deepseek.com/anthropic/v1/messages")),
+            ("DEEPSEEK_API_KEY", "responses") => Ok(("DeepSeek", "https://api.deepseek.com/responses")),
             ("DEEPSEEK_API_KEY", "chat") => Ok(("DeepSeek", "https://api.deepseek.com/chat/completions")),
             ("ANTHROPIC_API_KEY", "messages") => Ok(("Anthropic", "https://api.anthropic.com/v1/messages")),
             _ => Err("unsupported_operation".into()),
@@ -295,7 +314,7 @@ mod linux {
             } else if let Some(value) = line.strip_prefix("event:") {
                 let value = value.trim();
                 if value.len() > 128 || !value.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.') { return Err("provider_unavailable".into()); }
-                event = value.into();
+                event = value.replace(secret,"redacted");
             } else if let Some(value) = line.strip_prefix("data:") {
                 if !data.is_empty() { data.push('\n'); }
                 data.push_str(value.trim_start());
@@ -371,6 +390,20 @@ mod linux {
             if raw.len() == 1024 * 1024 { return Err(DENIED.into()); }
             raw.push(b[0]);
         }
+        if raw == br#"{"version":1,"connect":true}"# {
+            let token = super::super::universal::enroll(app)?;
+            return write_json(stream, &serde_json::json!({"token":token,"url":"http://127.0.0.1:8765/mcp"}));
+        }
+        execute(app, &raw, identity, || peer(stream), &mut stream.try_clone().map_err(|_| DENIED)?, || true)
+    }
+    pub(crate) fn execute(
+        app: &AppHandle, raw: &[u8], identity: super::super::identity::Peer,
+        verify: impl Fn() -> Result<super::super::identity::Peer, String>,
+        stream: &mut impl Write, authorized: impl Fn() -> bool,
+    ) -> Result<(), String> {
+        let broker_state = app.state::<BrokerState>();
+        broker_state.1.fetch_update(Ordering::SeqCst,Ordering::SeqCst,|n| (n<4).then_some(n+1)).map_err(|_| "bridge_busy")?;
+        let _flight = Flight(&broker_state.1);
         let request = parse_request(&raw).map_err(|e| if e=="unsupported_operation" { "unsupported_operation" } else { "invalid_request" })?;
         let (generation, provider, url, key_label) = {
             let state = app.state::<BridgeState>();
@@ -424,9 +457,25 @@ mod linux {
             }
             if !approved { super::super::append_audit(app, "denied", &request.key_id, &identity.identity)?; return Err(decision.err().unwrap_or("user_denied").into()); }
         }
+        {
+            let mut hub = broker_state.0.lock().map_err(|_| DENIED)?;
+            let output = if ["chat","responses","messages"].contains(&request.operation.as_str()) {
+                ["max_tokens","max_completion_tokens","max_output_tokens"].iter().filter_map(|f| request.body.get(*f).and_then(serde_json::Value::as_u64)).max().unwrap_or(8192)
+            } else { 0 };
+            let usage = hub.usage.entry((generation,request.key_id.clone())).or_insert(Usage { minute:Instant::now(),calls:0,hour:Instant::now(),output:0 });
+            if usage.minute.elapsed() >= Duration::from_secs(60) { usage.minute=Instant::now();usage.calls=0; }
+            if usage.hour.elapsed() >= Duration::from_secs(3600) { usage.hour=Instant::now();usage.output=0; }
+            if usage.calls >= 60 || usage.output+output > 524288 { return Err("quota_exceeded".into()); }
+            usage.calls+=1;usage.output+=output;
+        }
+        let still_authorized = || {
+            let revision_ok = broker_state.0.lock().is_ok_and(|h| h.policy_revision == policy_revision);
+            let state = app.state::<BridgeState>();
+            revision_ok && authorized() && state.0.lock().is_ok_and(|c| c.session.as_ref().is_some_and(|s| s.generation == generation && s.expires > Instant::now()))
+        };
         // No UI receives the secret. Recheck process identity, session, expiry and
         // encrypted-file digest immediately before the one-record delivery.
-        if peer(stream)? != identity { return Err("identity_changed".into()); }
+        if verify()? != identity { return Err("identity_changed".into()); }
         { let state = app.state::<BrokerState>(); let hub = state.0.lock().map_err(|_| DENIED)?;
           if hub.policy_revision != policy_revision { return Err("permission_revoked".into()); } }
         let state = app.state::<BridgeState>();
@@ -445,30 +494,27 @@ mod linux {
         drop(core);
         // Revocation blocks subsequent calls; a provider request already sent
         // cannot be recalled. Never hold the vault lock during network I/O.
+        if !still_authorized() { return Err("permission_revoked".into()); }
         if url.is_empty() {
             let (status,mut body) = super::super::services::call(&identifier,&request.operation,&secret,&request.body)?;
             sanitize_response(&mut body,&secret);
+            if !still_authorized() { super::super::erase_json(&mut body); return Err("permission_revoked".into()); }
             let result=write_json(stream,&serde_json::json!({"ok":true,"status":status,"body":body}));
             super::super::erase_json(&mut body);
             result?;
             return super::super::append_audit(app,"delivered",&request.key_id,&identity.identity);
         }
+        if !still_authorized() { return Err("permission_revoked".into()); }
         let response = provider_request(&url, &identifier, &secret, &request.body, &config, &request.operation)?;
         if request.body["stream"] == true && response.status().is_success() {
             let is_sse = response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).is_some_and(|v| v.split(';').next() == Some("text/event-stream"));
             if !is_sse { return Err("provider_unavailable".into()); }
             write_json(stream, &serde_json::json!({"ok":true,"status":response.status().as_u16(),"stream":true}))?;
-            relay_sse(response, stream, &secret, || {
-                let state = app.state::<BrokerState>();
-                let revision_ok = state.0.lock().is_ok_and(|h| h.policy_revision == policy_revision);
-                let state = app.state::<BridgeState>();
-                revision_ok && state.0.lock().is_ok_and(|c| c.session.as_ref().is_some_and(|s| s.generation == generation && s.expires > Instant::now()))
-            })?;
+            relay_sse(response, stream, &secret, still_authorized)?;
         } else {
             let (status, mut body) = read_provider_json(response, &secret)?;
-            let result = if request.body["stream"] == true {
-                write_json(stream, &serde_json::json!({"ok":true,"status":status,"stream":true}))
-            } else { write_json(stream, &serde_json::json!({"ok":true,"status":status,"body":body})) };
+            if !still_authorized() { super::super::erase_json(&mut body); return Err("permission_revoked".into()); }
+            let result = write_json(stream, &serde_json::json!({"ok":true,"status":status,"body":body}));
             super::super::erase_json(&mut body);
             result?;
         }
@@ -524,13 +570,13 @@ mod linux {
             assert!(!rx.recv_timeout(Duration::from_millis(1)).unwrap_or(false));
             assert!(Hub::default().grants.is_empty());
         }
-        #[test] fn call_budget_and_rate_limit_fail_closed_without_resetting_total() {
+        #[test] fn session_permission_has_automatic_rate_limit_without_call_budget() {
             let request = Request { request_id:"r".into(),key_id:"k".into(),key_label:"API".into(),executable:"/app".into(),sha256:"h".into(),pid:1,provider:"OpenAI".into(),operation:"chat".into(),timeout_ms:30000,application:"/app".into(),entry_script:None,project:"/project".into(),model:"model".into(),identity:"i".into(),remember_allowed:true };
-            let mut permit = Permit { remaining:100,minute:Instant::now(),calls:59,request };
-            assert!(consume(&mut permit)); assert!(!consume(&mut permit)); assert_eq!(permit.remaining,99);
+            let mut permit = Permit { minute:Instant::now(),calls:59,request };
+            assert!(consume(&mut permit)); assert!(!consume(&mut permit));
             permit.minute = Instant::now() - Duration::from_secs(61);
-            assert!(consume(&mut permit)); assert_eq!(permit.remaining,98);
-            permit.remaining=0; assert!(!consume(&mut permit));
+            assert!(consume(&mut permit));
+            assert_eq!(permit.calls,1);
         }
         #[test] fn model_and_output_budget_are_validated_before_approval() {
             for body in [serde_json::json!({}),serde_json::json!({"model":""}),serde_json::json!({"model":"m","max_tokens":8193}),serde_json::json!({"model":"m","max_output_tokens":0})] {

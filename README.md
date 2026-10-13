@@ -6,7 +6,7 @@ As senhas e backups ficam no seu computador. Não é necessária conta nem nuvem
 
 ## Download e instalação — v1.6.0
 
-[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.6.0](docs/releases/v1.6.0.md)
+[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.7.0](docs/releases/v1.7.0.md)
 
 | Plataforma | Instalador | Atualizações |
 | --- | --- | --- |
@@ -39,19 +39,19 @@ Abra o KPassword, crie ou desbloqueie seu cofre e guarde a senha mestra: ela nã
 
 ## Secrets Bridge: usar APIs sem entregar a chave
 
-Disponível **localmente no Fedora**. O Bridge não exporta a chave para `.env`, argumentos, clipboard ou para o aplicativo consumidor. É necessário adaptar o projeto: dizer “minha chave está no KPassword” na conversa não configura automaticamente Claude, Codex, um SDK ou outro programa.
+Disponível **localmente no Fedora**. O Bridge não exporta a chave para `.env`, argumentos, clipboard ou para o aplicativo consumidor. Um único servidor local oferece MCP e gateway de inferência. Após configurar o cliente uma vez, não é necessário adaptar cada projeto. Dizer “minha chave está no KPassword” não configura automaticamente o cliente.
 
 1. Cadastre um item **Chave de API** com o identificador do provedor.
 2. Em **Segurança → Integrações e permissões**, habilite Secrets Bridge, escolha 24, 48 ou 72 horas e ative a sessão com o cofre desbloqueado. O padrão é 48 horas.
-3. Informe ao projeto o **ID da credencial** mostrado no KPassword e o caminho do conector. Esse ID é uma referência, não é a chave secreta.
-4. Integre o conector no processo da aplicação. Quando ela solicitar uma chamada, aparece uma **janela própria de aprovação na área de trabalho**, mesmo com o cofre bloqueado na bandeja.
+3. Configure o cliente MCP para `http://127.0.0.1:8765/mcp`, com token local dinâmico, ou use o adaptador stdio genérico. Veja o [guia universal](docs/integrations/UNIVERSAL-BRIDGE.md).
+4. Solicite a API pelo identificador do provedor (por exemplo, `DEEPSEEK_API_KEY`). Se houver várias chaves compatíveis, informe o ID da credencial. Aparece uma **janela própria de aprovação na área de trabalho**, mesmo com o cofre bloqueado na bandeja.
 5. Escolha **Aprovar uma vez**, **Recusar** ou **Continuar permitindo**. Fechar o popup ou ignorá-lo por 30 segundos recusa o pedido.
 
-A permissão contínua inclui identidade observada do executável/script, diretório de trabalho, credencial, operação e modelo. **Trocar de tarefa no mesmo contexto não exige nova aprovação.** Mudanças nesses elementos exigem outro pedido. A identificação de script suporta Python, Node, Bun e Deno. Interpretadores reconhecidos sem script identificável, incluindo Ruby/Perl/PHP/shell/Java/.NET, aceitam apenas aprovação única; runtimes desconhecidos não têm garantia de identificação de script.
+A permissão contínua inclui identidade observada do executável/script, diretório de trabalho, credencial, operação e modelo. **Trocar de tarefa no mesmo contexto não exige nova aprovação.** Mudanças nesses elementos, outro token ou uma nova sessão MCP exigem outro pedido. A identificação de script suporta Python, Node, Bun e Deno. Interpretadores reconhecidos sem script identificável, incluindo Ruby/Perl/PHP/shell/Java/.NET, aceitam apenas aprovação única; runtimes desconhecidos não têm garantia de identificação de script.
 
 **O bloqueio automático da interface e o X não encerram a ponte.** A sessão termina quando expira, o KPassword é encerrado, o computador reinicia, o cofre é editado/trocado ou o usuário bloqueia manualmente/revoga o acesso. Use o ícone da bandeja para **Revogar todos os acessos da ponte**, ou consulte/revogue permissões individuais em Segurança → Integrações e permissões. As autorizações não ficam salvas em disco; reiniciar exige desbloquear e reativar a ponte.
 
-Cada permissão tem um limite de chamadas escolhido no popup (padrão: 10.000), máximo de 60 chamadas/minuto e teto de 8.192 tokens de saída por chamada de geração. Esses limites não são um orçamento monetário: configure também limites no provedor. Um pedido autorizado já enviado ao provedor pode terminar após a revogação. Histórico/backup sem mudança de conteúdo preservam a ponte. Seu estado e tempo restante aparecem somente nas configurações de Segurança.
+Não é preciso escolher uma quantidade de chamadas: a permissão vale para esse contexto durante a sessão do aplicativo, até encerrar a ponte. O núcleo limita automaticamente frequência (60 chamadas/minuto por credencial), concorrência (4 chamadas) e saída (8.192 tokens/chamada). O HTTP também faz reservas conservadoras de saída por hora para limitar consumo; veja o guia universal. Esses limites não são um orçamento monetário: configure também limites no provedor. Um pedido autorizado já enviado ao provedor pode terminar após a revogação. Histórico/backup sem mudança de conteúdo preservam a ponte. Seu estado e tempo restante aparecem somente nas configurações de Segurança.
 
 ### Conector e exemplo
 
@@ -72,7 +72,7 @@ resposta = request_api("ID_DA_CREDENCIAL", "responses", {
 | Identificador da chave no cofre | Operações |
 | --- | --- |
 | `OPENAI_API_KEY` | `responses`, `chat`, `embeddings` |
-| `DEEPSEEK_API_KEY` | `chat`, `messages` |
+| `DEEPSEEK_API_KEY` | `chat`, `messages`, `responses` |
 | `ANTHROPIC_API_KEY` | `messages` |
 | `ZAI_API_KEY` / `Z_AI_API_KEY` | `chat` |
 | `MIMO_API_KEY` / `XIAOMI_API_KEY` | `chat` |

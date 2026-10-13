@@ -132,7 +132,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.7.0";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -1820,7 +1820,7 @@ export default function App() {
   const [bridgeBusy, setBridgeBusy] = useState(false);
   const [bridgeAudit, setBridgeAudit] = useState<Array<{ at: number; outcome: string; integration_id: string }>>([]);
   const [bridgeHours, setBridgeHours] = useState(48);
-  type BridgePermission = { keyId: string; identity: string; application: string; entryScript: string | null; project: string; operation: string; model: string; remainingCalls: number };
+  type BridgePermission = { keyId: string; identity: string; application: string; entryScript: string | null; project: string; operation: string; model: string; callsThisMinute: number };
   const [bridgeStatus, setBridgeStatus] = useState<{ active: boolean; remainingSeconds: number; grants: BridgePermission[] }>({active:false,remainingSeconds:0,grants:[]});
   useEffect(() => {
     if (!isLinux) return;
@@ -7040,10 +7040,11 @@ export default function App() {
                     <label className="toggleRow"><span>{t("bridge.enable")}</span><input type="checkbox" checked={vault?.settings.secretsBridgeEnabled ?? false} disabled={busy || bridgeBusy} onChange={(e) => void updateVaultSettings({ secretsBridgeEnabled: e.target.checked })} /></label>
                     <label>{t("bridge.duration")}<select value={bridgeHours} disabled={bridgeStatus.active} onChange={e=>setBridgeHours(Number(e.target.value))}>{[24,48,72].map(hours=><option key={hours} value={hours}>{hours}h</option>)}</select></label>
                     <small>{bridgeStatus.active ? t("bridge.backgroundActive") : t("bridge.inactive")}</small>
+                    {bridgeStatus.active && <code>http://127.0.0.1:8765/mcp</code>}
                     {bridgeStatus.active && <small>{t("bridge.remaining")}: {Math.floor(bridgeStatus.remainingSeconds / 3600)}h {Math.floor((bridgeStatus.remainingSeconds % 3600) / 60)}min · {bridgeStatus.grants.length} {t("bridge.permissions")}</small>}
                     <small>{t("bridge.backgroundDescription")}</small>
                     {bridgeStatus.grants.map(permission=><div className="bridgePermission" key={`${permission.identity}:${permission.keyId}:${permission.operation}:${permission.model}`}>
-                      <strong>{permission.entryScript ?? permission.application}</strong><span>{permission.project}</span><span>{permission.operation} · {permission.model} · {permission.remainingCalls} {t("bridge.callsRemaining")}</span>
+                      <strong>{permission.entryScript ?? permission.application}</strong><span>{permission.project}</span><span>{permission.operation} · {permission.model} · {permission.callsThisMinute}/60 {t("bridge.callsThisMinute")}</span>
                       <button type="button" onClick={()=>void invoke("bridge_revoke_grant",{identity:permission.identity,keyId:permission.keyId,operation:permission.operation,model:permission.model})}>{t("bridge.revokePermission")}</button>
                     </div>)}
                   </div>

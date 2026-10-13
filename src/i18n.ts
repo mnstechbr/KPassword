@@ -4083,6 +4083,7 @@ const apiTranslations: Record<string, [string, string]> = {
   "bridge.remaining": ["Tempo restante da sessão", "Session time remaining"],
   "bridge.duration": ["Duração máxima, ou até encerrar/reiniciar", "Maximum duration, or until quit/restart"],
   "bridge.permissions": ["permissões", "permissions"],
+  "bridge.callsThisMinute": ["chamadas neste minuto", "calls this minute"],
   "bridge.callsRemaining": ["chamadas restantes", "calls remaining"],
   "bridge.revokePermission": ["Revogar esta permissão", "Revoke this permission"],
   "bridge.proxyWarning": ["A chave não será entregue. Esta autorização permite uma chamada ao provedor e pode gerar cobrança. Sem resposta em 30 segundos, o pedido é recusado. O caminho identifica o executável; se for Python, Node ou outro interpretador, não identifica o projeto nem seus scripts. Não há isolamento contra malware da mesma conta.", "The key will not be delivered. This approval permits a provider call and may incur charges. No answer within 30 seconds denies the request. The path identifies the executable; for Python, Node or another interpreter it does not identify the project or scripts. This does not isolate against same-account malware."],
