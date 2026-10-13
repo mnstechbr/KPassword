@@ -17,6 +17,11 @@ mod vault_removal;
 #[cfg(test)]
 mod vault_compatibility_tests;
 mod secrets_bridge;
+#[cfg(target_os="linux")]
+use secrets_bridge::universal::HttpState as UniversalBridgeState;
+#[cfg(not(target_os="linux"))]
+#[derive(Default)]
+struct UniversalBridgeState;
 #[cfg(target_os = "linux")]
 pub fn secrets_bridge_child() -> Result<(), String> { secrets_bridge::child() }
 #[cfg(target_os = "linux")]
@@ -2511,6 +2516,7 @@ pub fn run() {
         .manage(secrets_bridge::BridgeState::default())
         .manage(secrets_bridge::BridgeRequests::default())
         .manage(secrets_bridge::broker::BrokerState::default())
+        .manage(UniversalBridgeState::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {

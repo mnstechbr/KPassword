@@ -2181,7 +2181,7 @@ dependencies = [
 
 [[package]]
 name = "kpassword"
-version = "1.6.0"
+version = "1.7.0"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -2190,6 +2190,7 @@ dependencies = [
  "getrandom 0.4.3",
  "gtk",
  "hmac",
+ "httparse",
  "image",
  "libc",
  "notify-rust",

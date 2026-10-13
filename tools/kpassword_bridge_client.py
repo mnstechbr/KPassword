@@ -16,7 +16,7 @@ ERRORS = {
     "user_denied": "User refused the request",
     "approval_expired": "Approval expired without a decision",
     "permission_revoked": "Bridge permission was revoked",
-    "quota_exceeded": "Permission call budget or rate limit exceeded",
+    "quota_exceeded": "Automatic Bridge rate or consumption limit exceeded",
     "bridge_busy": "Another approval is pending; retry later",
     "unsupported_operation": "Operation is not supported for this API key",
     "invalid_request": "Invalid or oversized request",

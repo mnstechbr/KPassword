@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.7.0
+
+- Secrets Bridge universal no Linux com MCP Streamable HTTP e gateway Chat, Responses e Messages em JSON/SSE.
+- Tokens temporários e permissões isoladas por processo e sessão; aprovação contínua sem quantidade manual de chamadas.
+- Limites automáticos, validação de Host/Origin e revogação central.
+- Compatibilidade dos cofres, backups e updater preservada; Bridge continua exclusivo do Linux.
+- Detalhes, validação e limitações em [notas da release](docs/releases/v1.7.0.md).
+
 ## v1.4.1
 
 Versão de correção focada em consistência de interface. Não há mudança de
