@@ -35,6 +35,7 @@ jobs:
       - run: python3 tools/publish-release.test.py
       - run: python3 tools/kpassword_bridge_client.test.py
       - run: python3 tools/kpassword_claude_proxy.test.py
+      - run: python3 tools/kpassword_mcp.test.py
 
   frontend:
     name: Frontend (tsc + vitest + build)
@@ -79,6 +80,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -89,6 +92,9 @@ jobs:
       # o binario Tauri completo. Verificado localmente: 29 testes.
       - name: cargo test --lib
         run: cargo test --lib
+
+      - name: cargo clippy --lib
+        run: cargo clippy --locked --lib
 
       # O frontend compilado e necessario para generate_context! em release.
       - name: Setup Node
@@ -133,7 +139,7 @@ jobs:
       CARGO_BUILD_JOBS: "2"
     steps:
       - name: Install native build dependencies
-        run: dnf install -y git nodejs npm rust cargo gcc gcc-c++ make pkgconf-pkg-config gtk3-devel webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel openssl-devel patchelf
+        run: dnf install -y git nodejs npm rust cargo clippy gcc gcc-c++ make pkgconf-pkg-config gtk3-devel webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel openssl-devel patchelf
 
       - name: Checkout
         uses: actions/checkout@v5
@@ -154,6 +160,9 @@ jobs:
 
       - name: Rust tests (including vault vectors and Bridge security)
         run: cargo test --locked --lib --manifest-path src-tauri/Cargo.toml
+
+      - name: Clippy Linux
+        run: cargo clippy --locked --lib --manifest-path src-tauri/Cargo.toml
 
       - name: Build native RPM
         run: npm run tauri -- build --ci --bundles rpm -- --locked

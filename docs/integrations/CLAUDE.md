@@ -5,8 +5,9 @@ para Claude, Codex, o projeto ou o conector. Não procure credenciais em arquivo
 no histórico, no clipboard ou no cofre e não peça que o usuário cole uma chave.
 
 No Fedora, o usuário cadastra uma API Key, desbloqueia o cofre, permite Secrets
-Bridge e ativa a sessão. A aplicação precisa ser adaptada para chamar o conector
-`tools/kpassword_bridge_client.py`; dizer “use KPassword” não configura um SDK.
+Bridge e ativa a sessão. Clientes MCP podem usar o servidor HTTP universal ou o adaptador stdio
+`tools/kpassword_mcp.py`, sem integração por projeto. O conector Unix
+`tools/kpassword_bridge_client.py` continua compatível. Veja [MCP e gateway](UNIVERSAL-BRIDGE.md).
 O ID exibido nos detalhes da chave é uma referência pública, não uma credencial.
 
 Exemplo Python, dentro do processo da aplicação:
@@ -24,8 +25,8 @@ O KPassword abre uma janela própria de aprovação na área de trabalho, inclus
 com o cofre bloqueado na bandeja. Ela mostra a credencial, provedor, operação,
 modelo, executável, script identificável, diretório e fingerprint de identidade.
 Aprovar permite uma chamada; recusar, fechar ou ignorar 30 segundos impede a chamada.
-“Continuar permitindo” inclui esses elementos na sessão da ponte, com limite de
-chamadas escolhido no popup (padrão 10.000, máximo 100.000). Cada permissão aceita
+“Continuar permitindo” inclui esses elementos na sessão da ponte, sem exigir
+quantidade de chamadas. Cada credencial aceita
 até 60 chamadas por minuto; geração tem teto de 8.192 tokens de saída. Esses limites
 não são orçamento monetário. Configure limites no provedor também.
 
@@ -41,7 +42,7 @@ Operações e identificadores suportados:
 | Identificador no cofre | Operações | Destino fixo |
 | --- | --- | --- |
 | OPENAI_API_KEY | responses, chat, embeddings | https://api.openai.com/v1/ |
-| DEEPSEEK_API_KEY | chat, messages | https://api.deepseek.com/ (Messages em /anthropic/v1/messages) |
+| DEEPSEEK_API_KEY | chat, messages, responses | https://api.deepseek.com/ (Messages em /anthropic/v1/messages) |
 | ANTHROPIC_API_KEY | messages | https://api.anthropic.com/v1/ |
 | ZAI_API_KEY / Z_AI_API_KEY | chat | https://api.z.ai/api/paas/v4/ |
 | MIMO_API_KEY / XIAOMI_API_KEY | chat | https://api.xiaomimimo.com/v1/ |
@@ -50,7 +51,7 @@ O protocolo não aceita URL, cabeçalhos ou identidade declarada pelo cliente.
 Redirecionamentos e proxies de ambiente são desativados. Pedido limitado a 1 MiB;
 resposta JSON/evento limitado a 4 MiB; stream limitado a 128 MiB e 120 segundos no provedor. O transporte é um
 socket Unix em diretório privado (0700), socket 0600, acessível pela mesma conta.
-O broker não abre TCP nem porta pública. O adaptador opcional abre apenas loopback autenticado; nenhum dos dois exporta a chave do provedor ao consumidor.
+O broker abre um único servidor TCP autenticado em 127.0.0.1:8765 enquanto a ponte está ativa. O adaptador Anthropic antigo continua disponível por compatibilidade; prefira o gateway universal. Nenhum deles exporta a chave do provedor.
 O inicializador antigo `--bridge-request` não entrega mais chaves.
 
 **Limites de identidade:** SO_PEERCRED e /proc fornecem processo, executável,
@@ -170,7 +171,7 @@ destino fixo, JSON e sem devolver o token. Não inclui upload/download de arquiv
 - `mercadopago.update_preapproval`: `{"id":"ID", "body":{...}}`.
 
 Corpos seguem o contrato do provedor. Consulta/alteração tem permissão por recurso;
-criação tem permissão por operação, com limite de chamadas. Pagamentos autorizados
+criação tem permissão por operação, com limites automáticos de frequência. Pagamentos autorizados
 podem movimentar dinheiro: o aplicativo deve controlar consentimento de compra,
 idempotência, valores e ambiente de teste/produção. O Bridge não substitui isso.
 
