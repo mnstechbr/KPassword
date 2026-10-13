@@ -6,7 +6,7 @@ As senhas e backups ficam no seu computador. Não é necessária conta nem nuvem
 
 ## Download e instalação — v1.6.0
 
-[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.6.0](docs/releases/v1.6.0.md)
+[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.7.0](docs/releases/v1.7.0.md)
 
 | Plataforma | Instalador | Atualizações |
 | --- | --- | --- |
