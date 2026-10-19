@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useAppearance } from "./useAppearance";
@@ -8,6 +8,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 type Request = { requestId: string; keyId: string; keyLabel: string; application: string; entryScript: string | null; project: string; model: string; operation: string; provider: string; identity: string; timeoutMs: number; rememberAllowed: boolean };
 export default function BridgeApproval() {
   useAppearance();
+  const currentRequestId = useRef<string | null>(null);
   const [request, setRequest] = useState<Request | null>(null);
   const [remember, setRemember] = useState(false);
   const [remaining, setRemaining] = useState(30);
@@ -21,7 +22,7 @@ export default function BridgeApproval() {
     const take = async () => {
       try {
         const next = await invoke<Request | null>("bridge_take_access_request");
-        if (!disposed && next) { setRequest(next); setRemember(false); setBusy(false); setRemaining(Math.ceil(next.timeoutMs / 1000)); }
+        if (!disposed && next && next.requestId !== currentRequestId.current) { currentRequestId.current = next.requestId; setRequest(next); setRemember(false); setBusy(false); setRemaining(Math.ceil(next.timeoutMs / 1000)); }
       } catch { /* No payload logging. */ }
     };
     void listen("kpassword:bridge-access-request", take).then((unlisten) => { if (disposed) unlisten(); else { stop = unlisten; void take(); } });
@@ -41,7 +42,9 @@ export default function BridgeApproval() {
     setBusy(true);
     try { await invoke("bridge_answer_access_request", { requestId:request.requestId, approve, remember:approve && remember }); }
     catch { /* Expired/revoked requests stay denied. */ }
-    finally { setRequest(null); setBusy(false); await getCurrentWindow().hide(); }
+    finally {
+      if (currentRequestId.current === request.requestId) { currentRequestId.current = null; setRequest(null); setBusy(false); }
+    }
   }
   const filename = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() || path;
   return <main className="bridgeDesktopApproval">
@@ -63,7 +66,7 @@ export default function BridgeApproval() {
           <dt>{text("Operação / modelo", "Operation / model")}</dt><dd>{request.operation} · {request.model}</dd>
         </dl>
         <div className="bridgePermissionControls">
-          <label className="toggleRow"><span>{text("Permitir esta operação e modelo para esta sessão do aplicativo", "Allow this operation and model for this application session")}</span><input type="checkbox" checked={remember} disabled={!request.rememberAllowed} onChange={e => setRemember(e.target.checked)} /></label>
+          <label className="toggleRow"><span>{text("Permitir esta operação e modelo para este aplicativo e projeto até encerrar a ponte", "Allow this operation and model for this application and project until the bridge ends")}</span><input type="checkbox" checked={remember} disabled={!request.rememberAllowed} onChange={e => setRemember(e.target.checked)} /></label>
           {!request.rememberAllowed && <p>{text("Interpretador sem script identificável: somente aprovação única. Integre o conector ao projeto para autorizar uso contínuo.", "Interpreter without an identifiable script: one-time approval only. Integrate the connector into the project for continued access.")}</p>}
 
         </div>
@@ -77,7 +80,7 @@ export default function BridgeApproval() {
             <dt>{text("Identidade observada pelo sistema", "System-observed identity")}</dt><dd>{request.identity}</dd>
           </dl>
         </details>
-        <small>{text("Máximo de 60 chamadas/minuto. A permissão inclui script, diretório, credencial, operação e modelo; não isola malware da sua conta.", "Maximum 60 calls/minute. Permission includes script, directory, credential, operation and model; it does not isolate malware under your account.")}</small>
+        <small>{text("Sem cota local por padrão. A permissão inclui aplicativo/script, diretório, credencial, operação e modelo e dura até encerrar a ponte; reconectar não exige nova aprovação.", "No local quota by default. Permission covers application/script, directory, credential, operation and model until the bridge ends; reconnecting does not require another approval.")}</small>
       </section>
       <div className="bridgeWarning"><span aria-hidden="true">!</span><p>{text("A chave fica no KPassword. A chamada envia dados ao provedor e pode gerar cobrança.", "The key stays in KPassword. The call sends data to the provider and may incur charges.")}</p></div>
       <footer>

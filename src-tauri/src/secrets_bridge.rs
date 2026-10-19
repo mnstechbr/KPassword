@@ -1,5 +1,6 @@
 //! Opt-in local API execution; provider secrets never leave the backend.
 pub mod broker;
+mod quota;
 #[cfg(target_os = "linux")]
 pub mod universal;
 #[cfg(target_os = "linux")]
@@ -292,23 +293,45 @@ struct Delivery { identifier: String, secret: String, executable: String, kind: 
 impl Drop for Delivery { fn drop(&mut self) { use zeroize::Zeroize; self.secret.zeroize(); } }
 
 #[derive(Serialize, Deserialize)]
-pub struct Audit { at: u128, outcome: String, key_id: String, integration_id: String }
+pub struct Audit { at: u128, outcome: String, key_id: String, integration_id: String, #[serde(default,skip_serializing_if="Option::is_none")] error: Option<Value>, #[serde(default,skip_serializing_if="Option::is_none")] status: Option<u16> }
 fn audit_event(outcome: &str, key_id: &str, integration_id: &str) -> Audit {
     fn safe_id(s: &str) -> String {
         if s.len() <= 128 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') { s.into() } else { "invalid".into() }
     }
-    Audit { at: super::now_epoch_millis(), outcome: outcome.into(), key_id: safe_id(key_id), integration_id: safe_id(integration_id) }
+    Audit { at: super::now_epoch_millis(), outcome: outcome.into(), key_id: safe_id(key_id), integration_id: safe_id(integration_id), error:None, status:None }
 }
 
 #[cfg(target_os="linux")]
 fn append_audit(app: &AppHandle, outcome: &str, key_id: &str, integration_id: &str) -> Result<(), String> {
-    use std::{io::Write, os::unix::fs::OpenOptionsExt};
+    append_audit_detail(app,outcome,key_id,integration_id,None,None)
+}
+
+#[cfg(target_os="linux")]
+fn open_audit(dir: &Path) -> Result<fs::File,String> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let path = dir.join("bridge-audit.jsonl");
+    let open = || fs::OpenOptions::new().append(true).create(true).mode(0o600).custom_flags(libc::O_NOFOLLOW).open(&path).map_err(|_| DENIED.to_string());
+    let file = open()?;
+    let meta = file.metadata().map_err(|_| DENIED)?;
+    if !meta.is_file() { return Err(DENIED.into()); }
+    if meta.len() >= 10 * 1024 * 1024 {
+        drop(file);
+        fs::rename(&path,dir.join("bridge-audit.previous.jsonl")).map_err(|_| DENIED)?;
+        return open();
+    }
+    Ok(file)
+}
+
+#[cfg(target_os="linux")]
+fn append_audit_detail(app: &AppHandle, outcome: &str, key_id: &str, integration_id: &str, error: Option<Value>, status: Option<u16>) -> Result<(), String> {
+    use std::io::Write;
+    static AUDIT_LOCK: Mutex<()> = Mutex::new(());
+    let _guard = AUDIT_LOCK.lock().map_err(|_| DENIED)?;
     let dir = app.path().app_data_dir().map_err(|_| DENIED)?;
     fs::create_dir_all(&dir).map_err(|_| DENIED)?;
-    let mut file = fs::OpenOptions::new().append(true).create(true).mode(0o600).custom_flags(libc::O_NOFOLLOW)
-        .open(dir.join("bridge-audit.jsonl")).map_err(|_| DENIED)?;
-    if !file.metadata().map_err(|_| DENIED)?.is_file() || file.metadata().map_err(|_| DENIED)?.len() > 10 * 1024 * 1024 { return Err(DENIED.into()); }
-    let mut line = serde_json::to_vec(&audit_event(outcome, key_id, integration_id)).map_err(|_| DENIED)?;
+    let mut file = open_audit(&dir)?;
+    let mut event = audit_event(outcome,key_id,integration_id); event.error=error;event.status=status;
+    let mut line = serde_json::to_vec(&event).map_err(|_| DENIED)?;
     line.push(b'\n');
     file.write_all(&line).and_then(|_| file.sync_all()).map_err(|_| DENIED.into())
 }
@@ -316,11 +339,15 @@ fn append_audit(app: &AppHandle, outcome: &str, key_id: &str, integration_id: &s
 #[tauri::command]
 pub fn bridge_history(app: AppHandle, key_id: String) -> Result<Vec<Audit>, String> {
     use std::io::Read;
-    let path = app.path().app_data_dir().map_err(|_| DENIED)?.join("bridge-audit.jsonl");
-    let file = match fs::File::open(path) { Ok(f) => f, Err(e) if e.kind()==std::io::ErrorKind::NotFound => return Ok(vec![]), Err(_) => return Err(DENIED.into()) };
-    let mut raw = String::new();file.take(10*1024*1024+1).read_to_string(&mut raw).map_err(|_| DENIED)?;
-    if raw.len()>10*1024*1024 { return Err(DENIED.into()); }
-    let mut records: Vec<Audit> = raw.lines().filter_map(|s| serde_json::from_str::<Audit>(s).ok()).filter(|a| a.key_id==key_id).collect();
+    let dir = app.path().app_data_dir().map_err(|_| DENIED)?;
+    let mut records = Vec::new();
+    for name in ["bridge-audit.previous.jsonl","bridge-audit.jsonl"] {
+        let file = match fs::File::open(dir.join(name)) { Ok(f) => f, Err(e) if e.kind()==std::io::ErrorKind::NotFound => continue, Err(_) => return Err(DENIED.into()) };
+        // One bounded record may take a file just beyond the rotation threshold.
+        let mut raw = String::new();file.take(10*1024*1024+4097).read_to_string(&mut raw).map_err(|_| DENIED)?;
+        if raw.len()>10*1024*1024+4096 { return Err(DENIED.into()); }
+        records.extend(raw.lines().filter_map(|s| serde_json::from_str::<Audit>(s).ok()).filter(|a| a.key_id==key_id));
+    }
     records.reverse(); records.truncate(100);Ok(records)
 }
 
@@ -419,6 +446,19 @@ mod tests {
     #[test] fn trashed_keys_are_not_available() { let mut p=plain();p["credentials"][0]["deletedAt"]=json!("2026-01-01");assert!(!parse_keys(&p).unwrap().contains_key("key-a")); }
     #[test] fn loader_variables_and_nul_are_rejected() { for s in ["PATH","LD_PRELOAD","NODE_OPTIONS","X_API_KEY\n"] { assert!(!valid_identifier(s)); } let mut p=plain();p["credentials"][0]["password"]=json!("fake\0key");assert!(parse_keys(&p).is_err()); }
     #[test] fn errors_never_contain_secret_values() { let c=core();let e=c.authorize(1,"key-a","spoofed").err().unwrap();assert!(!e.contains("fake-key")); }
+    #[cfg(target_os="linux")]
+    #[test] fn audit_rotates_instead_of_blocking_future_connections() {
+        use std::os::unix::{fs::{PermissionsExt,symlink}};
+        let dir=std::env::temp_dir().join(format!("kp-audit-{}-{}",std::process::id(),super::super::now_epoch_millis()));
+        fs::create_dir(&dir).unwrap();
+        let file=open_audit(&dir).unwrap();file.set_len(10*1024*1024).unwrap();drop(file);
+        let file=open_audit(&dir).unwrap();assert_eq!(file.metadata().unwrap().len(),0);
+        assert_eq!(file.metadata().unwrap().permissions().mode()&0o777,0o600);
+        assert_eq!(fs::metadata(dir.join("bridge-audit.previous.jsonl")).unwrap().len(),10*1024*1024);
+        drop(file);fs::remove_file(dir.join("bridge-audit.jsonl")).unwrap();
+        symlink(dir.join("bridge-audit.previous.jsonl"),dir.join("bridge-audit.jsonl")).unwrap();
+        assert!(open_audit(&dir).is_err());fs::remove_dir_all(dir).unwrap();
+    }
     #[test] fn audit_has_metadata_only() { let c=core();let _=c.authorize(1,"key-a","tool-a").unwrap();let s=serde_json::to_string(&audit_event("approved","key-a","tool-a")).unwrap();assert!(!s.contains("fake-key"));assert!(!s.contains("password"));assert!(!s.contains("secret")); }
     #[test] fn audit_rejects_unbounded_and_injected_ids() { assert_eq!(audit_event("denied","x\nsecret","x").key_id,"invalid"); }
     #[cfg(target_os="linux")]

@@ -132,7 +132,7 @@ const TOTP_PERIOD_SECONDS = 30;
 const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
 const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.7.0";
+const APP_VERSION = "1.7.1";
 const UPDATE_GITHUB_OWNER = "mnstechbr";
 const UPDATE_GITHUB_REPO = "KPassword";
 const PASSWORD_ROTATION_DAYS = 30;
@@ -1818,9 +1818,9 @@ export default function App() {
   const isLinux = platform === "linux";
   const [bridgeGeneration, setBridgeGeneration] = useState<number | null>(null);
   const [bridgeBusy, setBridgeBusy] = useState(false);
-  const [bridgeAudit, setBridgeAudit] = useState<Array<{ at: number; outcome: string; integration_id: string }>>([]);
+  const [bridgeAudit, setBridgeAudit] = useState<Array<{ at: number; outcome: string; integration_id: string; status?: number; error?: { code: string; limit?: string; remaining?: number; retry_at?: number | null } }>>([]);
   const [bridgeHours, setBridgeHours] = useState(48);
-  type BridgePermission = { keyId: string; identity: string; application: string; entryScript: string | null; project: string; operation: string; model: string; callsThisMinute: number };
+  type BridgePermission = { keyId: string; identity: string; application: string; entryScript: string | null; project: string; operation: string; model: string; callsThisMinute: number; outputTokensThisHour: number; limits: { callsPerMinute: number; outputTokensPerHour: number } };
   const [bridgeStatus, setBridgeStatus] = useState<{ active: boolean; remainingSeconds: number; grants: BridgePermission[] }>({active:false,remainingSeconds:0,grants:[]});
   useEffect(() => {
     if (!isLinux) return;
@@ -5685,7 +5685,7 @@ export default function App() {
                   <h3>Secrets Bridge</h3><p>{t("bridge.description")}</p><p>{t("bridge.connectorHelp")}</p><code>{detailCredential.id}</code>
                   {(detailCredential.apiApplications ?? []).map((a) => <article key={a.id} className="historyItem"><div><strong>{a.name}</strong><span>{a.executable}</span><span>{t("bridge.exportDisabled")}</span></div><button type="button" disabled={bridgeBusy} onClick={() => void changeBridgeGrant(detailCredential, a.id)}>{t("bridge.revoke")}</button></article>)}
                   <button type="button" onClick={() => { void invoke<typeof bridgeAudit>("bridge_history", { keyId: detailCredential.id }).then(setBridgeAudit).catch(() => setMessage(t("bridge.denied"))); }}>{t("bridge.history")}</button>
-                  {bridgeAudit.map((event, i) => <p key={`${event.at}-${i}`}>{formatDate(new Date(event.at).toISOString(), appLanguage)} · {t(`bridge.outcome.${event.outcome}`)} · {event.integration_id}</p>)}
+                  {bridgeAudit.map((event, i) => <p key={`${event.at}-${i}`}>{formatDate(new Date(event.at).toISOString(), appLanguage)} · {t(`bridge.outcome.${event.outcome}`)} · {event.integration_id}{event.error && <> · {event.error.code}{event.error.limit && <> · {event.error.limit} · {t("bridge.balance")}: {event.error.remaining}</>}{event.error.retry_at && <> · {t("bridge.retryAt")}: {formatDate(new Date(event.error.retry_at).toISOString(), appLanguage)}</>}</>}{event.status && <> · HTTP {event.status}</>}</p>)}
                 </div>}
                 </>
               )}
@@ -7044,7 +7044,20 @@ export default function App() {
                     {bridgeStatus.active && <small>{t("bridge.remaining")}: {Math.floor(bridgeStatus.remainingSeconds / 3600)}h {Math.floor((bridgeStatus.remainingSeconds % 3600) / 60)}min · {bridgeStatus.grants.length} {t("bridge.permissions")}</small>}
                     <small>{t("bridge.backgroundDescription")}</small>
                     {bridgeStatus.grants.map(permission=><div className="bridgePermission" key={`${permission.identity}:${permission.keyId}:${permission.operation}:${permission.model}`}>
-                      <strong>{permission.entryScript ?? permission.application}</strong><span>{permission.project}</span><span>{permission.operation} · {permission.model} · {permission.callsThisMinute}/60 {t("bridge.callsThisMinute")}</span>
+                      <strong>{permission.entryScript ?? permission.application}</strong><span>{permission.project}</span><span>{permission.operation} · {permission.model} · {permission.callsThisMinute} {t("bridge.callsThisMinute")} · {permission.outputTokensThisHour} {t("bridge.outputThisHour")}</span>
+                      <form key={`${permission.limits.callsPerMinute}:${permission.limits.outputTokensPerHour}`} className="bridgeLimits" onSubmit={event => {
+                        event.preventDefault();
+                        const data = new FormData(event.currentTarget);
+                        const limits = { callsPerMinute: Number(data.get("calls")), outputTokensPerHour: Number(data.get("output")) };
+                        void invoke("bridge_set_limits", { identity: permission.identity, keyId: permission.keyId, limits })
+                          .then(() => invoke<typeof bridgeStatus>("bridge_status")).then(setBridgeStatus)
+                          .catch(() => setMessage(t("bridge.limitsError")));
+                      }}>
+                        <small>{t("bridge.optionalLimits")}</small>
+                        <label>{t("bridge.callsLimit")}<input type="number" name="calls" min={0} max={4294967295} step={1} required defaultValue={permission.limits.callsPerMinute} /></label>
+                        <label>{t("bridge.outputLimit")}<input type="number" name="output" min={0} max={Number.MAX_SAFE_INTEGER} step={1} required defaultValue={permission.limits.outputTokensPerHour} /></label>
+                        <button type="submit">{t("bridge.saveLimits")}</button>
+                      </form>
                       <button type="button" onClick={()=>void invoke("bridge_revoke_grant",{identity:permission.identity,keyId:permission.keyId,operation:permission.operation,model:permission.model})}>{t("bridge.revokePermission")}</button>
                     </div>)}
                   </div>

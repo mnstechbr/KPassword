@@ -2,7 +2,7 @@
 use std::{collections::HashMap, sync::{Mutex, mpsc, atomic::{AtomicUsize, Ordering}}, time::{Duration, Instant}};
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
-use super::{DENIED, BridgeState};
+use super::{DENIED, BridgeState, quota::{Limits, Usage, Booking, Exceeded, output_usage}};
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,18 +24,18 @@ pub struct Request {
     pub remember_allowed: bool,
 }
 type Grant = (u64, String, String, String, String);
-struct Permit { minute: Instant, calls: u32, request: Request }
+struct Permit { request: Request }
 struct Pending { request: Request, generation: u64, deadline: Instant, reply: mpsc::Sender<Result<(), &'static str>>, presented: bool }
-struct Usage { minute: Instant, calls: u32, hour: Instant, output: u64 }
 struct Flight<'a>(&'a AtomicUsize);
 impl Drop for Flight<'_> { fn drop(&mut self) { self.0.fetch_sub(1,Ordering::SeqCst); } }
 #[derive(Default)]
-struct Hub { usage: HashMap<(u64,String), Usage>, listening: bool, pending: Option<Pending>, grants: HashMap<Grant, Permit>, policy_revision: u64 }
+struct Hub { usage: HashMap<(u64,String,String), Usage>, limits: HashMap<(u64,String,String), Limits>, listening: bool, pending: Option<Pending>, grants: HashMap<Grant, Permit>, policy_revision: u64 }
 #[derive(Default)]
 pub struct BrokerState(Mutex<Hub>, AtomicUsize);
 
 /// Only stable codes cross IPC; never exception text, paths, URLs or bodies.
 pub(super) fn public_error_code(error: &str) -> &'static str {
+    if Exceeded::parse(error).is_some() { return "quota_exceeded"; }
     match error {
         "bridge_inactive" => "bridge_inactive", "session_expired" => "session_expired",
         "key_not_found" => "key_not_found", "credential_ambiguous" => "credential_ambiguous", "user_denied" => "user_denied",
@@ -47,10 +47,43 @@ pub(super) fn public_error_code(error: &str) -> &'static str {
     }
 }
 
-fn consume(permit: &mut Permit) -> bool {
-    if permit.minute.elapsed() >= Duration::from_secs(60) { permit.minute = Instant::now(); permit.calls = 0; }
-    if permit.calls >= 60 { return false; }
-    permit.calls += 1; true
+/// Build public metadata from typed local quota errors; arbitrary error text is discarded.
+pub(super) fn public_error(error: &str) -> serde_json::Value {
+    let mut value = serde_json::json!({"code":public_error_code(error)});
+    if let Some(quota) = Exceeded::parse(error) {
+        value = serde_json::to_value(quota).expect("quota metadata");
+        value["code"] = serde_json::json!("quota_exceeded");
+        value["source"] = serde_json::json!("kpassword");
+        value["scope"] = serde_json::json!("application_credential");
+    }
+    value
+}
+
+#[tauri::command]
+pub fn bridge_set_limits(window: tauri::WebviewWindow, app: AppHandle, identity: String, key_id: String, limits: Limits) -> Result<(),String> {
+    if window.label() != "main" { return Err(DENIED.into()); }
+    let state = app.state::<BrokerState>(); let mut hub = state.0.lock().map_err(|_| DENIED)?;
+    let scope = hub.grants.keys().find(|(_,k,i,_,_)| k == &key_id && i == &identity)
+        .map(|(g,k,i,_,_)| (*g,k.clone(),i.clone())).ok_or(DENIED)?;
+    hub.limits.insert(scope, limits);
+    Ok(())
+}
+
+// One booking spans preflight, network I/O and delivery. Drop reconciles every
+// early return, including identity changes, timeouts and disconnected clients.
+struct Reservation<'a> { state: &'a BrokerState, scope: (u64,String,String), booking: Booking, reserved: u64, dispatched: bool, actual: Option<u64>, completed: bool, bounded: bool }
+impl Reservation<'_> {
+    fn observe(&mut self, value: &serde_json::Value) {
+        if let Some(n) = output_usage(value) { self.actual = Some(self.actual.unwrap_or(0).max(n)); }
+    }
+}
+impl Drop for Reservation<'_> {
+    fn drop(&mut self) {
+        let actual = if self.dispatched { self.actual.unwrap_or(if self.completed { self.reserved } else { 0 }) } else { 0 };
+        if let Ok(mut hub) = self.state.0.lock() {
+            if let Some(usage) = hub.usage.get_mut(&self.scope) { usage.settle(self.booking,self.dispatched,actual); }
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -58,7 +91,7 @@ fn consume(permit: &mut Permit) -> bool {
 pub struct Status { active: bool, remaining_seconds: u64, grants: Vec<Permission> }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Permission { key_id: String, identity: String, application: String, entry_script: Option<String>, project: String, operation: String, model: String, calls_this_minute: u32 }
+pub struct Permission { key_id: String, identity: String, application: String, entry_script: Option<String>, project: String, operation: String, model: String, calls_this_minute: u32, output_tokens_this_hour: u64, limits: Limits }
 #[tauri::command]
 pub fn bridge_status(window: tauri::WebviewWindow, app: AppHandle) -> Result<Status,String> {
     if window.label() != "main" { return Err(DENIED.into()); }
@@ -67,7 +100,13 @@ pub fn bridge_status(window: tauri::WebviewWindow, app: AppHandle) -> Result<Sta
         core.session.as_ref().map(|s| s.expires.saturating_duration_since(Instant::now()).as_secs()).unwrap_or(0)
     };
     let state = app.state::<BrokerState>(); let hub = state.0.lock().map_err(|_| DENIED)?;
-    let grants = if remaining_seconds > 0 { hub.grants.values().map(|p| Permission { key_id:p.request.key_id.clone(), identity:p.request.identity.clone(), application:p.request.application.clone(), entry_script:p.request.entry_script.clone(), project:p.request.project.clone(), operation:p.request.operation.clone(), model:p.request.model.clone(), calls_this_minute:if p.minute.elapsed() < Duration::from_secs(60) { p.calls } else { 0 } }).collect() } else { Vec::new() };
+    let grants = if remaining_seconds > 0 { hub.grants.iter().map(|((g,k,i,_,_),p)| {
+        let scope = (*g,k.clone(),i.clone()); let usage = hub.usage.get(&scope);
+        Permission { key_id:p.request.key_id.clone(), identity:p.request.identity.clone(), application:p.request.application.clone(), entry_script:p.request.entry_script.clone(), project:p.request.project.clone(), operation:p.request.operation.clone(), model:p.request.model.clone(),
+            calls_this_minute:usage.filter(|u| u.minute.elapsed()<Duration::from_secs(60)).map_or(0,|u| u.calls),
+            output_tokens_this_hour:usage.filter(|u| u.hour.elapsed()<Duration::from_secs(3600)).map_or(0,|u| u.output),
+            limits:hub.limits.get(&scope).copied().unwrap_or_default() }
+    }).collect() } else { Vec::new() };
     Ok(Status { active:remaining_seconds > 0, remaining_seconds, grants })
 }
 #[tauri::command]
@@ -125,22 +164,11 @@ pub fn revoke(app: &AppHandle) {
             hub.policy_revision = hub.policy_revision.wrapping_add(1);
             hub.grants.clear();
             hub.usage.clear();
+            hub.limits.clear();
             if let Some(p) = hub.pending.take() { let _ = p.reply.send(Err("permission_revoked")); }
         }
     }
     if let Some(window) = app.get_webview_window("bridge-approval") { let _ = window.hide(); }
-}
-
-#[cfg(target_os="linux")]
-pub(super) fn revoke_identity(app: &AppHandle, identity: &str) {
-    let state=app.state::<BrokerState>();
-    if let Ok(mut hub)=state.0.lock() {
-        hub.policy_revision=hub.policy_revision.wrapping_add(1);
-        hub.grants.retain(|(_,_,id,_,_),_| id!=identity);
-        if hub.pending.as_ref().is_some_and(|p| p.request.identity==identity) {
-            if let Some(p)=hub.pending.take() { let _=p.reply.send(Err("permission_revoked")); }
-        }
-    };
 }
 
 #[tauri::command]
@@ -171,7 +199,7 @@ pub fn bridge_answer_access_request(app: AppHandle, window: tauri::WebviewWindow
         if !p.request.remember_allowed { let _ = p.reply.send(Err("permission_revoked")); return Err(DENIED.into()); }
         if hub.grants.len() >= 256 { let _ = p.reply.send(Err("permission_revoked")); return Err(DENIED.into()); }
         let grant = (p.generation, p.request.key_id.clone(), p.request.identity.clone(), p.request.operation.clone(), p.request.model.clone());
-        hub.grants.insert(grant, Permit { minute:Instant::now(), calls:0, request:p.request.clone() });
+        hub.grants.insert(grant, Permit { request:p.request.clone() });
     }
     p.reply.send(if approve { Ok(()) } else { Err("user_denied") }).map_err(|_| DENIED.into())
 }
@@ -203,7 +231,7 @@ pub(super) mod linux {
         if r.body["stream"] == true && !["chat", "responses", "messages"].contains(&r.operation.as_str()) { return Err(DENIED.into()); }
         if !r.body["model"].as_str().is_some_and(|m| !m.is_empty() && m.len() <= 128 && !m.chars().any(char::is_control)) { return Err(DENIED.into()); }
         for field in ["max_tokens", "max_completion_tokens", "max_output_tokens"] {
-            if let Some(value) = r.body.get(field) { if !value.as_u64().is_some_and(|n| (1..=8192).contains(&n)) { return Err(DENIED.into()); } }
+            if let Some(value) = r.body.get(field) { if !value.as_u64().is_some_and(|n| (1..=u32::MAX as u64).contains(&n)) { return Err(DENIED.into()); } }
         }
         Ok(r)
     }
@@ -238,11 +266,12 @@ pub(super) mod linux {
         let auth_type = if config.auth.is_empty() { if anthropic { "x-api-key" } else { "bearer" } } else { &config.auth };
         (auth_type,anthropic)
     }
-    fn provider_request(url: &str, identifier: &str, secret: &str, body: &serde_json::Value, config: &super::super::providers::Config, operation: &str) -> Result<reqwest::blocking::Response, String> {
+    fn provider_request(url: &str, identifier: &str, secret: &str, body: &serde_json::Value, config: &super::super::providers::Config, operation: &str, output_budget: Option<u64>) -> Result<reqwest::blocking::Response, String> {
         let mut body = body.clone();
-        if !["http.get", "http.post"].contains(&operation) && !url.ends_with("/embeddings") && !["max_tokens", "max_completion_tokens", "max_output_tokens"].iter().any(|f| body.get(*f).is_some()) {
+        let (_,anthropic) = authentication(config,url);
+        if (output_budget.is_some() || anthropic) && !["http.get", "http.post"].contains(&operation) && !url.ends_with("/embeddings") && !["max_tokens", "max_completion_tokens", "max_output_tokens"].iter().any(|f| body.get(*f).is_some()) {
             let field = if url.ends_with("/responses") { "max_output_tokens" } else if identifier == "OPENAI_API_KEY" { "max_completion_tokens" } else { "max_tokens" };
-            body[field] = serde_json::json!(8192);
+            body[field] = serde_json::json!(output_budget.unwrap_or(8192));
         }
         let client = super::super::providers::pinned_client(url)?;
         let (auth_type,anthropic) = authentication(config,url);
@@ -285,7 +314,7 @@ pub(super) mod linux {
     }
     /// Bounded SSE parsing: preserve typed tool deltas without forwarding raw
     /// provider text, headers or credentials. Check revocation before every event.
-    fn relay_sse(source: impl Read, target: &mut impl Write, secret: &str, mut authorized: impl FnMut() -> bool) -> Result<(), String> {
+    fn relay_sse(source: impl Read, target: &mut impl Write, secret: &str, mut authorized: impl FnMut() -> bool, mut observe: impl FnMut(&serde_json::Value)) -> Result<(), String> {
         use std::io::BufRead;
         let mut source = std::io::BufReader::new(source);
         let mut event = String::new();
@@ -306,6 +335,7 @@ pub(super) mod linux {
                     let mut value: serde_json::Value = serde_json::from_str(&data).map_err(|_| "provider_unavailable")?;
                     if !value.is_object() { return Err("provider_unavailable".into()); }
                     terminal |= value["type"]=="message_stop" || value["type"]=="response.completed";
+                    observe(&value);
                     sanitize_response(&mut value, secret);
                     write_json(target, &serde_json::json!({"event":event,"data":value}))?;
                     super::super::erase_json(&mut value);
@@ -368,7 +398,7 @@ pub(super) mod linux {
                 let workers=workers.clone(); let app=app.clone();
                 std::thread::spawn(move || {
                     if let Err(error) = handle(&app, &mut stream) {
-                        let _=write_json(&mut stream,&serde_json::json!({"ok":false,"error":{"code":public_error_code(&error)}}));
+                        let _=write_json(&mut stream,&serde_json::json!({"ok":false,"error":public_error(&error)}));
                     }
                     workers.fetch_sub(1,Ordering::SeqCst);
                 });
@@ -401,6 +431,18 @@ pub(super) mod linux {
         verify: impl Fn() -> Result<super::super::identity::Peer, String>,
         stream: &mut impl Write, authorized: impl Fn() -> bool,
     ) -> Result<(), String> {
+        let result = execute_inner(app,raw,identity.clone(),verify,stream,authorized);
+        if let Err(error) = &result {
+            let key_id = parse_request(raw).map(|r| r.key_id.clone()).unwrap_or_default();
+            let _ = super::super::append_audit_detail(app,"failed",&key_id,&identity.identity,Some(public_error(error)),None);
+        }
+        result
+    }
+    fn execute_inner(
+        app: &AppHandle, raw: &[u8], identity: super::super::identity::Peer,
+        verify: impl Fn() -> Result<super::super::identity::Peer, String>,
+        stream: &mut impl Write, authorized: impl Fn() -> bool,
+    ) -> Result<(), String> {
         let broker_state = app.state::<BrokerState>();
         broker_state.1.fetch_update(Ordering::SeqCst,Ordering::SeqCst,|n| (n<4).then_some(n+1)).map_err(|_| "bridge_busy")?;
         let _flight = Flight(&broker_state.1);
@@ -427,8 +469,7 @@ pub(super) mod linux {
         let (remembered, policy_revision) = {
             let state = app.state::<BrokerState>();
             let mut hub = state.0.lock().map_err(|_| DENIED)?;
-            if let Some(permit) = hub.grants.get_mut(&grant) {
-                if !consume(permit) { return Err("quota_exceeded".into()); }
+            if hub.grants.contains_key(&grant) {
                 (true, hub.policy_revision)
             } else {
                 if hub.pending.is_some() { return Err("bridge_busy".into()); }
@@ -450,24 +491,18 @@ pub(super) mod linux {
                     if let Some(window) = app.get_webview_window("bridge-approval") { let _ = window.hide(); }
                 }
             }
-            if approved {
-                let state = app.state::<BrokerState>();
-                let mut hub = state.0.lock().map_err(|_| DENIED)?;
-                if let Some(permit) = hub.grants.get_mut(&grant) { if !consume(permit) { return Err("quota_exceeded".into()); } }
-            }
             if !approved { super::super::append_audit(app, "denied", &request.key_id, &identity.identity)?; return Err(decision.err().unwrap_or("user_denied").into()); }
         }
-        {
+        let mut reservation = {
             let mut hub = broker_state.0.lock().map_err(|_| DENIED)?;
             let output = if ["chat","responses","messages"].contains(&request.operation.as_str()) {
                 ["max_tokens","max_completion_tokens","max_output_tokens"].iter().filter_map(|f| request.body.get(*f).and_then(serde_json::Value::as_u64)).max().unwrap_or(8192)
             } else { 0 };
-            let usage = hub.usage.entry((generation,request.key_id.clone())).or_insert(Usage { minute:Instant::now(),calls:0,hour:Instant::now(),output:0 });
-            if usage.minute.elapsed() >= Duration::from_secs(60) { usage.minute=Instant::now();usage.calls=0; }
-            if usage.hour.elapsed() >= Duration::from_secs(3600) { usage.hour=Instant::now();usage.output=0; }
-            if usage.calls >= 60 || usage.output+output > 524288 { return Err("quota_exceeded".into()); }
-            usage.calls+=1;usage.output+=output;
-        }
+            let scope = (generation,request.key_id.clone(),identity.identity.clone());
+            let limits = hub.limits.get(&scope).copied().unwrap_or_default();
+            let booking = hub.usage.entry(scope.clone()).or_default().reserve(limits,output).map_err(|e| e.error())?;
+            Reservation { state: &broker_state, scope, booking, reserved:output, dispatched:false, actual:None, completed:false, bounded:limits.output_tokens_per_hour>0 }
+        };
         let still_authorized = || {
             let revision_ok = broker_state.0.lock().is_ok_and(|h| h.policy_revision == policy_revision);
             let state = app.state::<BridgeState>();
@@ -496,7 +531,11 @@ pub(super) mod linux {
         // cannot be recalled. Never hold the vault lock during network I/O.
         if !still_authorized() { return Err("permission_revoked".into()); }
         if url.is_empty() {
+            reservation.dispatched = true;
             let (status,mut body) = super::super::services::call(&identifier,&request.operation,&secret,&request.body)?;
+            if !(200..300).contains(&status) {
+                super::super::append_audit_detail(app,"provider_http_error",&request.key_id,&identity.identity,Some(serde_json::json!({"code":"provider_http_error"})),Some(status))?;
+            }
             sanitize_response(&mut body,&secret);
             if !still_authorized() { super::super::erase_json(&mut body); return Err("permission_revoked".into()); }
             let result=write_json(stream,&serde_json::json!({"ok":true,"status":status,"body":body}));
@@ -505,14 +544,25 @@ pub(super) mod linux {
             return super::super::append_audit(app,"delivered",&request.key_id,&identity.identity);
         }
         if !still_authorized() { return Err("permission_revoked".into()); }
-        let response = provider_request(&url, &identifier, &secret, &request.body, &config, &request.operation)?;
+        reservation.dispatched = true;
+        let response = provider_request(&url, &identifier, &secret, &request.body, &config, &request.operation, reservation.bounded.then_some(reservation.reserved))?;
+        let status = response.status().as_u16();
+        if !(200..300).contains(&status) {
+            // A rejected upstream call has no local output reservation. Keep
+            // attempted call accounting and report the upstream HTTP status.
+            reservation.actual = Some(0);
+            super::super::append_audit_detail(app,"provider_http_error",&request.key_id,&identity.identity,Some(serde_json::json!({"code":"provider_http_error"})),Some(status))?;
+        }
         if request.body["stream"] == true && response.status().is_success() {
             let is_sse = response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).is_some_and(|v| v.split(';').next() == Some("text/event-stream"));
             if !is_sse { return Err("provider_unavailable".into()); }
             write_json(stream, &serde_json::json!({"ok":true,"status":response.status().as_u16(),"stream":true}))?;
-            relay_sse(response, stream, &secret, still_authorized)?;
+            let result = relay_sse(response, stream, &secret, still_authorized, |v| reservation.observe(v));
+            reservation.completed = result.is_ok();
+            result?;
         } else {
             let (status, mut body) = read_provider_json(response, &secret)?;
+            if (200..300).contains(&status) { reservation.observe(&body); reservation.completed = true; }
             if !still_authorized() { super::super::erase_json(&mut body); return Err("permission_revoked".into()); }
             let result = write_json(stream, &serde_json::json!({"ok":true,"status":status,"body":body}));
             super::super::erase_json(&mut body);
@@ -524,6 +574,39 @@ pub(super) mod linux {
     #[cfg(test)]
     mod tests {
         use super::*;
+        #[test] fn reservation_drop_refunds_preflight_and_reconciles_success_and_failure() {
+            let state = BrokerState::default();
+            let scope = (1,"key".into(),"app".into());
+            let reserve = || {
+                let mut h=state.0.lock().unwrap();
+                let booking=h.usage.entry(scope.clone()).or_default().reserve(Limits::default(),8192).unwrap();
+                Reservation { state:&state,scope:scope.clone(),booking,reserved:8192,dispatched:false,actual:None,completed:false,bounded:false }
+            };
+            drop(reserve());
+            { let h=state.0.lock().unwrap();let u=&h.usage[&scope];assert_eq!((u.calls,u.output),(0,0)); }
+            { let mut r=reserve();r.dispatched=true; }
+            { let h=state.0.lock().unwrap();let u=&h.usage[&scope];assert_eq!((u.calls,u.output),(1,0)); }
+            { let mut r=reserve();r.dispatched=true;r.completed=true;r.observe(&serde_json::json!({"usage":{"completion_tokens":12}})); }
+            { let h=state.0.lock().unwrap();let u=&h.usage[&scope];assert_eq!((u.calls,u.output),(2,12)); }
+            // Unknown successful usage retains the reservation, never invents a zero.
+            { let mut r=reserve();r.dispatched=true;r.completed=true; }
+            { let h=state.0.lock().unwrap();let u=&h.usage[&scope];assert_eq!((u.calls,u.output),(3,8204)); }
+        }
+        #[test] fn stream_usage_is_reconciled_on_complete_and_truncated_streams() {
+            let mut actual=None;
+            let input=b"data: {\"usage\":{\"output_tokens\":2}}\n\ndata: {\"usage\":{\"output_tokens\":9}}\n\ndata: {\"type\":\"message_stop\"}\n\n";
+            relay_sse(input.as_slice(),&mut Vec::new(),"secret",||true,|v| { if let Some(n)=output_usage(v) { actual=Some(actual.unwrap_or(0).max(n)); } }).unwrap();
+            assert_eq!(actual,Some(9));
+            let mut actual=None;
+            assert!(relay_sse(b"data: {\"usage\":{\"completion_tokens\":3}}\n\n".as_slice(),&mut Vec::new(),"secret",||true,|v| actual=output_usage(v)).is_err());
+            assert_eq!(actual,Some(3));
+        }
+        #[test] fn explicit_output_above_the_old_cap_is_accepted() {
+            for field in ["max_tokens","max_completion_tokens","max_output_tokens"] {
+                let raw=serde_json::to_vec(&serde_json::json!({"version":1,"key_id":"key","operation":"chat","body":{"model":"m",field:32768}})).unwrap();
+                assert!(parse_request(&raw).is_ok());
+            }
+        }
         #[test] fn automatic_and_explicit_anthropic_profiles_use_correct_authentication() {
             let mut c=super::super::super::providers::Config::default();
             for protocol in ["","auto","anthropic"] { c.protocol=protocol.into();assert_eq!(authentication(&c,"https://api.deepseek.com/anthropic/v1/messages"),("x-api-key",true)); }
@@ -532,11 +615,11 @@ pub(super) mod linux {
         }
         #[test] fn streams_preserve_tool_deltas_redact_and_detect_truncation() {
             let input=b"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"fake-key\"}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
-            let mut out=Vec::new(); relay_sse(input.as_slice(),&mut out,"fake-key",||true).unwrap();
+            let mut out=Vec::new(); relay_sse(input.as_slice(),&mut out,"fake-key",||true, |_| {}).unwrap();
             let out=String::from_utf8(out).unwrap(); assert!(out.contains("input_json_delta"));assert!(!out.contains("fake-key"));assert!(out.contains("done"));
-            assert!(relay_sse(b"data: {}\n\n".as_slice(),&mut Vec::new(),"secret",||true).is_err());
-            assert_eq!(relay_sse(input.as_slice(),&mut Vec::new(),"secret",||false).unwrap_err(),"permission_revoked");
-            assert!(relay_sse(b"event: injected\rheader\ndata: {}\n\n".as_slice(),&mut Vec::new(),"secret",||true).is_err());
+            assert!(relay_sse(b"data: {}\n\n".as_slice(),&mut Vec::new(),"secret",||true, |_| {}).is_err());
+            assert_eq!(relay_sse(input.as_slice(),&mut Vec::new(),"secret",||false, |_| {}).unwrap_err(),"permission_revoked");
+            assert!(relay_sse(b"event: injected\rheader\ndata: {}\n\n".as_slice(),&mut Vec::new(),"secret",||true, |_| {}).is_err());
         }
         #[test] fn diagnostic_codes_never_forward_error_payloads() {
             for code in ["bridge_inactive","session_expired","key_not_found","user_denied","approval_expired","unsupported_operation"] { assert_eq!(public_error_code(code),code); }
@@ -570,16 +653,8 @@ pub(super) mod linux {
             assert!(!rx.recv_timeout(Duration::from_millis(1)).unwrap_or(false));
             assert!(Hub::default().grants.is_empty());
         }
-        #[test] fn session_permission_has_automatic_rate_limit_without_call_budget() {
-            let request = Request { request_id:"r".into(),key_id:"k".into(),key_label:"API".into(),executable:"/app".into(),sha256:"h".into(),pid:1,provider:"OpenAI".into(),operation:"chat".into(),timeout_ms:30000,application:"/app".into(),entry_script:None,project:"/project".into(),model:"model".into(),identity:"i".into(),remember_allowed:true };
-            let mut permit = Permit { minute:Instant::now(),calls:59,request };
-            assert!(consume(&mut permit)); assert!(!consume(&mut permit));
-            permit.minute = Instant::now() - Duration::from_secs(61);
-            assert!(consume(&mut permit));
-            assert_eq!(permit.calls,1);
-        }
         #[test] fn model_and_output_budget_are_validated_before_approval() {
-            for body in [serde_json::json!({}),serde_json::json!({"model":""}),serde_json::json!({"model":"m","max_tokens":8193}),serde_json::json!({"model":"m","max_output_tokens":0})] {
+            for body in [serde_json::json!({}),serde_json::json!({"model":""}),serde_json::json!({"model":"m","max_tokens":-1}),serde_json::json!({"model":"m","max_output_tokens":0})] {
                 let raw=serde_json::to_vec(&serde_json::json!({"version":1,"key_id":"key-a","operation":"chat","body":body})).unwrap();
                 assert!(parse_request(&raw).is_err());
             }

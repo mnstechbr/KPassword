@@ -29,7 +29,7 @@ class ConnectorTests(unittest.TestCase):
                 thread.start()
                 try:
                     if expected_error:
-                        with self.assertRaises(bridge.BridgeDenied):
+                        with self.assertRaises(bridge.BridgeDenied) as caught:
                             bridge.request_api("key-a", "chat", {"model":"fictional"}, socket_path=path)
                     else:
                         result = bridge.request_api("key-a", "chat", {"model":"fictional"}, socket_path=path)
@@ -39,6 +39,8 @@ class ConnectorTests(unittest.TestCase):
                 self.assertFalse(thread.is_alive())
                 self.assertEqual(set(received[0]), {"version", "key_id", "operation", "body"})
                 self.assertNotIn("secret", received[0])
+                if expected_error:
+                    return caught.exception
 
     def test_only_provider_response_is_returned(self):
         self.exchange({"ok":True,"status":200,"body":{"result":"fictional answer"}})
@@ -79,6 +81,28 @@ class ConnectorTests(unittest.TestCase):
                 thread=threading.Thread(target=respond);thread.start()
                 events=list(bridge.stream_api("key-a","messages",{"model":"fictional"},socket_path=path));thread.join(3)
                 self.assertEqual(events,[{"event":"message_stop","data":{"type":"message_stop"}}])
+
+    def test_quota_metadata_survives_the_socket(self):
+        error=self.exchange({"ok":False,"error":{"code":"quota_exceeded","limit":"calls_per_minute","remaining":0,"retry_after":42,"retry_at":1792400000000,"message":"never echo secret"}},True)
+        self.assertEqual(error.code,"quota_exceeded")
+        self.assertEqual(error.limit,"calls_per_minute")
+        self.assertEqual(error.retry_after,42)
+        self.assertEqual(error.retry_at,1792400000000)
+        self.assertNotIn("secret",str(error))
+        self.assertEqual(bridge.BridgeDenied(["injected"]).code,"request_failed")
+
+    def test_quota_details_are_preserved_and_payloads_are_filtered(self):
+        detail={"code":"quota_exceeded","limit":"output_tokens_per_hour","scope":"application_credential","source":"kpassword","limit_value":100,"used":90,"remaining":10,"requested":20,"retry_after":120,"retry_at":1792400000000,"message":"never echo secret"}
+        error=bridge.BridgeDenied("quota_exceeded",details=detail)
+        self.assertEqual(error.limit,"output_tokens_per_hour")
+        self.assertEqual(error.remaining,10)
+        self.assertEqual(error.retry_after,120)
+        self.assertNotIn("message",error.details)
+        self.assertNotIn("secret",str(error))
+        error=bridge.BridgeDenied("quota_exceeded",details={"limit":"secret","retry_after":"secret","remaining":-1})
+        self.assertIsNone(error.limit)
+        self.assertNotIn("secret",str(error))
+        self.assertIsNone(error.remaining)
 
     def test_non_private_socket_is_denied(self):
         with tempfile.TemporaryDirectory(prefix="kpassword-connector-mode-") as directory:
