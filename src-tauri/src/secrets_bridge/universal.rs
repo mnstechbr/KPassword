@@ -146,7 +146,11 @@ fn reply(stream: &mut impl Write, status: u16, value: &Value, session: Option<&s
 fn rpc_error(id: &Value, code: i32, message: &str) -> Value { json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}}) }
 fn tool_failure(id: &Value, error: &str) -> Value {
     let detail = broker::public_error(error);
-    json!({"jsonrpc":"2.0","id":id,"result":{"content":[{"type":"text","text":detail.to_string()}],"structuredContent":{"error":detail},"isError":true}})
+    // Existing consumers (including KOMA) match the first text as a stable code.
+    // Keep that contract; quota metadata is additive and machine-readable.
+    let mut content = vec![json!({"type":"text","text":broker::public_error_code(error)})];
+    if detail.get("limit").is_some() { content.push(json!({"type":"text","text":detail.to_string()})); }
+    json!({"jsonrpc":"2.0","id":id,"result":{"content":content,"structuredContent":{"error":detail},"isError":true}})
 }
 fn authenticated(app: &AppHandle, generation: u64, token: &str, peer: &Peer) -> bool {
     if !active(app, generation) { return false; }
@@ -348,6 +352,13 @@ impl Write for Gateway<'_> {
         let mut http=Vec::new();reply(&mut http,429,&json!({"error":detail}),None).unwrap();
         let http=String::from_utf8(http).unwrap();assert!(http.contains("Retry-After: 60\r\n"));assert!(http.contains("application_credential"));
         let rpc=tool_failure(&json!(1),&error);assert_eq!(rpc["result"]["structuredContent"]["error"],detail);
+        assert_eq!(rpc["result"]["content"][0]["text"],"quota_exceeded");
+        assert_eq!(serde_json::from_str::<Value>(rpc["result"]["content"][1]["text"].as_str().unwrap()).unwrap(),detail);
+        for code in ["user_denied","key_not_found","credential_ambiguous","approval_expired","session_expired"] {
+            let result=tool_failure(&json!(1),code);
+            assert_eq!(result["result"]["content"][0]["text"],code);
+            assert_eq!(result["result"]["content"].as_array().unwrap().len(),1);
+        }
         assert_eq!(tool_failure(&json!(1),"secret in unexpected payload")["result"]["structuredContent"]["error"],json!({"code":"request_failed"}));
     }
     #[test] fn stolen_tokens_process_reuse_and_context_changes_are_rejected() {
