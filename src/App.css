@@ -10639,3 +10639,7 @@ textarea {
 .bridgeDesktopApproval footer { position:static; margin-top:12px; padding:8px 0 0; }
 
 }
+
+.bridgeLimits { display: grid; gap: 8px; }
+.bridgeLimits label { display: grid; gap: 4px; }
+.bridgeLimits input { width: 100%; min-width: 0; }

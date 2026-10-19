@@ -40,6 +40,18 @@ class ProxyTests(unittest.TestCase):
         for code in ["user_denied","approval_expired","key_not_found","bridge_inactive"]:
             with patch.object(proxy,"request_api",side_effect=proxy.BridgeDenied(code)):
                 status,body=self.call({});self.assertEqual(status,503);self.assertEqual(json.loads(body)["error"]["message"],code)
+    def test_quota_preserves_retry_metadata_and_returns_429(self):
+        detail={"limit":"calls_per_minute","remaining":0,"retry_after":42,"retry_at":1792400000000,"message":"never echo secret"}
+        with patch.object(proxy,"request_api",side_effect=proxy.BridgeDenied("quota_exceeded",details=detail)):
+            c=http.client.HTTPConnection("127.0.0.1",self.server.server_port,timeout=3)
+            c.request("POST","/v1/messages",json.dumps({}),{"Authorization":"Bearer "+self.server.token,"Content-Type":"application/json"})
+            r=c.getresponse();body=r.read();c.close()
+            self.assertEqual(r.status,429)
+            self.assertEqual(r.getheader("Retry-After"),"42")
+            error=json.loads(body)["error"]
+            self.assertEqual(error["message"],"quota_exceeded")
+            self.assertEqual(error["retry_after"],42)
+            self.assertNotIn(b"secret",body)
     def test_unknown_endpoints_are_explicitly_unsupported(self):
         self.assertEqual(self.call({},path="/v1/messages/count_tokens")[0],501)
     def test_environment_contains_only_local_token_for_provider_auth(self):

@@ -12,11 +12,12 @@ ERRORS = {
     "bridge_timeout": "Bridge did not respond before the local deadline",
     "bridge_inactive": "Bridge is inactive; activate its session in KPassword",
     "session_expired": "Bridge session expired",
+    "credential_ambiguous": "Multiple API keys match; specify a credential ID",
     "key_not_found": "API key ID was not found in this Bridge session",
     "user_denied": "User refused the request",
     "approval_expired": "Approval expired without a decision",
     "permission_revoked": "Bridge permission was revoked",
-    "quota_exceeded": "Automatic Bridge rate or consumption limit exceeded",
+    "quota_exceeded": "Configured Bridge quota exceeded",
     "bridge_busy": "Another approval is pending; retry later",
     "unsupported_operation": "Operation is not supported for this API key",
     "invalid_request": "Invalid or oversized request",
@@ -33,10 +34,27 @@ LIMIT = 4 * 1024 * 1024
 
 
 class BridgeDenied(RuntimeError):
-    def __init__(self, code="request_failed", *, status=None):
-        self.code = code if code in ERRORS else "request_failed"
+    def __init__(self, code="request_failed", *, status=None, details=None):
+        self.code = code if isinstance(code, str) and code in ERRORS else "request_failed"
         self.status = status
-        super().__init__(ERRORS[self.code] + (f" (HTTP {status})" if status is not None else ""))
+        self.details = {}
+        if self.code == "quota_exceeded" and isinstance(details, dict):
+            for field, choices in {"limit": {"calls_per_minute", "output_tokens_per_hour"}, "scope": {"application_credential"}, "source": {"kpassword"}}.items():
+                value = details.get(field)
+                if isinstance(value, str) and value in choices:
+                    self.details[field] = value
+            for field in ["limit_value", "used", "remaining", "requested", "retry_after", "retry_at"]:
+                value = details.get(field)
+                if value is None or type(value) is int and 0 <= value < 2**128:
+                    self.details[field] = value
+        self.limit = self.details.get("limit")
+        self.remaining = self.details.get("remaining")
+        self.retry_after = self.details.get("retry_after")
+        self.retry_at = self.details.get("retry_at")
+        message = ERRORS[self.code] + (f" (HTTP {status})" if status is not None else "")
+        if self.limit:
+            message += f"; {self.limit}: remaining={self.remaining}; retry_after={self.retry_after}; retry_at={self.retry_at}"
+        super().__init__(message)
 
 
 def _records(key_id, operation, body, socket_path=None):
@@ -79,7 +97,7 @@ def _records(key_id, operation, body, socket_path=None):
                         raise BridgeDenied("invalid_response")
                     if reply.get("ok") is False:
                         error = reply.get("error", {})
-                        raise BridgeDenied(error.get("code") if isinstance(error, dict) else "request_failed")
+                        raise BridgeDenied(error.get("code") if isinstance(error, dict) else "request_failed", details=error)
                     yield reply
     except (FileNotFoundError, ConnectionRefusedError, ConnectionResetError):
         raise BridgeDenied("bridge_inactive") from None
