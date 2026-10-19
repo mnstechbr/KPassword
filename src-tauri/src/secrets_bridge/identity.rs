@@ -152,6 +152,25 @@ mod tests {
         assert!(alive(&p));
         assert_eq!(tcp_peer(&server).unwrap(),p);
     }
+    #[test] fn remembered_identity_survives_process_restart_but_changes_with_script_or_project() {
+        use std::{io::Write,process::Command};
+        let root=std::env::temp_dir().join(format!("kp-identity-{}-{}",std::process::id(),super::super::super::now_epoch_millis()));
+        fs::create_dir(&root).unwrap();let script=root.join("app.py");let socket=root.join("peer.sock");
+        fs::write(&script,b"import socket,sys\ns=socket.socket(socket.AF_UNIX)\ns.connect(sys.argv[1])\ns.recv(1)\n").unwrap();
+        let listener=std::os::unix::net::UnixListener::bind(&socket).unwrap();
+        let observe=|cwd:&Path| {
+            let mut child=Command::new("python3").arg(&script).arg(&socket).current_dir(cwd).spawn().unwrap();
+            let (mut stream,_)=listener.accept().unwrap();let p=peer(&stream).unwrap();
+            stream.write_all(b"x").unwrap();assert!(child.wait().unwrap().success());p
+        };
+        let first=observe(&root);let second=observe(&root);
+        assert_ne!(first.pid,second.pid);assert_eq!(first.identity,second.identity);assert!(first.remember_allowed);
+        use std::fs::OpenOptions;
+        OpenOptions::new().append(true).open(&script).unwrap().write_all(b"# code changed\n").unwrap();
+        assert_ne!(first.identity,observe(&root).identity);
+        let other=root.join("project-b");fs::create_dir(&other).unwrap();assert_ne!(observe(&root).identity,observe(&other).identity);
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test] fn generic_interpreters_are_distinguished_from_native_binaries() {
         assert!(interpreter("/usr/bin/python3.14")); assert!(interpreter("/usr/bin/node"));
         for path in ["/usr/bin/ruby3.4", "/usr/bin/perl", "/usr/bin/php8.5", "/usr/bin/bash", "/usr/bin/java", "/usr/bin/dotnet"] {

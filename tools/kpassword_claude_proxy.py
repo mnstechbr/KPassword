@@ -58,11 +58,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass  # Never log request paths, headers, prompts or response bodies.
 
-    def reply(self, status, code):
-        data = json.dumps({"type": "error", "error": {"type": "api_error", "message": code}}).encode()
+    def reply(self, status, code, details=None):
+        data = json.dumps({"type": "error", "error": {"type": "api_error", "message": code, **(details or {})}}).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
+        if details and type(details.get("retry_after")) is int:
+            self.send_header("Retry-After", str(details["retry_after"]))
         self.end_headers()
         self.wfile.write(data)
 
@@ -126,10 +128,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
         except BridgeDenied as error:
             if streaming:
-                data = json.dumps({"type": "error", "error": {"type": "api_error", "message": error.code}})
+                data = json.dumps({"type": "error", "error": {"type": "api_error", "message": error.code, **error.details}})
                 self.wfile.write(f"event: error\ndata: {data}\n\n".encode())
             else:
-                self.reply(error.status if error.status and 400 <= error.status <= 599 else 503, error.code)
+                self.reply(429 if error.code in {"quota_exceeded", "bridge_busy"} else error.status if error.status and 400 <= error.status <= 599 else 503, error.code, error.details)
         except (ValueError, TypeError):
             if not streaming:
                 self.reply(400, "invalid_request")

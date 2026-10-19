@@ -36,9 +36,12 @@ Linux. Não é seguro habilitar TCP ali aceitando apenas um nome declarado.
 
 Tokens não substituem o popup. Permissões continuam vinculadas ao contexto,
 credencial, operação e modelo e expiram com a ponte. Uma aprovação de sessão
-reutiliza esse mesmo escopo; outra sessão MCP, token, operação ou modelo exige
-nova aprovação. Encerrar a sessão MCP revoga suas permissões, mesmo que a ponte
-continue ativa. A posse de um token roubado
+reutiliza esse mesmo escopo até encerrar a ponte, inclusive após renovar o token,
+reiniciar o mesmo aplicativo ou reconectar uma sessão MCP. Outra aplicação,
+projeto, credencial, operação, modelo ou fingerprint de código exige aprovação.
+Encerrar uma sessão MCP invalida aquela sessão de transporte; as permissões
+lembradas do aplicativo continuam até serem revogadas na interface ou até a ponte
+terminar. A posse de um token roubado
 em outro processo é recusada. Um processo comprometido que já tenha acesso ao
 processo autorizado, ao depurador ou à conta não é isolado por esta arquitetura.
 Um pedido já enviado ao provedor pode consumir recursos após uma revogação;
@@ -117,13 +120,53 @@ processo acaba. Um SDK que suporta somente chaves persistidas precisa de um
 lançador que provisione o token local (não a chave real). Isso é configuração
 inicial do cliente, não uma integração por projeto.
 
-Limites automáticos: 4 chamadas em andamento no núcleo, 60 chamadas/minuto por
-credencial e por token HTTP, 8.192 tokens de saída/chamada, reservas de até 131.072
-tokens de saída/hora por token HTTP e 524.288/hora por credencial. Reservas usam o
-limite solicitado (ou 8.192 por padrão), inclusive em erros, e não medem cobrança
-real. Ao atingir um limite, retorna `quota_exceeded`; renovar uma permissão não
-substitui o limite central. Ajustar `max_tokens` é o controle normal de geração,
-não uma quantidade de chamadas a autorizar no popup.
+A partir da 1.7.1, não há cotas locais de chamadas ou tokens habilitadas por
+padrão. Na tela Segurança → Integrações, cada permissão lembrada permite definir
+chamadas/minuto e tokens de saída/hora; `0` desativa a respectiva cota. A política
+vale durante a sessão da ponte, para a mesma identidade observada de aplicativo e
+projeto + credencial, compartilhada entre suas operações e modelos autorizados.
+Ela é editada apenas na janela principal do KPassword. Reautorizar ou reconectar
+não zera o consumo. As cotas não são gravadas fora do cofre nem reativadas após
+encerrar a ponte. Os limites do próprio provedor continuam valendo.
+
+O núcleo mantém 4 chamadas simultâneas e as proteções de identidade, destinos,
+autorização, tamanho e prazo. O teto local de 8.192 tokens por pedido foi removido:
+o cliente pode solicitar um inteiro positivo de até `u32::MAX`; o provedor define
+os valores que aceita. Sem máximo explícito, a requisição segue o padrão do
+provedor. Se o protocolo Anthropic exigir um máximo ou se houver uma cota de
+saída local, o Bridge preenche 8.192 como padrão; informe o máximo desejado para
+substituí-lo.
+
+Com cota de saída, a admissão reserva o máximo solicitado. JSON e SSE reconciliam
+essa reserva com `usage.completion_tokens` / `usage.output_tokens`, inclusive
+Responses e Anthropic. O contador inclui reservas simultâneas, para impedir
+ultrapassagem por concorrência. Sucesso sem uso informado mantém a reserva
+conservadora (8.192 se não havia máximo explícito). Falha antes do envio devolve
+chamada e tokens; erro HTTP ou falha de transporte libera os tokens sem uso
+informado, mantendo a tentativa por minuto. Fluxo interrompido com uso informado
+mantém apenas esse uso. Uma falha de rede pode ter consumido recursos no provedor:
+esta contabilização local não representa faturamento nem orçamento monetário.
+
+`quota_exceeded` preserva o código existente e acrescenta `source: "kpassword"`,
+`scope: "application_credential"`, `limit` (`calls_per_minute` ou
+`output_tokens_per_hour`), `limit_value`, `used`, `remaining`, `requested`,
+`retry_after` em segundos e `retry_at` em milissegundos Unix. O prazo indica a
+liberação pelo reset da janela; uma resposta em andamento pode liberar saldo
+antes disso. Se ambos os limites bloquearem, é informado o de maior espera. Se
+um pedido excede a cota inteira, os dois campos de prazo são `null`: esperar não
+resolve; reduza o pedido ou altere a cota no KPassword.
+
+O socket retorna esses campos em `error`. O gateway responde HTTP 429 com o
+mesmo objeto e o cabeçalho `Retry-After` quando aplicável. MCP preserva o código simples no primeiro
+bloco de texto, para compatibilidade com consumidores existentes como KOMA, e
+inclui o objeto de cota no segundo bloco e em `result.structuredContent.error`. O cliente Python expõe `.details`,
+`.limit`, `.remaining`, `.retry_after` e `.retry_at` em `BridgeDenied`. O proxy
+legado também preserva os metadados. Erros HTTP do provedor continuam com o
+status original e não são identificados como cota local.
+
+O histórico passa a registrar falhas com código filtrado e status HTTP, sem
+headers, corpos, URLs de chamadas ou chaves. O log rotaciona ao atingir 10 MB e
+mantém o arquivo anterior; atingir o tamanho não bloqueia novas conexões.
 
 Host/Origin de outros destinos são recusados, não há CORS amplo, encaminhamento
 de headers de autenticação do consumidor ou acesso remoto. Cabeçalhos duplicados,

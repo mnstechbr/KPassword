@@ -2601,6 +2601,7 @@ pub fn run() {
             secrets_bridge::broker::bridge_take_access_request,
             secrets_bridge::broker::bridge_answer_access_request,
             secrets_bridge::broker::bridge_status,
+            secrets_bridge::broker::bridge_set_limits,
             secrets_bridge::broker::bridge_revoke_grant,
             platform_name,
             linux_clipboard,
