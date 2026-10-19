@@ -157,8 +157,9 @@ um pedido excede a cota inteira, os dois campos de prazo são `null`: esperar n�
 resolve; reduza o pedido ou altere a cota no KPassword.
 
 O socket retorna esses campos em `error`. O gateway responde HTTP 429 com o
-mesmo objeto e o cabeçalho `Retry-After` quando aplicável. MCP inclui o objeto no
-texto e em `result.structuredContent.error`. O cliente Python expõe `.details`,
+mesmo objeto e o cabeçalho `Retry-After` quando aplicável. MCP preserva o código simples no primeiro
+bloco de texto, para compatibilidade com consumidores existentes como KOMA, e
+inclui o objeto de cota no segundo bloco e em `result.structuredContent.error`. O cliente Python expõe `.details`,
 `.limit`, `.remaining`, `.retry_after` e `.retry_at` em `BridgeDenied`. O proxy
 legado também preserva os metadados. Erros HTTP do provedor continuam com o
 status original e não são identificados como cota local.
