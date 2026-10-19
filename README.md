@@ -4,21 +4,21 @@ Gerenciador local de senhas e chaves de API para **Windows e Fedora Linux**, com
 
 As senhas e backups ficam no seu computador. Não é necessária conta nem nuvem para usar o cofre. O **Secrets Bridge**, opcional no Fedora, permite chamadas de API autorizadas: o KPassword usa a chave internamente e devolve somente a resposta ao programa. Essas chamadas enviam o conteúdo solicitado ao provedor e podem gerar cobrança.
 
-## Download e instalação — v1.7.0
+## Download e instalação — v1.7.1
 
-[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.7.0](docs/releases/v1.7.0.md)
+[Baixar a versão mais recente](https://github.com/mnstechbr/KPassword/releases/latest) · [Novidades da 1.7.1](docs/releases/v1.7.1.md)
 
 | Plataforma | Instalador | Atualizações |
 | --- | --- | --- |
-| Windows x64 | `KPassword-Setup-v1.7.0.exe` | Atualizador com assinatura, após a instalação manual da 1.5.0 ou mais recente |
-| Fedora 44 x86_64 | `KPassword-1.7.0-1.x86_64.rpm` | O app abre a Release; instalação/atualização pelo DNF |
+| Windows x64 | `KPassword-Setup-v1.7.1.exe` | Atualizador com assinatura, após a instalação manual da 1.5.0 ou mais recente |
+| Fedora 44 x86_64 | `KPassword-1.7.1-1.x86_64.rpm` | O app abre a Release; instalação/atualização pelo DNF |
 
 No Windows, execute o `.exe`. A chave pública de atualização foi renovada na 1.5.0: versões anteriores precisam de uma atualização manual, sem apagar cofres ou dados.
 
 No Fedora, baixe o RPM e execute na pasta do download:
 
 ```bash
-sudo dnf install ./KPassword-1.7.0-1.x86_64.rpm
+sudo dnf install ./KPassword-1.7.1-1.x86_64.rpm
 ```
 
 Abra o KPassword, crie ou desbloqueie seu cofre e guarde a senha mestra: ela não pode ser recuperada pelo projeto. Faça backups criptografados antes de atualizar. Cofres legados PBKDF2 e atuais Argon2id/AES-GCM continuam compatíveis entre plataformas.
@@ -51,7 +51,7 @@ A permissão contínua inclui identidade observada do executável/script, diret�
 
 **O bloqueio automático da interface e o X não encerram a ponte.** A sessão termina quando expira, o KPassword é encerrado, o computador reinicia, o cofre é editado/trocado ou o usuário bloqueia manualmente/revoga o acesso. Use o ícone da bandeja para **Revogar todos os acessos da ponte**, ou consulte/revogue permissões individuais em Segurança → Integrações e permissões. As autorizações não ficam salvas em disco; reiniciar exige desbloquear e reativar a ponte.
 
-Não é preciso escolher uma quantidade de chamadas: a permissão vale para esse contexto durante a sessão do aplicativo, até encerrar a ponte. O núcleo limita automaticamente frequência (60 chamadas/minuto por credencial), concorrência (4 chamadas) e saída (8.192 tokens/chamada). O HTTP também faz reservas conservadoras de saída por hora para limitar consumo; veja o guia universal. Esses limites não são um orçamento monetário: configure também limites no provedor. Um pedido autorizado já enviado ao provedor pode terminar após a revogação. Histórico/backup sem mudança de conteúdo preservam a ponte. Seu estado e tempo restante aparecem somente nas configurações de Segurança.
+Não é preciso escolher uma quantidade de chamadas: “continuar permitindo” autoriza o mesmo aplicativo/projeto, credencial, operação e modelo até encerrar a ponte, inclusive após reconexões. Não há cotas locais de chamadas ou tokens por padrão. Em Segurança → Integrações, você pode configurar cotas opcionais por aplicativo e credencial (`0` = ilimitado). Reservas de saída são reconciliadas com o uso informado pelo provedor; erros de cota incluem saldo e prazo de retomada. O núcleo mantém 4 chamadas simultâneas e a proteção das credenciais. Limites e cobrança do provedor continuam valendo. Um pedido já enviado pode terminar após revogação. Histórico/backup sem mudança de conteúdo preservam a ponte. Veja os detalhes no guia universal.
 
 ### Configurar MCP no Codex
 

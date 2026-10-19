@@ -119,7 +119,7 @@ def main():
         if args.real:
             call_mcp(a, 10)
             call_mcp(a, 11)  # Same session permission, no quantity approval.
-            call_mcp(b, 12)  # Separate session requires separate approval.
+            call_mcp(b, 12)  # Same observed app/project reuses remembered approval.
             for operation in ["chat", "responses", "messages"]:
                 call_gateway(a, operation)
                 call_gateway(a, operation, stream=True)

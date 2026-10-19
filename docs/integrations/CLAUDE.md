@@ -26,9 +26,13 @@ com o cofre bloqueado na bandeja. Ela mostra a credencial, provedor, operação,
 modelo, executável, script identificável, diretório e fingerprint de identidade.
 Aprovar permite uma chamada; recusar, fechar ou ignorar 30 segundos impede a chamada.
 “Continuar permitindo” inclui esses elementos na sessão da ponte, sem exigir
-quantidade de chamadas. Cada credencial aceita
-até 60 chamadas por minuto; geração tem teto de 8.192 tokens de saída. Esses limites
-não são orçamento monetário. Configure limites no provedor também.
+quantidade de chamadas. Reconectar ou reiniciar o mesmo aplicativo/projeto não
+exige nova aprovação durante a ponte. Não há cota local de chamadas ou tokens por
+padrão. Cotas opcionais são controladas em Segurança → Integrações, por aplicativo
+e credencial, com `0` para ilimitado. O máximo de geração solicitado segue para o
+provedor sem o antigo teto local de 8.192 tokens; veja contabilização, defaults e
+metadados de retomada no [guia universal](UNIVERSAL-BRIDGE.md). Os limites e a
+cobrança do provedor continuam valendo.
 
 O usuário escolhe 24, 48 ou 72 horas para a ponte, padrão 48, ou até sair/reiniciar.
 Trocar de tarefa no mesmo contexto preserva a permissão. O bloqueio automático ou

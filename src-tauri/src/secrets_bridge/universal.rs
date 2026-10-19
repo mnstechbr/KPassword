@@ -13,7 +13,6 @@ const VERSIONS: &[&str] = &["2025-11-25", "2025-06-18", "2025-03-26"];
 struct Token {
     created: Instant,
     generation: u64, owner: Option<Peer>, sessions: HashMap<String, String>,
-    minute: Instant, calls: u32, hour: Instant, reserved_tokens: u64,
 }
 impl Token {
     fn bind(&mut self, generation: u64, peer: &Peer) -> bool {
@@ -21,12 +20,7 @@ impl Token {
         if self.owner.is_none() { self.owner=Some(peer.clone()); }
         self.owner.as_ref()==Some(peer)
     }
-    fn reserve(&mut self, output: u64) -> Result<(),String> {
-        if self.minute.elapsed() >= Duration::from_secs(60) { self.minute=Instant::now(); self.calls=0; }
-        if self.hour.elapsed() >= Duration::from_secs(3600) { self.hour=Instant::now(); self.reserved_tokens=0; }
-        if self.calls>=60 || self.reserved_tokens+output>131072 { return Err("quota_exceeded".into()); }
-        self.calls+=1;self.reserved_tokens+=output;Ok(())
-    }
+
 }
 struct Runtime { stop: Arc<AtomicBool>, thread: JoinHandle<()> }
 #[derive(Default)]
@@ -54,7 +48,7 @@ pub fn enroll(app: &AppHandle) -> Result<String, String> {
     hub.tokens.retain(|_, t| t.owner.as_ref().map(super::identity::alive).unwrap_or(t.created.elapsed() < Duration::from_secs(120)));
     if hub.runtime.is_none() || hub.tokens.len() >= 256 { return Err("bridge_busy".into()); }
     let token = random()?;
-    hub.tokens.insert(token.clone(), Token { created:Instant::now(), generation, owner: None, sessions: HashMap::new(), minute: Instant::now(), calls: 0, hour: Instant::now(), reserved_tokens: 0 });
+    hub.tokens.insert(token.clone(), Token { created:Instant::now(), generation, owner: None, sessions: HashMap::new() });
     Ok(token)
 }
 pub fn stop(app: &AppHandle) {
@@ -79,7 +73,7 @@ pub fn start(app: &AppHandle, generation: u64) -> Result<(), String> {
                     let workers = workers.clone(); let app = app.clone();
                     std::thread::spawn(move || {
                         if let Err(error) = handle(&app, generation, &mut stream) {
-                            let _ = reply(&mut stream, 400, &json!({"error":{"code":broker::public_error_code(&error)}}), None);
+                            let _ = reply(&mut stream, 400, &json!({"error":broker::public_error(&error)}), None);
                         }
                         workers.fetch_sub(1, Ordering::SeqCst);
                     });
@@ -144,10 +138,16 @@ fn headers(stream: &mut impl Write, status: u16, content_type: &str, length: Opt
 }
 fn reply(stream: &mut impl Write, status: u16, value: &Value, session: Option<&str>) -> Result<(), String> {
     let data = Zeroizing::new(serde_json::to_vec(value).map_err(|_| DENIED)?);
-    headers(stream, status, "application/json", Some(data.len()), session)?;
+    if let Some(seconds) = value.pointer("/error/retry_after").and_then(Value::as_u64) {
+        write!(stream,"HTTP/1.1 {status} Bridge\r\nRetry-After: {seconds}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nConnection: close\r\nX-Content-Type-Options: nosniff\r\nContent-Length: {}\r\n\r\n",data.len()).map_err(|_| DENIED)?;
+    } else { headers(stream, status, "application/json", Some(data.len()), session)?; }
     stream.write_all(&data).map_err(|_| DENIED.into())
 }
 fn rpc_error(id: &Value, code: i32, message: &str) -> Value { json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}}) }
+fn tool_failure(id: &Value, error: &str) -> Value {
+    let detail = broker::public_error(error);
+    json!({"jsonrpc":"2.0","id":id,"result":{"content":[{"type":"text","text":detail.to_string()}],"structuredContent":{"error":detail},"isError":true}})
+}
 fn authenticated(app: &AppHandle, generation: u64, token: &str, peer: &Peer) -> bool {
     if !active(app, generation) { return false; }
     let state = app.state::<HttpState>();
@@ -164,13 +164,6 @@ fn bind_token(app: &AppHandle, generation: u64, token: &str, peer: &Peer) -> boo
     let state = app.state::<HttpState>(); let Ok(mut h) = state.0.lock() else { return false; };
     let Some(t) = h.tokens.get_mut(token) else { return false; };
     t.bind(generation,peer)
-}
-fn reserve(app: &AppHandle, token: &str, operation: &str, body: &Value) -> Result<(), String> {
-    let output = ["max_tokens", "max_completion_tokens", "max_output_tokens"].iter().filter_map(|f| body.get(*f).and_then(Value::as_u64)).max().unwrap_or(8192);
-    if output == 0 || output > 8192 || body.get("n").is_some_and(|n| n.as_u64() != Some(1)) { return Err("invalid_request".into()); }
-    let state = app.state::<HttpState>(); let mut h = state.0.lock().map_err(|_| DENIED)?;
-    let t = h.tokens.get_mut(token).ok_or(DENIED)?;
-    t.reserve(if ["chat","responses","messages"].contains(&operation) { output } else { 0 })
 }
 /// Known model families can choose a provider, never a credential among multiple
 /// matching records. An explicit key must still support the requested operation.
@@ -210,10 +203,9 @@ fn handle(app: &AppHandle, generation: u64, stream: &mut TcpStream) -> Result<()
     if token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) { return reply(stream, 401, &json!({"error":{"code":"authentication_required"}}), None); }
     let observed = match tcp_peer(stream) { Ok(p)=>p, Err(_)=>return reply(stream,401,&json!({"error":{"code":"identity_verification_failed"}}),None) };
     if !bind_token(app, generation, &token, &observed) { return reply(stream, 401, &json!({"error":{"code":"authentication_failed"}}), None); }
-    let mut scoped = observed.clone();
-    // Unique token scope prevents a new token from borrowing another client's grant.
-    use sha2::{Digest, Sha256};
-    scoped.identity = format!("{:x}", Sha256::digest(format!("{}:{}",observed.identity,token.as_str()).as_bytes()));
+    // Transport capabilities authenticate connections; approval belongs to the
+    // observed application/project and survives token/session reconnects.
+    let scoped = observed.clone();
     if request.path == "/mcp" { return mcp(app, generation, &token, &observed, &scoped, &request, stream); }
     let operation = match request.path.as_str() { "/v1/chat/completions" => "chat", "/v1/responses" => "responses", "/v1/messages" => "messages", _ => return reply(stream, 404, &json!({"error":{"code":"not_found"}}), None) };
     if request.method != "POST" { return reply(stream, 405, &json!({"error":{"code":"method_not_allowed"}}), None); }
@@ -222,7 +214,6 @@ fn handle(app: &AppHandle, generation: u64, stream: &mut TcpStream) -> Result<()
     let result = (|| {
         let provider = request.headers.get("x-kpassword-provider").map(String::as_str).unwrap_or("");
         let key = resolve(app, requested_provider(provider,&body), request.headers.get("x-kpassword-credential").map(String::as_str), operation)?;
-        reserve(app, &token, operation, &body)?;
         let raw = Zeroizing::new(serde_json::to_vec(&json!({"version":1,"key_id":key,"operation":operation,"body":body})).map_err(|_| DENIED)?);
         let socket = stream.try_clone().map_err(|_| DENIED)?;
         let mut relay = Gateway { target: stream, line: Zeroizing::new(Vec::new()), response: None, streaming: false, started: false, operation };
@@ -231,11 +222,6 @@ fn handle(app: &AppHandle, generation: u64, stream: &mut TcpStream) -> Result<()
     })();
     super::erase_json(&mut body); result
 }
-fn session_identity(identity: &str, session: &str) -> String {
-    use sha2::{Digest,Sha256};
-    format!("{:x}",Sha256::digest(format!("{identity}:{session}").as_bytes()))
-}
-
 fn mcp(app: &AppHandle, generation: u64, token: &str, observed: &Peer, scoped: &Peer, request: &HttpRequest, stream: &mut TcpStream) -> Result<(), String> {
     if request.method == "GET" { return reply(stream, 405, &json!({"error":{"code":"method_not_allowed"}}), None); }
     let session = request.headers.get("mcp-session-id");
@@ -243,7 +229,6 @@ fn mcp(app: &AppHandle, generation: u64, token: &str, observed: &Peer, scoped: &
         let state = app.state::<HttpState>(); let mut h = state.0.lock().map_err(|_| DENIED)?;
         let removed = session.is_some_and(|id| h.tokens.get_mut(token).is_some_and(|t| t.sessions.remove(id).is_some()));
         drop(h);
-        if removed { if let Some(sid)=session { broker::revoke_identity(app,&session_identity(&scoped.identity,sid)); } }
         return reply(stream, if removed { 200 } else { 404 }, &json!({}), None);
     }
     if request.method != "POST" { return reply(stream, 405, &json!({}), None); }
@@ -270,7 +255,6 @@ fn mcp(app: &AppHandle, generation: u64, token: &str, observed: &Peer, scoped: &
         };
         let Some(version) = version else { return reply(stream, 404, &rpc_error(&id, -32000, "Session not found"), None); };
         let sid=session.ok_or("invalid_request")?;
-        let mut scoped=scoped.clone();scoped.identity=session_identity(&scoped.identity,sid);
         if request.headers.get("mcp-protocol-version") != Some(&version) { return reply(stream, 400, &rpc_error(&id, -32600, "Protocol version mismatch"), None); }
         if method.starts_with("notifications/") && !message.get("id").is_some() { return headers(stream, 202, "application/json", Some(0), None); }
         if message.get("id").is_none() { return headers(stream, 202, "application/json", Some(0), None); }
@@ -287,15 +271,14 @@ fn mcp(app: &AppHandle, generation: u64, token: &str, observed: &Peer, scoped: &
                     if !body.is_object() || body.get("stream").is_some_and(|v| v != false) { return Err("invalid_request".into()); }
                     for key in ["provider","credential_id"] { if args.get(key).is_some_and(|v| !v.is_string()) { return Err("invalid_request".into()); } }
                     let key = resolve(app, requested_provider(args["provider"].as_str().unwrap_or(""),body), args["credential_id"].as_str(), op)?;
-                    reserve(app, token, op, body)?;
                     let raw = Zeroizing::new(serde_json::to_vec(&json!({"version":1,"key_id":key,"operation":op,"body":body})).map_err(|_| DENIED)?);
                     let socket = stream.try_clone().map_err(|_| DENIED)?; let mut output = Zeroizing::new(Vec::new());
                     broker::linux::execute(app, &raw, scoped.clone(), || { let p = tcp_peer(&socket)?; if &p != observed { return Err("identity_changed".into()); } Ok(scoped.clone()) }, &mut *output, || authenticated_mcp(app, generation, token, observed, sid))?;
                     serde_json::from_slice::<Value>(&output).map_err(|_| "provider_unavailable".into())
                 })();
                 match result {
-                    Ok(mut value) => { let r = json!({"jsonrpc":"2.0","id":id,"result":{"content":[{"type":"text","text":serde_json::to_string(&value).map_err(|_| DENIED)?}],"isError":value["status"].as_u64().is_some_and(|s| s >= 400)}}); super::erase_json(&mut value); r },
-                    Err(e) => json!({"jsonrpc":"2.0","id":id,"result":{"content":[{"type":"text","text":broker::public_error_code(&e)}],"isError":true}}),
+                    Ok(mut value) => { let r = json!({"jsonrpc":"2.0","id":id,"result":{"content":[{"type":"text","text":serde_json::to_string(&value).map_err(|_| DENIED)?}],"isError":value["ok"]==false || value["status"].as_u64().is_some_and(|s| s >= 400)}}); super::erase_json(&mut value); r },
+                    Err(e) => tool_failure(&id,&e),
                 }
             },
             _ => rpc_error(&id, -32601, "Method not found"),
@@ -328,9 +311,9 @@ impl Gateway<'_> {
     }
     fn finish(&mut self, result: Result<(), String>) -> Result<(), String> {
         if let Err(error) = result {
-            let value = json!({"error":{"code":broker::public_error_code(&error)}});
+            let value = json!({"error":broker::public_error(&error)});
             if self.started { writeln!(self.target, "event: error\ndata: {value}\n").map_err(|_| DENIED)?; return Ok(()); }
-            return reply(self.target, if error == "quota_exceeded" || error == "bridge_busy" { 429 } else { 403 }, &value, None);
+            return reply(self.target, match broker::public_error_code(&error) { "quota_exceeded" | "bridge_busy" => 429, "provider_unavailable" => 502, "invalid_request" | "unsupported_operation" => 400, _ => 403 }, &value, None);
         }
         if self.streaming { return Ok(()); }
         let mut response = self.response.take().ok_or("provider_unavailable")?;
@@ -353,22 +336,26 @@ impl Write for Gateway<'_> {
 
 #[cfg(test)] mod tests {
     use super::*;
-    fn token() -> Token { Token { created:Instant::now(),generation:1,owner:None,sessions:HashMap::new(),minute:Instant::now(),calls:0,hour:Instant::now(),reserved_tokens:0 } }
+    fn token() -> Token { Token { created:Instant::now(),generation:1,owner:None,sessions:HashMap::new() } }
     fn peer() -> Peer { Peer { pid:42,started:"100".into(),executable:"/app".into(),sha256:"hash".into(),application:"/app".into(),entry_script:None,project:"/project".into(),identity:"identity".into(),remember_allowed:true } }
+    #[test] fn quota_details_survive_http_and_mcp_without_untrusted_error_text() {
+        let mut usage=super::super::quota::Usage::default();
+        let limits=super::super::quota::Limits { calls_per_minute:1,output_tokens_per_hour:0 };
+        usage.reserve(limits,32).unwrap();let error=usage.reserve(limits,32).err().unwrap().error();
+        let detail=broker::public_error(&error);
+        assert_eq!(detail["code"],"quota_exceeded");assert_eq!(detail["limit"],"calls_per_minute");
+        assert_eq!(detail["remaining"],0);assert_eq!(detail["retry_after"],60);
+        let mut http=Vec::new();reply(&mut http,429,&json!({"error":detail}),None).unwrap();
+        let http=String::from_utf8(http).unwrap();assert!(http.contains("Retry-After: 60\r\n"));assert!(http.contains("application_credential"));
+        let rpc=tool_failure(&json!(1),&error);assert_eq!(rpc["result"]["structuredContent"]["error"],detail);
+        assert_eq!(tool_failure(&json!(1),"secret in unexpected payload")["result"]["structuredContent"]["error"],json!({"code":"request_failed"}));
+    }
     #[test] fn stolen_tokens_process_reuse_and_context_changes_are_rejected() {
         let mut t=token();let p=peer();assert!(t.bind(1,&p));assert!(t.bind(1,&p));assert!(!t.bind(2,&p));
         for changed in [Peer { pid:43,..p.clone() },Peer { started:"101".into(),..p.clone() },Peer { sha256:"changed".into(),..p.clone() },Peer { project:"/other".into(),..p.clone() }] { assert!(!t.bind(1,&changed)); }
         let mut expired=token();expired.created=Instant::now()-Duration::from_secs(121);assert!(!expired.bind(1,&p));
     }
-    #[test] fn automatic_rate_and_consumption_limits_reset_without_new_permission() {
-        let mut t=token();for _ in 0..60 { t.reserve(32).unwrap(); } assert_eq!(t.reserve(32).unwrap_err(),"quota_exceeded");
-        t.minute=Instant::now()-Duration::from_secs(61);t.reserve(32).unwrap();
-        t.reserved_tokens=131072;assert!(t.reserve(1).is_err());
-        t.hour=Instant::now()-Duration::from_secs(3601);t.reserve(8192).unwrap();assert_eq!(t.reserved_tokens,8192);
-    }
-    #[test] fn permissions_and_sessions_do_not_cross_client_boundaries() {
-        assert_ne!(session_identity("client-a","session-a"),session_identity("client-b","session-a"));
-        assert_ne!(session_identity("client-a","session-a"),session_identity("client-a","session-b"));
+    #[test] fn transport_sessions_remain_bound_to_their_token() {
         let mut a=token();let b=token();a.sessions.insert("session-a".into(),"2025-11-25".into());assert!(!b.sessions.contains_key("session-a"));
     }
     #[test] fn provider_and_operation_selection_requires_explicit_ambiguous_credential() {
