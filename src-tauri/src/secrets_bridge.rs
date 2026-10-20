@@ -174,20 +174,18 @@ fn content_digest(value: &Value) -> Result<Vec<u8>, String> {
 /// The caller cannot assert that keys did not change: backend decrypts and checks
 /// every vault field except the two operational-history fields itself.
 pub fn save_with_history_check(
-    app: &AppHandle, vault_name: &str, payload: &str, password: Option<String>,
+    app: &AppHandle, vault_name: &str, payload: &str,
     write: impl FnOnce() -> Result<(), String>,
 ) -> Result<(), String> {
-    let password = password.map(Zeroizing::new);
     let state = app.state::<BridgeState>();
     let mut core = state.0.lock().map_err(|_| DENIED.to_string())?;
     let preserve = (|| {
-        let password = password.as_ref()?;
         let session = core.session.as_ref()?;
         if session.expires <= Instant::now() || session.vault_name != vault_name { return None; }
         let (path,_,_) = super::storage_paths(app,Some(vault_name.into())).ok()?;
         if Sha256::digest(fs::read(path).ok()?).as_slice() != session.file_hash { return None; }
         let encrypted = serde_json::from_str(payload).ok()?;
-        let plaintext = Zeroizing::new(super::crypto_vault::decrypt_vault_file(&encrypted,password).ok()?);
+        let plaintext = Zeroizing::new(super::vault_session::decrypt(app, vault_name, &encrypted)?.ok()?);
         let mut plain = serde_json::from_str::<Value>(&plaintext).ok()?;
         let digest = content_digest(&plain);
         erase_json(&mut plain);
@@ -215,16 +213,15 @@ pub fn save_with_history_check(
 pub fn bridge_close(app: AppHandle) { close(&app); }
 
 #[tauri::command]
-pub async fn bridge_open(app: AppHandle, vault_name: String, master_password: String, duration_hours: Option<u64>) -> Result<u64, String> {
-    let master_password = Zeroizing::new(master_password);
+pub async fn bridge_open(app: AppHandle, vault_name: String, duration_hours: Option<u64>) -> Result<u64, String> {
     // Broker, limites e expiracao da sessao so existem no Linux.
     if !cfg!(target_os = "linux") { return Err(DENIED.into()); }
-    // Decifrar o cofre (Argon2) fora da thread principal.
-    tauri::async_runtime::spawn_blocking(move || bridge_open_blocking(app, vault_name, master_password, duration_hours))
+    // Decifrar o cofre fora da thread principal, com a sessao do cofre aberto.
+    tauri::async_runtime::spawn_blocking(move || bridge_open_blocking(app, vault_name, duration_hours))
         .await.map_err(|_| DENIED)?
 }
 
-fn bridge_open_blocking(app: AppHandle, vault_name: String, password: Zeroizing<String>, duration_hours: Option<u64>) -> Result<u64, String> {
+fn bridge_open_blocking(app: AppHandle, vault_name: String, duration_hours: Option<u64>) -> Result<u64, String> {
     let state = app.state::<BridgeState>();
     let _lifecycle=state.1.lock().map_err(|_| DENIED)?;
     close_unlocked(&app);
@@ -236,7 +233,7 @@ fn bridge_open_blocking(app: AppHandle, vault_name: String, password: Zeroizing<
     let (path, _, name) = super::storage_paths(&app, Some(vault_name))?;
     let raw = fs::read(&path).map_err(|_| DENIED)?;
     let encrypted: Value = serde_json::from_slice(&raw).map_err(|_| DENIED)?;
-    let plaintext = Zeroizing::new(super::crypto_vault::decrypt_vault_file(&encrypted, &password).map_err(|_| DENIED)?);
+    let plaintext = Zeroizing::new(super::vault_session::decrypt(&app, &name, &encrypted).ok_or(DENIED)?.map_err(|_| DENIED)?);
     let mut plain: Value = serde_json::from_str(&plaintext).map_err(|_| DENIED)?;
     let result = parse_keys(&plain);
     let content_hash = content_digest(&plain);

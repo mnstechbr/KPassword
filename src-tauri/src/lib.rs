@@ -16,6 +16,7 @@ mod crypto_vault;
 mod storage_io;
 mod secure_clipboard;
 mod vault_removal;
+mod vault_session;
 #[cfg(test)]
 mod vault_compatibility_tests;
 mod secrets_bridge;
@@ -607,11 +608,10 @@ async fn save_vault_file(
     payload: String,
     vault_name: Option<String>,
     force_backup: Option<bool>,
-    history_password: Option<String>,
     backup_interval_hours: Option<u64>,
 ) -> Result<StorageInfo, String> {
     run_blocking(move || {
-        save_vault_file_blocking(&app, payload, vault_name, force_backup, history_password, backup_interval_hours)
+        save_vault_file_blocking(&app, payload, vault_name, force_backup, backup_interval_hours)
     })
     .await
 }
@@ -621,13 +621,12 @@ fn save_vault_file_blocking(
     payload: String,
     vault_name: Option<String>,
     force_backup: Option<bool>,
-    history_password: Option<String>,
     backup_interval_hours: Option<u64>,
 ) -> Result<StorageInfo, String> {
     validate_encrypted_payload(&payload)?;
     let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "error.storage.unavailable")?;
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(app, vault_name)?;
-    secrets_bridge::save_with_history_check(app, &safe_vault_name, &payload, history_password, || {
+    secrets_bridge::save_with_history_check(app, &safe_vault_name, &payload, || {
         storage_io::write_atomic_private(&vault_path, payload.as_bytes())
             .map_err(|error| format!("error.storage.writeVault: {error}"))
     })?;
@@ -1484,14 +1483,17 @@ fn quarantine_windows_hello(app: AppHandle, vault_name: Option<String>) -> Resul
 async fn enable_windows_hello(
     app: AppHandle,
     vault_name: Option<String>,
-    master_password: String,
     reason: String,
 ) -> Result<WindowsHelloStatus, String> {
     #[cfg(windows)]
     {
+        // O registro Hello guarda a senha da sessao aberta deste cofre.
+        let safe_vault_name = sanitize_vault_name(vault_name.clone())?;
+        let master_password = vault_session::password(&app, &safe_vault_name)
+            .ok_or("error.vault.passwordUnavailable")?;
         show_main_window(&app);
         run_windows_hello_task("enable", move || {
-            windows_hello_native::enable(app, vault_name, master_password, reason)
+            windows_hello_native::enable(app, vault_name, master_password.to_string(), reason)
         })
         .await
     }
@@ -1500,7 +1502,6 @@ async fn enable_windows_hello(
     {
         let _ = app;
         let safe_vault_name = sanitize_vault_name(vault_name)?;
-        let _ = master_password;
         let _ = reason;
         Ok(WindowsHelloStatus {
             available: false,
@@ -2730,6 +2731,7 @@ pub fn run() {
         .manage(UniversalBridgeState::default())
         .manage(secure_clipboard::SecureClipboard::default())
         .manage(TrayMenu::default())
+        .manage(vault_session::VaultSession::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -2836,6 +2838,11 @@ pub fn run() {
             linux_capture_qr,
             hide_to_tray,
             set_tray_labels,
+            vault_session::vault_session_unlock,
+            vault_session::vault_session_encrypt,
+            vault_session::vault_session_verify_password,
+            vault_session::vault_session_decrypt,
+            vault_session::vault_session_close,
             is_startup_enabled,
             get_startup_status,
             set_startup_enabled,
@@ -2878,9 +2885,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("erro ao executar o KPassword")
         .run(|app, event| {
-            // Senha copiada nao sobrevive ao encerramento do app.
+            // Senha copiada e senha da sessao nao sobrevivem ao encerramento.
             if let tauri::RunEvent::Exit = event {
                 secure_clipboard::clear_now(app);
+                vault_session::close(&app.state::<vault_session::VaultSession>());
             }
         });
 }
