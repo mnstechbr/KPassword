@@ -41,9 +41,13 @@ pub async fn clipboard_write_secret(
     let value = zeroize::Zeroizing::new(value);
     let ownership = platform::write_secret(&app, &value).await?;
     let generation = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
-    *state.owned.lock().map_err(|_| "Clipboard indisponível.")? = Some(ownership);
+    *state
+        .owned
+        .lock()
+        .map_err(|_| "error.clipboard.unavailable")? = Some(ownership);
 
-    let delay = Duration::from_secs(clear_after_seconds.clamp(MIN_CLEAR_SECONDS, MAX_CLEAR_SECONDS));
+    let delay =
+        Duration::from_secs(clear_after_seconds.clamp(MIN_CLEAR_SECONDS, MAX_CLEAR_SECONDS));
     std::thread::spawn(move || {
         std::thread::sleep(delay);
         let state = app.state::<SecureClipboard>();
@@ -123,7 +127,7 @@ mod platform {
             }
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
-        Err("Clipboard em uso por outro aplicativo. Tente copiar de novo.".to_string())
+        Err("error.clipboard.busy".to_string())
     }
 
     /// Copia `bytes` para memoria global e entrega ao clipboard, que passa a
@@ -158,7 +162,7 @@ mod platform {
             let guard = open_clipboard()?;
             unsafe {
                 if EmptyClipboard() == 0 {
-                    return Err("Não foi possível preparar o clipboard.".to_string());
+                    return Err("error.clipboard.prepare".to_string());
                 }
                 // Marcadores antes do texto: nenhum monitor ve o texto sem eles.
                 for name in PRIVACY_FORMATS {
@@ -169,7 +173,7 @@ mod platform {
                 }
                 let bytes = std::slice::from_raw_parts(wide.as_ptr() as *const u8, wide.len() * 2);
                 if !set_clipboard_bytes(CF_UNICODETEXT, bytes) {
-                    return Err("Não foi possível copiar para o clipboard.".to_string());
+                    return Err("error.clipboard.write".to_string());
                 }
             }
             drop(guard);
@@ -225,7 +229,7 @@ mod platform {
         let (tx, rx) = tokio::sync::oneshot::channel();
         app.run_on_main_thread(move || {
             let result = (|| {
-                let clipboard = clipboard().ok_or("Clipboard indisponível.")?;
+                let clipboard = clipboard().ok_or("error.clipboard.unavailable")?;
                 let owned = Arc::new(AtomicBool::new(true));
                 let guard = OwnershipGuard(owned.clone());
                 let targets = [
@@ -244,13 +248,19 @@ mod platform {
                         selection.set_text(&text);
                     }
                 });
-                if stored { Ok(owned) } else { Err("Não foi possível copiar para o clipboard.".to_string()) }
+                if stored {
+                    Ok(owned)
+                } else {
+                    Err("error.clipboard.write".to_string())
+                }
             })();
             let _ = tx.send(result);
-        }).map_err(|_| "Clipboard indisponível.")?;
-        tokio::time::timeout(std::time::Duration::from_secs(5), rx).await
-            .map_err(|_| "Tempo de clipboard esgotado.")?
-            .map_err(|_| "Clipboard indisponível.".to_string())?
+        })
+        .map_err(|_| "error.clipboard.unavailable")?;
+        tokio::time::timeout(std::time::Duration::from_secs(5), rx)
+            .await
+            .map_err(|_| "error.clipboard.timeout")?
+            .map_err(|_| "error.clipboard.unavailable".to_string())?
     }
 
     pub fn clear_if_owned(app: &AppHandle, owned: Ownership) {
@@ -277,7 +287,7 @@ mod platform {
     use tauri::AppHandle;
 
     pub async fn write_secret(_app: &AppHandle, _value: &str) -> Result<Ownership, String> {
-        Err("Clipboard seguro indisponível nesta plataforma.".to_string())
+        Err("error.clipboard.unsupported".to_string())
     }
 
     pub fn clear_if_owned(_app: &AppHandle, _owned: Ownership) {}
