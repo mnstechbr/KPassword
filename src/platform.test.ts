@@ -1,19 +1,23 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
-import { linuxTranslation, readClipboard, writeClipboard } from "./platform";
+import { clearSecretClipboard, linuxTranslation, writeSecretToClipboard } from "./platform";
 
 describe("platform clipboard", () => {
   beforeEach(() => { invoke.mockReset(); });
-  it("routes Linux clipboard through native IPC", async () => {
-    invoke.mockResolvedValueOnce("").mockResolvedValueOnce("fake-secret");
-    await writeClipboard("fake-secret", true);
-    expect(invoke).toHaveBeenNthCalledWith(1, "linux_clipboard", { value: "fake-secret" });
-    expect(await readClipboard(true)).toBe("fake-secret");
+  it("routes secrets through the native clipboard with the clear deadline", async () => {
+    invoke.mockResolvedValueOnce(undefined);
+    await writeSecretToClipboard("fake-secret", 30);
+    expect(invoke).toHaveBeenCalledWith("clipboard_write_secret", { value: "fake-secret", clearAfterSeconds: 30 });
   });
   it("does not silently fall back after native clipboard failure", async () => {
     invoke.mockRejectedValue(new Error("unavailable"));
-    await expect(writeClipboard("fake-secret", true)).rejects.toThrow("unavailable");
+    await expect(writeSecretToClipboard("fake-secret", 30)).rejects.toThrow("unavailable");
+  });
+  it("asks the backend to clear without surfacing errors", async () => {
+    invoke.mockRejectedValue(new Error("unavailable"));
+    expect(() => clearSecretClipboard()).not.toThrow();
+    expect(invoke).toHaveBeenCalledWith("clipboard_clear_secret");
   });
   it("keeps untranslated Windows keys outside the Linux adaptations", () => {
     expect(linuxTranslation("credential.copyPassword", "pt")).toBeUndefined();
