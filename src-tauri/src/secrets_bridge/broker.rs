@@ -918,12 +918,23 @@ pub(super) mod linux {
         authorized: impl Fn() -> bool,
     ) -> Result<(), String> {
         let broker_state = app.state::<BrokerState>();
-        broker_state
-            .1
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
-                (n < 4).then_some(n + 1)
-            })
-            .map_err(|_| "bridge_busy")?;
+        // Laco de compare_exchange em vez de fetch_update (renomeado para
+        // try_update no Rust 1.97), para compilar sem aviso em todo toolchain.
+        let mut in_flight = broker_state.1.load(Ordering::SeqCst);
+        loop {
+            if in_flight >= 4 {
+                return Err("bridge_busy".into());
+            }
+            match broker_state.1.compare_exchange_weak(
+                in_flight,
+                in_flight + 1,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => break,
+                Err(current) => in_flight = current,
+            }
+        }
         let _flight = Flight(&broker_state.1);
         let request = parse_request(raw).map_err(|e| {
             if e == "unsupported_operation" {
