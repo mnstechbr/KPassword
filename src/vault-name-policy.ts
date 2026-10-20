@@ -28,7 +28,8 @@ export function createVaultSlug(value: string) {
 export function validateNewVaultName(rawName: string, existingNames: string[]): VaultNameValidation {
   const slug = createVaultSlug(rawName);
 
-  if (!slug) {
+  // Nomes de dispositivo do Windows: o backend também recusa.
+  if (!slug || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/.test(slug)) {
     return { ok: false, errorKey: "vault.invalidName" };
   }
 

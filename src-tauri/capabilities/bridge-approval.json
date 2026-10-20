@@ -10,6 +10,8 @@
     "core:event:allow-unlisten",
     "core:window:allow-hide",
     "core:window:allow-set-theme",
-    "core:window:allow-theme"
+    "core:window:allow-theme",
+    "allow-bridge-answer-access-request",
+    "allow-bridge-take-access-request"
   ]
 }

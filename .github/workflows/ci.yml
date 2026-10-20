@@ -58,6 +58,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Lint
+        run: npm run lint
+
       - name: Tests
         run: npm test
 
@@ -81,7 +84,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -93,8 +96,11 @@ jobs:
       - name: cargo test --lib
         run: cargo test --lib
 
-      - name: cargo clippy --lib
-        run: cargo clippy --locked --lib
+      - name: cargo fmt --check
+        run: cargo fmt --check
+
+      - name: cargo clippy --lib (avisos sao erros)
+        run: cargo clippy --locked --lib --tests -- -D warnings
 
       # O frontend compilado e necessario para generate_context! em release.
       - name: Setup Node
@@ -161,8 +167,8 @@ jobs:
       - name: Rust tests (including vault vectors and Bridge security)
         run: cargo test --locked --lib --manifest-path src-tauri/Cargo.toml
 
-      - name: Clippy Linux
-        run: cargo clippy --locked --lib --manifest-path src-tauri/Cargo.toml
+      - name: Clippy Linux (avisos sao erros)
+        run: cargo clippy --locked --lib --tests --manifest-path src-tauri/Cargo.toml -- -D warnings
 
       - name: Build native RPM
         run: npm run tauri -- build --ci --bundles rpm -- --locked

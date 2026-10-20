@@ -20,6 +20,7 @@ Estão no escopo:
 
 - criptografia do cofre local;
 - `cryptoVersion 2` com Argon2id, AES-256-GCM e AAD no backend Rust;
+- sessão do cofre no backend: a senha mestra e a chave derivada ficam no Rust (zeradas ao bloquear ou sair), e cada gravação usa a mesma chave com nonce novo;
 - migração de cofres legados para o formato atual;
 - backups criptografados;
 - verificação de backup sem restauração;
