@@ -13,6 +13,7 @@ use tauri_plugin_notification::NotificationExt;
 use zeroize::Zeroize;
 
 mod crypto_vault;
+mod secure_clipboard;
 mod vault_removal;
 #[cfg(test)]
 mod vault_compatibility_tests;
@@ -33,14 +34,6 @@ pub fn configure_linux_graphics() { linux_platform::configure_graphics(); }
 fn platform_name() -> &'static str { std::env::consts::OS }
 
 #[tauri::command]
-async fn linux_clipboard(app: AppHandle, value: Option<String>) -> Result<String, String> {
-    #[cfg(target_os = "linux")]
-    { return linux_platform::clipboard(app, value).await; }
-    #[cfg(not(target_os = "linux"))]
-    { let _ = (app, value); Err("Clipboard Linux indisponível.".into()) }
-}
-
-#[tauri::command]
 async fn linux_capture_qr() -> Result<String, String> {
     #[cfg(target_os = "linux")]
     { return linux_platform::capture_qr().await; }
@@ -49,7 +42,7 @@ async fn linux_capture_qr() -> Result<String, String> {
 }
 use tauri::{
     image::Image,
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
@@ -444,25 +437,6 @@ fn show_main_window(app: &AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
-}
-
-fn show_main_window_sized(app: &AppHandle, width: f64, height: f64) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.unmaximize();
-        let _ = window.show();
-        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
-        let _ = window.center();
-        let _ = window.set_focus();
-    }
-}
-
-fn show_main_window_full(app: &AppHandle) {
-    show_main_window_sized(app, 1120.0, 720.0);
-}
-
-fn show_main_window_compact(app: &AppHandle) {
-    show_main_window_sized(app, 430.0, 760.0);
 }
 
 fn open_folder(path: PathBuf) -> Result<(), String> {
@@ -1777,7 +1751,9 @@ fn get_startup_status_impl() -> StartupStatus {
         enabled: is_startup_enabled_impl(),
         registry_key: linux_platform::autostart_path().map(|p| p.display().to_string()).unwrap_or_default(),
         value_name: "KPassword".into(),
-        command_line: std::env::current_exe().map(|p| format!("{} --startup", p.display())).unwrap_or_default(),
+        command_line: linux_platform::startup_command()
+            .or_else(|| std::env::current_exe().ok().map(|p| format!("{} --startup", p.display())))
+            .unwrap_or_default(),
         startup_argument: "--startup".into(),
     }
 }
@@ -1811,6 +1787,15 @@ fn get_startup_status() -> StartupStatus {
 
 #[tauri::command]
 fn set_startup_enabled(enabled: bool) -> Result<bool, String> {
+    // Um build de desenvolvimento carrega o devUrl do Vite; registrado no
+    // autostart, ele abre "Connection refused" no login. Sempre desativar e
+    // permitido, para o usuario conseguir limpar um registro antigo.
+    if enabled && tauri::is_dev() {
+        return Err(
+            "Ative a inicialização com o sistema pelo KPassword instalado. A versão de desenvolvimento depende do servidor do Vite e não abre no login."
+                .to_string(),
+        );
+    }
     set_startup_enabled_impl(enabled)?;
     Ok(is_startup_enabled_impl())
 }
@@ -2517,6 +2502,7 @@ pub fn run() {
         .manage(secrets_bridge::BridgeRequests::default())
         .manage(secrets_bridge::broker::BrokerState::default())
         .manage(UniversalBridgeState::default())
+        .manage(secure_clipboard::SecureClipboard::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -2526,22 +2512,24 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             secrets_bridge::queue_request(app.handle(), &std::env::args().collect::<Vec<_>>());
-            let open_full_item =
-                MenuItem::with_id(app, "open_full", "Abrir APP Completo", true, None::<&str>)?;
-            let open_compact_item = MenuItem::with_id(
-                app,
-                "open_compact",
-                "Abrir APP Compacto",
-                true,
-                None::<&str>,
-            )?;
+            #[cfg(target_os = "linux")]
+            if !tauri::is_dev() {
+                // Corrige um autostart salvo por outro executavel (ex.: `tauri dev`).
+                let _ = linux_platform::repair_startup();
+            }
+
+            // Abrir restaura a janela como o usuario deixou (tamanho/maximizado).
+            let open_item = MenuItem::with_id(app, "open", "Abrir KPassword", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
+            let separator = PredefinedMenuItem::separator(app)?;
             #[cfg(target_os = "linux")]
             let bridge_stop = MenuItem::with_id(app, "bridge_stop", "Revogar todos os acessos da ponte", true, None::<&str>)?;
             #[cfg(target_os = "linux")]
-            let menu = Menu::with_items(app, &[&open_full_item, &open_compact_item, &bridge_stop, &quit_item])?;
+            let bridge_separator = PredefinedMenuItem::separator(app)?;
+            #[cfg(target_os = "linux")]
+            let menu = Menu::with_items(app, &[&open_item, &separator, &bridge_stop, &bridge_separator, &quit_item])?;
             #[cfg(not(target_os = "linux"))]
-            let menu = Menu::with_items(app, &[&open_full_item, &open_compact_item, &quit_item])?;
+            let menu = Menu::with_items(app, &[&open_item, &separator, &quit_item])?;
 
             TrayIconBuilder::new()
                 .tooltip("KPassword")
@@ -2553,14 +2541,12 @@ pub fn run() {
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open_full" => {
-                        show_main_window_full(app);
-                    }
-                    "open_compact" => {
-                        show_main_window_compact(app);
+                    "open" => {
+                        show_main_window(app);
                     }
                     "bridge_stop" => { secrets_bridge::close(app); }
                     "quit" => {
+                        secure_clipboard::clear_now(app);
                         secrets_bridge::close(app);
                         app.exit(0);
                     }
@@ -2604,7 +2590,8 @@ pub fn run() {
             secrets_bridge::broker::bridge_set_limits,
             secrets_bridge::broker::bridge_revoke_grant,
             platform_name,
-            linux_clipboard,
+            secure_clipboard::clipboard_write_secret,
+            secure_clipboard::clipboard_clear_secret,
             linux_capture_qr,
             hide_to_tray,
             is_startup_enabled,
@@ -2645,7 +2632,13 @@ pub fn run() {
                 handler(invoke)
             }
         })
-        .run(tauri::generate_context!())
-        .expect("erro ao executar o KPassword");
+        .build(tauri::generate_context!())
+        .expect("erro ao executar o KPassword")
+        .run(|app, event| {
+            // Senha copiada nao sobrevive ao encerramento do app.
+            if let tauri::RunEvent::Exit = event {
+                secure_clipboard::clear_now(app);
+            }
+        });
 }
 
