@@ -24,7 +24,10 @@ pub struct VaultSession(Mutex<Option<Session>>);
 const NO_SESSION: &str = "error.vault.passwordUnavailable";
 
 fn lock(state: &VaultSession) -> Result<std::sync::MutexGuard<'_, Option<Session>>, String> {
-    state.0.lock().map_err(|_| "error.task.interrupted".to_string())
+    state
+        .0
+        .lock()
+        .map_err(|_| "error.task.interrupted".to_string())
 }
 
 /// Abre a sessao: decifra `file` com a senha e devolve o JSON do cofre.
@@ -40,7 +43,11 @@ pub async fn vault_session_unlock(
         let vault_name = crate::sanitize_vault_name(vault_name)?;
         let (plaintext, key) = crypto_vault::unlock_vault_file(&file, &master_password)?;
         let state = app.state::<VaultSession>();
-        *lock(&state)? = Some(Session { vault_name, password: master_password, key });
+        *lock(&state)? = Some(Session {
+            vault_name,
+            password: master_password,
+            key,
+        });
         Ok(plaintext)
     })
     .await
@@ -59,7 +66,10 @@ pub async fn vault_session_encrypt(
         let vault_name = crate::sanitize_vault_name(vault_name)?;
         let state = app.state::<VaultSession>();
         let mut session = lock(&state)?;
-        let session = session.as_mut().filter(|s| s.vault_name == vault_name).ok_or(NO_SESSION)?;
+        let session = session
+            .as_mut()
+            .filter(|s| s.vault_name == vault_name)
+            .ok_or(NO_SESSION)?;
         if session.key.is_none() {
             // Cofre PBKDF2 aberto nesta sessao: a primeira gravacao migra.
             session.key = Some(VaultKey::generate(&session.password)?);
@@ -72,10 +82,17 @@ pub async fn vault_session_encrypt(
 
 /// Confere a senha digitada (exportar CSV, trocar a senha mestra).
 #[tauri::command]
-pub fn vault_session_verify_password(state: State<'_, VaultSession>, master_password: String) -> bool {
+pub fn vault_session_verify_password(
+    state: State<'_, VaultSession>,
+    master_password: String,
+) -> bool {
     let master_password = Zeroizing::new(master_password);
-    let Ok(session) = lock(&state) else { return false };
-    session.as_ref().is_some_and(|s| constant_time_eq(s.password.as_bytes(), master_password.as_bytes()))
+    let Ok(session) = lock(&state) else {
+        return false;
+    };
+    session
+        .as_ref()
+        .is_some_and(|s| constant_time_eq(s.password.as_bytes(), master_password.as_bytes()))
 }
 
 /// Decifra outro arquivo (ex.: um backup) com a senha da sessao.
@@ -83,7 +100,10 @@ pub fn vault_session_verify_password(state: State<'_, VaultSession>, master_pass
 pub async fn vault_session_decrypt(app: AppHandle, file: Value) -> Result<String, String> {
     crate::run_blocking(move || {
         let state = app.state::<VaultSession>();
-        let password = lock(&state)?.as_ref().map(|s| s.password.clone()).ok_or(NO_SESSION)?;
+        let password = lock(&state)?
+            .as_ref()
+            .map(|s| s.password.clone())
+            .ok_or(NO_SESSION)?;
         crypto_vault::decrypt_vault_file(&file, &password)
     })
     .await
@@ -105,7 +125,10 @@ pub fn close(state: &VaultSession) {
 pub fn password(app: &AppHandle, vault_name: &str) -> Option<Zeroizing<String>> {
     let state = app.state::<VaultSession>();
     let session = state.0.lock().ok()?;
-    session.as_ref().filter(|s| s.vault_name == vault_name).map(|s| s.password.clone())
+    session
+        .as_ref()
+        .filter(|s| s.vault_name == vault_name)
+        .map(|s| s.password.clone())
 }
 
 /// Decifra um arquivo do cofre aberto: sem Argon2id quando ele foi gravado
@@ -114,7 +137,11 @@ pub fn decrypt(app: &AppHandle, vault_name: &str, file: &Value) -> Option<Result
     let state = app.state::<VaultSession>();
     let session = state.0.lock().ok()?;
     let session = session.as_ref().filter(|s| s.vault_name == vault_name)?;
-    if let Some(result) = session.key.as_ref().and_then(|key| crypto_vault::decrypt_with_key(file, key)) {
+    if let Some(result) = session
+        .key
+        .as_ref()
+        .and_then(|key| crypto_vault::decrypt_with_key(file, key))
+    {
         return Some(result);
     }
     Some(crypto_vault::decrypt_vault_file(file, &session.password))
@@ -139,23 +166,37 @@ mod tests {
         assert_ne!(first.cipher.nonce, second.cipher.nonce);
 
         let value = serde_json::to_value(&second).unwrap();
-        assert_eq!(crypto_vault::decrypt_vault_file(&value, "senha-mestra-longa").unwrap(), PLAIN);
-        assert_eq!(crypto_vault::decrypt_with_key(&value, &key).unwrap().unwrap(), PLAIN);
+        assert_eq!(
+            crypto_vault::decrypt_vault_file(&value, "senha-mestra-longa").unwrap(),
+            PLAIN
+        );
+        assert_eq!(
+            crypto_vault::decrypt_with_key(&value, &key)
+                .unwrap()
+                .unwrap(),
+            PLAIN
+        );
         assert!(crypto_vault::decrypt_vault_file(&value, "outra-senha").is_err());
     }
 
     #[test]
     fn unlock_returns_a_key_that_skips_argon2_on_the_same_file() {
-        let file = crypto_vault::encrypt_vault_v2_default(PLAIN, "senha-mestra-longa", None).unwrap();
+        let file =
+            crypto_vault::encrypt_vault_v2_default(PLAIN, "senha-mestra-longa", None).unwrap();
         let value = serde_json::to_value(&file).unwrap();
-        let (plaintext, key) = crypto_vault::unlock_vault_file(&value, "senha-mestra-longa").unwrap();
+        let (plaintext, key) =
+            crypto_vault::unlock_vault_file(&value, "senha-mestra-longa").unwrap();
         assert_eq!(plaintext, PLAIN);
         let key = key.unwrap();
         assert!(crypto_vault::decrypt_with_key(&value, &key).is_some());
 
-        let other = crypto_vault::encrypt_vault_v2_default(PLAIN, "senha-mestra-longa", None).unwrap();
+        let other =
+            crypto_vault::encrypt_vault_v2_default(PLAIN, "senha-mestra-longa", None).unwrap();
         let other = serde_json::to_value(&other).unwrap();
-        assert!(crypto_vault::decrypt_with_key(&other, &key).is_none(), "sal diferente exige a senha");
+        assert!(
+            crypto_vault::decrypt_with_key(&other, &key).is_none(),
+            "sal diferente exige a senha"
+        );
     }
 
     #[test]
