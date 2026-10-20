@@ -38,10 +38,33 @@ fn desktop_entry(exe: &Path) -> Result<String, String> {
     Ok(format!("[Desktop Entry]\nType=Application\nName=KPassword\nExec=\"{escaped}\" --startup\nIcon=kpassword\nTerminal=false\nX-GNOME-Autostart-enabled=true\n"))
 }
 
-pub fn startup_enabled() -> bool {
+fn read_autostart_entry() -> Option<String> {
     autostart_path().ok().and_then(|p| fs::read_to_string(p).ok())
-        .map(|s| s.contains("Name=KPassword\n") && !s.contains("Hidden=true"))
-        .unwrap_or(false)
+        .filter(|s| s.contains("Name=KPassword\n") && !s.contains("Hidden=true"))
+}
+
+pub fn startup_enabled() -> bool {
+    read_autostart_entry().is_some()
+}
+
+/// The Exec line the desktop session will actually run at login, which may
+/// differ from the running executable (for example a stale dev build path).
+pub fn startup_command() -> Option<String> {
+    exec_line(&read_autostart_entry()?)
+}
+
+fn exec_line(entry: &str) -> Option<String> {
+    entry.lines().find_map(|line| line.strip_prefix("Exec=").map(str::to_string))
+}
+
+/// Rewrites an enabled autostart entry so it points at the running executable.
+/// A dev build loads the Vite devUrl, so an entry saved by `tauri dev` opens a
+/// "Connection refused" window at login. Only installed builds call this.
+pub fn repair_startup() -> Result<bool, String> {
+    let Some(current) = read_autostart_entry() else { return Ok(false) };
+    let exe = std::env::current_exe().map_err(|_| "Executável indisponível.")?;
+    if current == desktop_entry(&exe)? { return Ok(false); }
+    set_startup(true).map(|_| true)
 }
 
 pub fn set_startup(enabled: bool) -> Result<(), String> {
@@ -121,6 +144,13 @@ mod tests {
         assert!(s.contains("\\\\$"));
         assert!(s.contains(" --startup\n"));
         assert!(!s.contains("sh -c"));
+    }
+    #[test]
+    fn autostart_exec_line_reports_the_registered_binary() {
+        let entry = desktop_entry(Path::new("/home/u/KPassword/src-tauri/target/debug/kpassword")).unwrap();
+        assert_eq!(exec_line(&entry).as_deref(),
+            Some("\"/home/u/KPassword/src-tauri/target/debug/kpassword\" --startup"));
+        assert_ne!(entry, desktop_entry(Path::new("/usr/bin/kpassword")).unwrap());
     }
     #[test]
     fn autostart_rejects_relative_paths_and_line_injection() {

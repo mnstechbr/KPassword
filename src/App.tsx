@@ -2068,7 +2068,8 @@ export default function App() {
       setMessage((status.enabled || nextEnabled) ? t("settings.startupEnabled") : t("settings.startupDisabled"));
     } catch (error) {
       secureLogError("alterar inicialização com Windows", error);
-      setMessage(t("settings.startupError"));
+      // O backend explica quando recusa (ex.: build de desenvolvimento).
+      setMessage(typeof error === "string" && error ? error : t("settings.startupError"));
     } finally {
       setStartupBusy(false);
     }

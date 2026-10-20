@@ -197,7 +197,7 @@ Antes de aprovar uma release, validar interativamente, com cofre fictício:
 2. Clipboard: copiar chave, esperar limpeza, copiar conteúdo novo antes do prazo
    e confirmar que o app não o apaga. Configurar o histórico do Klipper: o app
    não consegue apagar cópias já armazenadas pelo gerenciador de clipboard.
-3. Bandeja/fechar/minimizar/inatividade, janela compacta, notificação, som e autostart.
+3. Bandeja/fechar/minimizar/inatividade, notificação, som e autostart.
    Wayland restringe foco/janela e cliques de bandeja diferem; conferir no desktop.
 4. Bridge: CLI real instalada + segredo fictício, confirmação/cancelamento,
    uma chave por integração, expiração, cofre fechado, revogação, rotação/alteração
