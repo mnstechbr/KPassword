@@ -18,14 +18,17 @@ import { clearSecretClipboard, guessPlatform, linuxTranslation, writeSecretToCli
 import { translateBackendError, withBackendReason } from "./backend-errors";
 import { validateApiKey } from "./api-key";
 import {
+  closeVaultSession,
   createEmptyVault,
-  decryptVault,
   encryptVault,
+  encryptVaultWithSession,
   needsCryptoMigration,
   parseEncryptedVault,
   validateEncryptedVaultBackup,
+  unlockVaultSession,
   validateMasterPassword,
   verifyEncryptedVaultBackup,
+  verifyVaultSessionPassword,
 } from "./crypto";
 import { generatePassword, type PasswordGeneratorMode } from "./password";
 import {
@@ -1857,7 +1860,6 @@ export default function App() {
   vaultRef.current = vault;
   encryptedVaultRef.current = encryptedVault;
   const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const [masterPassword, setMasterPassword] = useState("");
   const [unlockPassword, setUnlockPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [setupPassword, setSetupPassword] = useState("");
@@ -2272,14 +2274,14 @@ export default function App() {
 
         setEncryptedVault(parseEncryptedVault(raw));
         setVault(null);
-        setMasterPassword("");
+        closeVaultSession();
         setUnlockPassword("");
         setMode("locked");
         await refreshStorageInfo(activeVaultName);
       } catch {
         setEncryptedVault(null);
         setVault(null);
-        setMasterPassword("");
+        closeVaultSession();
         setUnlockPassword("");
         setMessage(t("errors.loadVault"));
         setMode("locked");
@@ -2294,7 +2296,7 @@ export default function App() {
     setBridgeAudit([]);
     teardownStrengthEngine();
     setVault(null);
-    setMasterPassword("");
+    closeVaultSession();
     setUnlockPassword("");
     setSetupPassword("");
     setConfirmPassword("");
@@ -2400,24 +2402,22 @@ export default function App() {
   const persistVault = useCallback(
     (
       next: PlainVault | ((current: PlainVault) => PlainVault),
-      passwordOverride?: string,
       forceBackup = false,
     ): Promise<EncryptedVaultFile> => {
       const job = saveQueueRef.current.then(async () => {
-        const password = passwordOverride ?? masterPassword;
         const current = vaultRef.current;
 
-        if (!password || !current) {
+        if (!current) {
           throw new Error(t("errors.masterPasswordUnavailable"));
         }
 
         const nextVault = typeof next === "function" ? next(current) : next;
-        const file = await encryptVault(nextVault, password, encryptedVaultRef.current);
+        // A senha fica na sessão do backend: aqui só vai o cofre a cifrar.
+        const file = await encryptVaultWithSession(nextVault, activeVaultName, encryptedVaultRef.current);
         const info = await saveVaultFile(
           JSON.stringify(file, null, 2),
           activeVaultName,
           forceBackup,
-          isLinux ? password : undefined,
           nextVault.settings.backupIntervalHours,
         );
 
@@ -2439,20 +2439,18 @@ export default function App() {
       saveQueueRef.current = job.catch(() => undefined);
       return job;
     },
-    [activeVaultName, isLinux, masterPassword, t],
+    [activeVaultName, t],
   );
 
   const persistVaultWithHistory = useCallback(
     async (
       nextVault: PlainVault | ((current: PlainVault) => PlainVault),
       historyEntry?: ActionHistoryEntry | ActionHistoryEntry[],
-      passwordOverride?: string,
       forceBackup = false,
     ) => persistVault(
       typeof nextVault === "function"
         ? (current) => addActionHistoryEntries(nextVault(current), historyEntry)
         : addActionHistoryEntries(nextVault, historyEntry),
-      passwordOverride,
       forceBackup,
     ),
     [persistVault],
@@ -2478,12 +2476,11 @@ export default function App() {
   async function migrateLegacyVaultIfNeeded(
     file: EncryptedVaultFile,
     plainVault: PlainVault,
-    password: string,
   ) {
     if (!needsCryptoMigration(file)) return;
 
     await createPreArgon2Backup(JSON.stringify(file, null, 2), activeVaultName);
-    const migratedFile = await encryptVault(plainVault, password, null);
+    const migratedFile = await encryptVaultWithSession(plainVault, activeVaultName, null);
     const info = await saveVaultFile(JSON.stringify(migratedFile, null, 2), activeVaultName, false);
 
     setEncryptedVault(migratedFile);
@@ -2540,11 +2537,17 @@ export default function App() {
         createActionHistoryEntry("vault_created"),
       );
       const file = await encryptVault(newVault, setupPassword);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false);
+      await unlockVaultSession(activeVaultName, file, setupPassword);
+      let info;
+      try {
+        info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false);
+      } catch (error) {
+        closeVaultSession();
+        throw error;
+      }
 
       setEncryptedVault(file);
       setVault(newVault);
-      setMasterPassword(setupPassword);
       setSetupPassword("");
       setConfirmPassword("");
       setStorageInfo(info);
@@ -2575,8 +2578,8 @@ export default function App() {
     setBusy(true);
 
     try {
-      const plainVault = normalizeVault(await decryptVault(encryptedVault, unlockPassword));
-      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault, unlockPassword);
+      const plainVault = normalizeVault(await unlockVaultSession(activeVaultName, encryptedVault, unlockPassword));
+      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault);
 
       let unlockedVault = plainVault;
 
@@ -2585,8 +2588,8 @@ export default function App() {
           plainVault,
           createActionHistoryEntry("vault_unlocked"),
         );
-        const historyFile = await encryptVault(vaultWithHistory, unlockPassword, encryptedVault);
-        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, isLinux ? unlockPassword : undefined, plainVault.settings?.backupIntervalHours);
+        const historyFile = await encryptVaultWithSession(vaultWithHistory, activeVaultName, encryptedVault);
+        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, plainVault.settings?.backupIntervalHours);
 
         setEncryptedVault(historyFile);
         setStorageInfo(historyInfo);
@@ -2597,7 +2600,6 @@ export default function App() {
       }
 
       setVault(unlockedVault);
-      setMasterPassword(unlockPassword);
       setUnlockGateOpen(true);
       await new Promise((resolve) => window.setTimeout(resolve, 340));
       setUnlockGateOpen(false);
@@ -2665,7 +2667,7 @@ export default function App() {
       // oferecido, e o usuário segue pela senha mestra.
       let plainVault: PlainVault;
       try {
-        plainVault = normalizeVault(await decryptVault(encryptedVault, password));
+        plainVault = normalizeVault(await unlockVaultSession(activeVaultName, encryptedVault, password));
       } catch (staleError) {
         secureLogError("segredo do Windows Hello não abre o cofre atual", staleError);
         try {
@@ -2677,7 +2679,7 @@ export default function App() {
         setMessage(t("windowsHello.staleRecord"));
         return;
       }
-      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault, password);
+      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault);
 
       let unlockedVault = plainVault;
 
@@ -2686,8 +2688,8 @@ export default function App() {
           plainVault,
           createActionHistoryEntry("vault_unlocked_windows_hello"),
         );
-        const historyFile = await encryptVault(vaultWithHistory, password, encryptedVault);
-        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, undefined, plainVault.settings?.backupIntervalHours);
+        const historyFile = await encryptVaultWithSession(vaultWithHistory, activeVaultName, encryptedVault);
+        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, plainVault.settings?.backupIntervalHours);
 
         setEncryptedVault(historyFile);
         setStorageInfo(historyInfo);
@@ -2698,7 +2700,6 @@ export default function App() {
       }
 
       setVault(unlockedVault);
-      setMasterPassword(password);
       setUnlockGateOpen(true);
       await new Promise((resolve) => window.setTimeout(resolve, 340));
       setUnlockGateOpen(false);
@@ -2726,7 +2727,7 @@ export default function App() {
   async function handleEnableWindowsHello() {
     setMessage("");
 
-    if (!masterPassword) {
+    if (mode !== "unlocked") {
       setMessage(t("errors.masterPasswordUnavailable"));
       return;
     }
@@ -2751,7 +2752,7 @@ export default function App() {
 
     try {
       await prepareWindowsHelloPrompt();
-      const status = await enableWindowsHello(activeVaultName, masterPassword, t("windowsHello.promptEnable"));
+      const status = await enableWindowsHello(activeVaultName, t("windowsHello.promptEnable"));
       setWindowsHelloStatus(status);
       await recordActionHistoryOnly("windows_hello_enabled");
       setMessage(t("windowsHello.enabledSuccess"));
@@ -2813,7 +2814,7 @@ export default function App() {
 
     setVault(null);
     setEncryptedVault(null);
-    setMasterPassword("");
+    closeVaultSession();
     setUnlockPassword("");
     setSetupPassword("");
     setConfirmPassword("");
@@ -2926,7 +2927,7 @@ export default function App() {
     setNewVaultName("");
     setVault(null);
     setEncryptedVault(null);
-    setMasterPassword("");
+    closeVaultSession();
     setUnlockPassword("");
     setSetupPassword("");
     setConfirmPassword("");
@@ -3028,7 +3029,9 @@ export default function App() {
     setBusy(true);
 
     try {
-      await decryptVault(encryptedVault, currentMasterPassword);
+      if (!(await verifyVaultSessionPassword(currentMasterPassword))) {
+        throw new Error(t("errors.changeMaster"));
+      }
 
       const now = new Date().toISOString();
       const nextVault = addActionHistoryEntries(
@@ -3065,7 +3068,16 @@ export default function App() {
       }
 
       const file = await encryptVault(nextVault, newMasterPassword, null);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false, undefined, nextVault.settings.backupIntervalHours);
+      // A sessão passa para a senha nova antes de gravar; se a gravação falhar,
+      // ela volta para a senha atual, que continua sendo a do arquivo.
+      await unlockVaultSession(activeVaultName, file, newMasterPassword);
+      let info;
+      try {
+        info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false, nextVault.settings.backupIntervalHours);
+      } catch (error) {
+        await unlockVaultSession(activeVaultName, encryptedVault, currentMasterPassword);
+        throw error;
+      }
       // Backups da senha anterior deixam de abrir com ela.
       const backupReport = await reencryptBackups(activeVaultName, currentMasterPassword, newMasterPassword).catch((error) => {
         secureLogError("recifrar backups após troca de senha", error);
@@ -3074,7 +3086,6 @@ export default function App() {
 
       setEncryptedVault(file);
       setVault({ ...nextVault, updatedAt: file.updatedAt });
-      setMasterPassword(newMasterPassword);
       setCurrentMasterPassword("");
       setNewMasterPassword("");
       setNewMasterConfirm("");
@@ -3086,7 +3097,7 @@ export default function App() {
       // deixa o desbloqueio rápido desativado.
       if (shouldReenableHello) {
         try {
-          const status = await enableWindowsHello(activeVaultName, newMasterPassword, t("windowsHello.promptEnable"));
+          const status = await enableWindowsHello(activeVaultName, t("windowsHello.promptEnable"));
           setWindowsHelloStatus(status);
         } catch (helloError) {
           secureLogError("reativar Windows Hello após troca de senha", helloError);
@@ -3108,8 +3119,9 @@ export default function App() {
     }
   }
 
-  async function restoreBackupFromText(raw: string, password: string) {
-    if (!password) {
+  /** `password` null usa a senha da sessão aberta (restaurar com a senha atual). */
+  async function restoreBackupFromText(raw: string, password: string | null) {
+    if (password === "") {
       setMessage(t("errors.backupPasswordRequired"));
       return;
     }
@@ -3158,8 +3170,8 @@ export default function App() {
       const info = outcome.storage;
 
       setEncryptedVault(parsed);
+      if (password !== null) await unlockVaultSession(liveVaultName, parsed, password);
       setVault(restoredVault);
-      setMasterPassword(password);
       setRestorePassword("");
       setRestorePopupOpen(false);
       setStorageInfo(info);
@@ -3179,7 +3191,7 @@ export default function App() {
     }
   }
 
-  async function handleBackupFileInput(file: File | undefined | null, password: string) {
+  async function handleBackupFileInput(file: File | undefined | null, password: string | null) {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".kpvault")) {
@@ -3896,7 +3908,7 @@ export default function App() {
   async function activateBridgeSession() {
     if (!isLinux || !vault?.settings.secretsBridgeEnabled || mode !== "unlocked" || bridgeBusy) return;
     setBridgeBusy(true);
-    try { setBridgeGeneration(await invoke<number>("bridge_open", { vaultName: activeVaultName, masterPassword, durationHours: bridgeHours })); }
+    try { setBridgeGeneration(await invoke<number>("bridge_open", { vaultName: activeVaultName, durationHours: bridgeHours })); }
     catch { setMessage(t("bridge.denied")); }
     finally { setBridgeBusy(false); }
   }
@@ -4478,7 +4490,7 @@ export default function App() {
   }
 
   async function handleExportEncryptedJson() {
-    if (!vault || !masterPassword) return;
+    if (!vault) return;
 
     const confirmed = await askConfirmation({
       title: t("export.encryptedTitle"),
@@ -4492,7 +4504,7 @@ export default function App() {
     setBusy(true);
 
     try {
-      const file = await encryptVault(vault, masterPassword, encryptedVault);
+      const file = await encryptVaultWithSession(vault, activeVaultName, encryptedVault);
       const date = new Date().toISOString().slice(0, 10);
       downloadTextFile(
         `kpassword-export-criptografado-${date}.json`,
@@ -4530,7 +4542,7 @@ export default function App() {
       return;
     }
 
-    if (exportPassword !== masterPassword) {
+    if (!(await verifyVaultSessionPassword(exportPassword))) {
       setMessage(t("export.passwordError"));
       return;
     }
@@ -7233,7 +7245,7 @@ export default function App() {
                   }).then((confirmed) => {
                     if (!confirmed) return;
 
-                    void persistVault(vault, undefined, true)
+                    void persistVault(vault, true)
                       .then(() => refreshStorageInfo())
                       .then(() => setMessage("Backup criptografado atualizado."))
                       .catch(() => setMessage("Erro ao criar backup."));
@@ -7338,7 +7350,7 @@ export default function App() {
                   type="file"
                   accept=".kpvault,application/json"
                   onChange={(event) => {
-                    void handleBackupFileInput(event.target.files?.[0], masterPassword);
+                    void handleBackupFileInput(event.target.files?.[0], null);
                     event.currentTarget.value = "";
                   }}
                 />
