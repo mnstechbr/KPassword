@@ -264,19 +264,74 @@ fn bridge_open_blocking(app: AppHandle, vault_name: String, duration_hours: Opti
     Ok(generation)
 }
 
+/// One on-disk version of a file, observed with fstat on the very fd that is
+/// hashed. Any write or metadata change bumps ctime (which userspace cannot
+/// set), so a changed or replaced file never matches an older version.
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct FileVersion { dev: u64, ino: u64, size: u64, mtime_ns: i128, ctime_ns: i128 }
+#[cfg(target_os = "linux")]
+impl FileVersion {
+    fn of(meta: &fs::Metadata) -> Self {
+        use std::os::unix::fs::MetadataExt;
+        let ns = |s: i64, n: i64| i128::from(s) * 1_000_000_000 + i128::from(n);
+        Self { dev: meta.dev(), ino: meta.ino(), size: meta.size(), mtime_ns: ns(meta.mtime(), meta.mtime_nsec()), ctime_ns: ns(meta.ctime(), meta.ctime_nsec()) }
+    }
+}
+/// Bounded least-recently-used cache of executable SHA-256 digests, so the
+/// bridge does not re-read up to 512 MB per process on every request.
+#[cfg(target_os = "linux")]
+struct FingerprintCache { entries: Vec<(FileVersion, String, u64)>, tick: u64 }
+#[cfg(target_os = "linux")]
+impl FingerprintCache {
+    const CAPACITY: usize = 64;
+    /// File timestamps have kernel-tick granularity: a file changed within the
+    /// tick it was hashed in can keep the same size, mtime and ctime. Only
+    /// versions whose ctime is clearly older than the start of hashing are
+    /// cached, so any later change necessarily produces a newer ctime.
+    const SETTLED_NS: i128 = 2_000_000_000;
+    const fn new() -> Self { Self { entries: Vec::new(), tick: 0 } }
+    fn get(&mut self, version: &FileVersion) -> Option<String> {
+        self.tick += 1;
+        let tick = self.tick;
+        self.entries.iter_mut().find(|(v, _, _)| v == version).map(|(_, hash, used)| { *used = tick; hash.clone() })
+    }
+    fn insert(&mut self, version: FileVersion, hash: String, hashing_started_ns: i128) {
+        if version.ctime_ns > hashing_started_ns - Self::SETTLED_NS { return; }
+        self.tick += 1;
+        if let Some(entry) = self.entries.iter_mut().find(|(v, _, _)| *v == version) { *entry = (version, hash, self.tick); return; }
+        if self.entries.len() >= Self::CAPACITY {
+            if let Some(oldest) = self.entries.iter().enumerate().min_by_key(|(_, (_, _, used))| *used).map(|(i, _)| i) { self.entries.swap_remove(oldest); }
+        }
+        self.entries.push((version, hash, self.tick));
+    }
+}
+#[cfg(target_os = "linux")]
+static FINGERPRINTS: Mutex<FingerprintCache> = Mutex::new(FingerprintCache::new());
+
 #[cfg(target_os = "linux")]
 fn fingerprint(path: &str) -> Result<(String, String), String> {
     use std::{io::Read, os::unix::fs::MetadataExt};
     if !Path::new(path).is_absolute() || path.contains(['\n', '\r', '\0']) { return Err(DENIED.into()); }
     let canonical = fs::canonicalize(path).map_err(|_| DENIED)?;
+    let canonical_str = canonical.to_str().ok_or(DENIED)?.to_owned();
+    // Taken before open: any change from here on gets a ctime at or after it.
+    let started = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as i128).unwrap_or(0);
     let mut file = fs::File::open(&canonical).map_err(|_| DENIED)?;
     let meta = file.metadata().map_err(|_| DENIED)?;
     if !meta.is_file() || meta.len() > MAX_EXECUTABLE_BYTES || meta.mode() & 0o111 == 0 || meta.mode() & 0o022 != 0 { return Err(DENIED.into()); }
+    let version = FileVersion::of(&meta);
+    if let Some(hash) = FINGERPRINTS.lock().ok().and_then(|mut cache| cache.get(&version)) { return Ok((canonical_str, hash)); }
     let mut hash = Sha256::new();
     let mut buf = [0; 16_384];
     let mut total = 0u64;
     loop { let n = file.read(&mut buf).map_err(|_| DENIED)?; if n == 0 { break; } total += n as u64; if total > MAX_EXECUTABLE_BYTES { return Err(DENIED.into()); } hash.update(&buf[..n]); }
-    Ok((canonical.to_str().ok_or(DENIED)?.into(), format!("{:x}", hash.finalize())))
+    let hash = format!("{:x}", hash.finalize());
+    // Cache only if the same fd still reports the version seen before reading.
+    if file.metadata().is_ok_and(|after| FileVersion::of(&after) == version) {
+        if let Ok(mut cache) = FINGERPRINTS.lock() { cache.insert(version, hash.clone(), started); }
+    }
+    Ok((canonical_str, hash))
 }
 
 #[tauri::command]
@@ -485,6 +540,59 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let p=std::env::temp_dir().join(format!("kpassword-bridge-executable-{}-{}",std::process::id(),super::super::now_epoch_millis()));
         fs::write(&p,b"#!/bin/sh\nexit 0\n").unwrap();fs::set_permissions(&p,fs::Permissions::from_mode(0o700)).unwrap();let first=fingerprint(p.to_str().unwrap()).unwrap();fs::write(&p,b"#!/bin/sh\nexit 1\n").unwrap();let second=fingerprint(p.to_str().unwrap()).unwrap();assert_ne!(first.1,second.1);fs::remove_file(p).unwrap();
+    }
+    #[cfg(target_os="linux")]
+    fn version(seed: u64) -> FileVersion { FileVersion { dev: 1, ino: seed, size: 10, mtime_ns: 1_000, ctime_ns: 1_000 } }
+    #[cfg(target_os="linux")]
+    #[test] fn fingerprint_cache_hits_only_the_identical_file_version() {
+        let mut cache = FingerprintCache::new();
+        let v = version(7);
+        assert_eq!(cache.get(&v), None);
+        cache.insert(v, "hash-a".into(), i128::MAX / 2);
+        assert_eq!(cache.get(&v).as_deref(), Some("hash-a"));
+        assert_eq!(cache.get(&v).as_deref(), Some("hash-a"));
+        for changed in [FileVersion { dev: 2, ..v }, FileVersion { ino: 8, ..v }, FileVersion { size: 11, ..v }, FileVersion { mtime_ns: 1_001, ..v }, FileVersion { ctime_ns: 1_001, ..v }] {
+            assert_eq!(cache.get(&changed), None, "{changed:?}");
+        }
+        cache.insert(v, "hash-b".into(), i128::MAX / 2);
+        assert_eq!(cache.get(&v).as_deref(), Some("hash-b"));
+        assert_eq!(cache.entries.len(), 1);
+    }
+    #[cfg(target_os="linux")]
+    #[test] fn fingerprint_cache_skips_recent_versions_and_stays_bounded() {
+        let mut cache = FingerprintCache::new();
+        // ctime within the timestamp-granularity window of the hash start: never cached.
+        let recent = FileVersion { ctime_ns: 10_000_000_000, ..version(1) };
+        cache.insert(recent, "racy".into(), 11_000_000_000);
+        assert_eq!(cache.get(&recent), None);
+        cache.insert(recent, "settled".into(), 12_000_000_000);
+        assert_eq!(cache.get(&recent).as_deref(), Some("settled"));
+        let mut cache = FingerprintCache::new();
+        for i in 0..FingerprintCache::CAPACITY as u64 { cache.insert(version(i), format!("h{i}"), i128::MAX / 2); }
+        assert!(cache.get(&version(0)).is_some()); // Most recently used now; version(1) is the oldest.
+        cache.insert(version(1000), "new".into(), i128::MAX / 2);
+        assert_eq!(cache.entries.len(), FingerprintCache::CAPACITY);
+        assert_eq!(cache.get(&version(1)), None);
+        assert!(cache.get(&version(0)).is_some());
+        assert_eq!(cache.get(&version(1000)).as_deref(), Some("new"));
+    }
+    #[cfg(target_os="linux")]
+    #[test] fn fingerprint_uses_cache_for_same_version_and_rehashes_changed_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let p=std::env::temp_dir().join(format!("kpassword-bridge-cache-{}-{}",std::process::id(),super::super::now_epoch_millis()));
+        fs::write(&p,b"#!/bin/sh\nexit 0\n").unwrap();fs::set_permissions(&p,fs::Permissions::from_mode(0o700)).unwrap();
+        let path=p.to_str().unwrap();
+        let (_,real)=fingerprint(path).unwrap();
+        assert_eq!(real, format!("{:x}", Sha256::digest(b"#!/bin/sh\nexit 0\n")));
+        // A fresh file is inside the granularity window, so it was not cached.
+        let v=FileVersion::of(&fs::metadata(&p).unwrap());
+        assert_eq!(FINGERPRINTS.lock().unwrap().get(&v), None);
+        // Plant a marker for this exact version: a hit must return it unchanged.
+        FINGERPRINTS.lock().unwrap().insert(v,"cached-marker".into(),i128::MAX/2);
+        assert_eq!(fingerprint(path).unwrap().1,"cached-marker");
+        fs::write(&p,b"#!/bin/sh\nexit 10\n").unwrap();
+        assert_eq!(fingerprint(path).unwrap().1, format!("{:x}", Sha256::digest(b"#!/bin/sh\nexit 10\n")));
+        fs::remove_file(p).unwrap();
     }
     #[cfg(target_os="linux")]
     #[test] fn large_native_executables_are_supported_with_a_bounded_limit() {
