@@ -19,7 +19,7 @@ const LEGACY_CIPHER: &str = "AES-GCM";
 const LEGACY_AAD: &[u8] = b"KPassword:Vault:v1";
 const ARGON2ID_KDF: &str = "argon2id";
 const ARGON2ID_CIPHER: &str = "AES-256-GCM";
-const GENERIC_CRYPTO_ERROR: &str = "Senha mestra incorreta ou arquivo de cofre invalido.";
+const GENERIC_CRYPTO_ERROR: &str = "error.vault.wrongPasswordOrInvalid";
 const ARGON2ID_MAX_MEMORY_KIB: u32 = 262_144;
 const ARGON2ID_MAX_TIME_COST: u32 = 10;
 const ARGON2ID_MAX_PARALLELISM: u32 = 4;
@@ -113,7 +113,7 @@ pub fn crypto_version(file: &Value) -> u8 {
 
 fn random_bytes(length: usize) -> Result<Vec<u8>, String> {
     let mut bytes = vec![0u8; length];
-    getrandom::fill(&mut bytes).map_err(|_| "Falha ao gerar bytes aleatorios.".to_string())?;
+    getrandom::fill(&mut bytes).map_err(|_| "error.crypto.random".to_string())?;
     Ok(bytes)
 }
 
@@ -236,7 +236,7 @@ fn encrypt_vault_v2_with_params(
     validate_argon2id_params(params)?;
 
     let plain_value: Value = serde_json::from_str(plain_vault_json)
-        .map_err(|_| "Conteudo do cofre invalido.".to_string())?;
+        .map_err(|_| "error.vault.invalidContent".to_string())?;
     let updated_at = extract_string(&plain_value, "updatedAt").unwrap_or_default();
     let created_at = created_at
         .map(str::to_string)

@@ -5,40 +5,40 @@ pub fn remove(vault: &Path, hello: &Path, backups: &Path, password: &str) -> Res
     let regular = |p: &Path| fs::symlink_metadata(p).map(|m| m.file_type().is_file()).unwrap_or(false);
     if !regular(vault) || (hello.exists() && !regular(hello))
         || !fs::symlink_metadata(backups).map(|m| m.file_type().is_dir()).unwrap_or(false)
-    { return Err("Caminho do cofre ou backup inválido.".into()); }
-    let original = fs::read(vault).map_err(|_| "Não foi possível ler o cofre.")?;
-    let raw = std::str::from_utf8(&original).map_err(|_| "Cofre inválido.")?;
+    { return Err("error.vault.invalidPath".into()); }
+    let original = fs::read(vault).map_err(|_| "error.delete.read")?;
+    let raw = std::str::from_utf8(&original).map_err(|_| "error.vault.invalid")?;
     if !super::crypto_vault::verify_backup_payload(raw, password).ok {
-        return Err("Senha mestra incorreta ou cofre inválido.".into());
+        return Err("error.vault.wrongPassword".into());
     }
     // A private, uniquely-created directory prevents overwriting any backup.
     let archive = (0..100).find_map(|n| {
         let p = backups.join(format!("deleted-{}-{n}", super::now_epoch_millis()));
         fs::create_dir(&p).ok().map(|_| p)
-    }).ok_or("Não foi possível preparar a cópia de recuperação.")?;
+    }).ok_or("error.delete.prepareCopy")?;
     #[cfg(unix)] {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&archive, fs::Permissions::from_mode(0o700))
-            .map_err(|_| "Não foi possível proteger a cópia de recuperação.")?;
+            .map_err(|_| "error.delete.protectCopy")?;
     }
-    let filename = vault.file_name().ok_or("Nome de cofre inválido.")?;
+    let filename = vault.file_name().ok_or("error.vault.invalidName")?;
     let saved = archive.join(filename);
     let mut options = fs::OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)] { use std::os::unix::fs::OpenOptionsExt; options.mode(0o600); }
-    let mut file = options.open(&saved).map_err(|_| "Não foi possível criar a cópia de recuperação.")?;
+    let mut file = options.open(&saved).map_err(|_| "error.delete.createCopy")?;
     file.write_all(&original).and_then(|_| file.sync_all())
-        .map_err(|_| "Falha ao gravar a cópia; o cofre foi preservado.")?;
+        .map_err(|_| "error.delete.writeCopy")?;
     if fs::read(&saved).ok().as_deref() != Some(original.as_slice())
         || fs::read(vault).ok().as_deref() != Some(original.as_slice())
-    { return Err("Cofre alterado ou cópia inválida; exclusão cancelada.".into()); }
+    { return Err("error.delete.changed".into()); }
     // A surviving Hello record must never unlock a new vault of the same name.
     // Preserve it disabled alongside the backup instead of deleting it.
     if hello.exists() {
         fs::rename(hello, archive.join("windows-hello.disabled"))
-            .map_err(|_| "Não foi possível desativar Windows Hello; cofre preservado.")?;
+            .map_err(|_| "error.delete.windowsHello")?;
     }
-    fs::remove_file(vault).map_err(|_| "Não foi possível excluir o cofre; a cópia foi preservada.")?;
+    fs::remove_file(vault).map_err(|_| "error.delete.remove")?;
     Ok(saved.to_string_lossy().into_owned())
 }
 

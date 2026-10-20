@@ -15,6 +15,7 @@ import { UiIcon } from "./UiIcon";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { clearSecretClipboard, guessPlatform, linuxTranslation, writeSecretToClipboard } from "./platform";
+import { translateBackendError, withBackendReason } from "./backend-errors";
 import { validateApiKey } from "./api-key";
 import {
   createEmptyVault,
@@ -1992,6 +1993,14 @@ export default function App() {
     [appLanguage, isLinux],
   );
 
+  useEffect(() => {
+    void invoke("set_tray_labels", {
+      open: t("tray.open"),
+      revokeBridge: t("tray.revokeBridge"),
+      quit: t("tray.quit"),
+    }).catch((error) => secureLogError("traduzir menu da bandeja", error));
+  }, [t]);
+
   const csvImportAnalysis = useMemo(
     () => analyzeCsvImport(csvImportPreview, vault, csvImportIncludeDuplicates),
     [csvImportPreview, csvImportIncludeDuplicates, vault],
@@ -2093,7 +2102,7 @@ export default function App() {
     } catch (error) {
       secureLogError("alterar inicialização com Windows", error);
       // O backend explica quando recusa (ex.: build de desenvolvimento).
-      setMessage(typeof error === "string" && error ? error : t("settings.startupError"));
+      setMessage(withBackendReason(t("settings.startupError"), error, appLanguage));
     } finally {
       setStartupBusy(false);
     }
@@ -2414,7 +2423,7 @@ export default function App() {
 
         setStorageInfo(info);
         setBackups(info.backups);
-        if (info.warning) setMessage(info.warning);
+        if (info.warning) setMessage(translateBackendError(info.warning, appLanguage) ?? info.warning);
 
         // Cofre bloqueado durante a gravação: o arquivo foi salvo, mas a tela não reabre.
         if (!vaultRef.current) return file;
@@ -2547,7 +2556,7 @@ export default function App() {
       setMessage("");
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("errors.createVault"));
+      setMessage(withBackendReason(t("errors.createVault"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -2705,7 +2714,7 @@ export default function App() {
     } catch (error) {
       secureLogError("operação do app", error);
       setUnlockGateOpen(false);
-      setMessage(t("windowsHello.unlockError"));
+      setMessage(withBackendReason(t("windowsHello.unlockError"), error, appLanguage));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
       await releaseWindowsHelloPromptFocus();
@@ -2748,7 +2757,7 @@ export default function App() {
       setMessage(t("windowsHello.enabledSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("windowsHello.enableError"));
+      setMessage(withBackendReason(t("windowsHello.enableError"), error, appLanguage));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
       await releaseWindowsHelloPromptFocus();
@@ -2780,7 +2789,7 @@ export default function App() {
       setMessage(t("windowsHello.disabledSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("windowsHello.disableError"));
+      setMessage(withBackendReason(t("windowsHello.disableError"), error, appLanguage));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
       setWindowsHelloBusy(false);
@@ -2849,8 +2858,8 @@ export default function App() {
       setActiveVaultName(next);
       if (next === target) { setEncryptedVault(null); setMode("setup"); await refreshStorageInfo(next); }
       setMessage(t("vault.deleted", { path: backup }));
-    } catch {
-      setDeleteVaultPassword(""); setDeleteVaultError(t("vault.deleteFailed"));
+    } catch (error) {
+      setDeleteVaultPassword(""); setDeleteVaultError(withBackendReason(t("vault.deleteFailed"), error, appLanguage));
     } finally { setBusy(false); }
   }
 
@@ -3142,7 +3151,7 @@ export default function App() {
         outcome = await restoreVaultFile(raw, liveVaultName, targetVaultName);
       } catch (error) {
         secureLogError("restaurar backup", error);
-        setMessage(t("errors.restoreAborted"));
+        setMessage(withBackendReason(t("errors.restoreAborted"), error, appLanguage));
         return;
       }
 
@@ -3165,8 +3174,8 @@ export default function App() {
             })
           : t("success.backupRestored"),
       );
-    } catch {
-      setMessage(t("errors.restoreBackup"));
+    } catch (error) {
+      setMessage(withBackendReason(t("errors.restoreBackup"), error, appLanguage));
     }
   }
 
@@ -3181,8 +3190,8 @@ export default function App() {
     try {
       const raw = await file.text();
       await restoreBackupFromText(raw, password);
-    } catch {
-      setMessage(t("errors.restoreBackup"));
+    } catch (error) {
+      setMessage(withBackendReason(t("errors.restoreBackup"), error, appLanguage));
     }
   }
 
@@ -3310,8 +3319,8 @@ export default function App() {
     try {
       await persistVault(nextVault);
       setMessage(t("success.settingsUpdated"));
-    } catch {
-      setMessage(t("errors.saveSettings"));
+    } catch (error) {
+      setMessage(withBackendReason(t("errors.saveSettings"), error, appLanguage));
     }
   }
 
@@ -3339,7 +3348,7 @@ export default function App() {
       setMessage(t("actionHistory.clearSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("actionHistory.clearError"));
+      setMessage(withBackendReason(t("actionHistory.clearError"), error, appLanguage));
     }
   }
 
@@ -3656,7 +3665,7 @@ export default function App() {
     } catch (error) {
       await restoreTotpWindowAfterWindowsSnip();
       secureLogError("recortar QR da tela", error);
-      setTotpSetupError(t("totp.easy.errorScreenQrNotFound"));
+      setTotpSetupError(withBackendReason(t("totp.easy.errorScreenQrNotFound"), error, appLanguage));
       setTotpPreview(null);
       setTotpSetupMode("screenIntro");
     } finally {
@@ -3711,7 +3720,7 @@ export default function App() {
       return true;
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("totp.easy.saveError"));
+      setMessage(withBackendReason(t("totp.easy.saveError"), error, appLanguage));
       return false;
     } finally {
       setBusy(false);
@@ -3765,7 +3774,7 @@ export default function App() {
       setMessage(t("totp.easy.removeSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("totp.easy.removeError"));
+      setMessage(withBackendReason(t("totp.easy.removeError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -3798,7 +3807,7 @@ export default function App() {
       await openExternalUrl(credential.url);
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("assistant.openSiteError"));
+      setMessage(withBackendReason(t("assistant.openSiteError"), error, appLanguage));
     }
   }
 
@@ -3860,7 +3869,7 @@ export default function App() {
       setMessage(t("assistant.tags.applied", { count: suggestions.length }));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("assistant.tags.error"));
+      setMessage(withBackendReason(t("assistant.tags.error"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4049,7 +4058,7 @@ export default function App() {
       setMessage(editingId ? t("success.credentialUpdated") : t("success.credentialCreated"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("errors.saveCredential"));
+      setMessage(withBackendReason(t("errors.saveCredential"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4099,7 +4108,7 @@ export default function App() {
       setMessage(t("trash.moved"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("errors.deleteCredential"));
+      setMessage(withBackendReason(t("errors.deleteCredential"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4134,7 +4143,7 @@ export default function App() {
       setMessage(t("trash.restored"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("trash.restoreError"));
+      setMessage(withBackendReason(t("trash.restoreError"), error, appLanguage));
     }
   }
 
@@ -4166,7 +4175,7 @@ export default function App() {
       setMessage(t("trash.deletedForever"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("trash.deleteForeverError"));
+      setMessage(withBackendReason(t("trash.deleteForeverError"), error, appLanguage));
     }
   }
 
@@ -4200,7 +4209,7 @@ export default function App() {
       setMessage(t("trash.emptySuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("trash.emptyError"));
+      setMessage(withBackendReason(t("trash.emptyError"), error, appLanguage));
     }
   }
 
@@ -4256,7 +4265,7 @@ export default function App() {
       setMessage(t("history.restored"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("history.restoreError"));
+      setMessage(withBackendReason(t("history.restoreError"), error, appLanguage));
     }
   }
 
@@ -4297,7 +4306,7 @@ export default function App() {
       setMessage(t("history.cleared"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("history.clearError"));
+      setMessage(withBackendReason(t("history.clearError"), error, appLanguage));
     }
   }
 
@@ -4419,7 +4428,7 @@ export default function App() {
       setMessage(t("attachments.added"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("attachments.addError"));
+      setMessage(withBackendReason(t("attachments.addError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4464,7 +4473,7 @@ export default function App() {
       setMessage(t("attachments.removed"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("attachments.removeError"));
+      setMessage(withBackendReason(t("attachments.removeError"), error, appLanguage));
     }
   }
 
@@ -4494,7 +4503,7 @@ export default function App() {
       setMessage(t("export.encryptedSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("export.encryptedError"));
+      setMessage(withBackendReason(t("export.encryptedError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4538,7 +4547,7 @@ export default function App() {
       setMessage(t("export.csvSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("export.csvError"));
+      setMessage(withBackendReason(t("export.csvError"), error, appLanguage));
     }
   }
 
@@ -4567,7 +4576,7 @@ export default function App() {
     } catch (error) {
       secureLogError("operação do app", error);
       setCsvImportPreview(null);
-      setMessage(t("import.csvError"));
+      setMessage(withBackendReason(t("import.csvError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4630,7 +4639,7 @@ export default function App() {
       setMessage(t("import.csvSuccess", { count: importedCredentials.length }));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("import.csvError"));
+      setMessage(withBackendReason(t("import.csvError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4647,7 +4656,7 @@ export default function App() {
       await openVaultFolder(activeVaultName);
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("folders.openVaultError"));
+      setMessage(withBackendReason(t("folders.openVaultError"), error, appLanguage));
     }
   }
 
@@ -4656,7 +4665,7 @@ export default function App() {
       await openBackupFolder(activeVaultName);
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("folders.openBackupError"));
+      setMessage(withBackendReason(t("folders.openBackupError"), error, appLanguage));
     }
   }
 
@@ -6109,7 +6118,7 @@ export default function App() {
                   <button
                     onClick={() => void openExternalUrl(detailCredential.url).catch((error) => {
                       secureLogError("operação do app", error);
-                      setMessage(t("credential.openSiteError"));
+                      setMessage(withBackendReason(t("credential.openSiteError"), error, appLanguage));
                     })}
                   >
                     {t("credential.openSite")}

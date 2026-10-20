@@ -17,6 +17,7 @@ const COMMANDS: &[&str] = &[
     "clipboard_clear_secret",
     "linux_capture_qr",
     "hide_to_tray",
+    "set_tray_labels",
     "is_startup_enabled",
     "get_startup_status",
     "set_startup_enabled",

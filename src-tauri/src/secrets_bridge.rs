@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager, State};
 use zeroize::Zeroizing;
 
-const DENIED: &str = "Secrets Bridge: acesso negado ou sessão expirada.";
+const DENIED: &str = "error.bridge.denied";
 #[cfg(target_os = "linux")]
 const MAX_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 #[derive(Clone, Serialize, Deserialize)]
@@ -251,7 +251,7 @@ fn bridge_open_blocking(app: AppHandle, vault_name: String, password: Zeroizing<
     if broker::start(&app).is_err() { close_unlocked(&app); return Err(DENIED.into()); }
     #[cfg(target_os="linux")]
     {
-        if universal::start(&app, generation).is_err() { close_unlocked(&app); return Err("A porta local 8765 não está disponível.".into()); }
+        if universal::start(&app, generation).is_err() { close_unlocked(&app); return Err("error.bridge.portBusy".into()); }
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_secs(minutes*60)).await;
@@ -294,7 +294,7 @@ pub fn bridge_prepare(executable: String, name: String, kind: Option<String>) ->
         Ok(Integration { id: bytes.iter().map(|b| format!("{b:02x}")).collect(), name: name.trim().into(), executable, sha256, kind })
     }
     #[cfg(not(target_os = "linux"))]
-    { let _ = (executable, name, kind); Err("Inicializador disponível apenas no Linux.".into()) }
+    { let _ = (executable, name, kind); Err("error.bridge.linuxOnly".into()) }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -421,7 +421,7 @@ pub fn child() -> Result<(), String> {
 pub async fn bridge_launch(app: AppHandle, state: State<'_, BridgeState>, key_id: String, integration_id: String, generation: u64) -> Result<(), String> {
     let _ = (app, state, key_id, integration_id, generation);
     // The proxy-only mode never exports a key to a consumer process.
-    Err("Entrega de chaves desativada. Use o conector de chamadas do Bridge.".into())
+    Err("error.bridge.deliveryDisabled".into())
 }
 
 #[cfg(test)]

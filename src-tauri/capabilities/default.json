@@ -23,6 +23,7 @@
     "allow-clipboard-clear-secret",
     "allow-linux-capture-qr",
     "allow-hide-to-tray",
+    "allow-set-tray-labels",
     "allow-get-startup-status",
     "allow-set-startup-enabled",
     "allow-load-vault-file",

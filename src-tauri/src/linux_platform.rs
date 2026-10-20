@@ -21,14 +21,14 @@ pub fn autostart_path() -> Result<PathBuf, String> {
     let root = std::env::var_os("XDG_CONFIG_HOME")
         .filter(|p| Path::new(p).is_absolute())
         .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".config").into_os_string()))
-        .ok_or("Não foi possível localizar a configuração XDG.")?;
+        .ok_or("error.startup.configDir")?;
     Ok(PathBuf::from(root).join("autostart/com.kpassword.app.desktop"))
 }
 
 fn desktop_entry(exe: &Path) -> Result<String, String> {
-    let raw = exe.to_str().ok_or("Caminho de executável inválido.")?;
+    let raw = exe.to_str().ok_or("error.startup.invalidExecutablePath")?;
     if !exe.is_absolute() || raw.contains(['\n', '\r', '\0']) {
-        return Err("Caminho de executável inválido.".into());
+        return Err("error.startup.invalidExecutablePath".into());
     }
     // Desktop Entry Exec quoting is not shell quoting. Escape reserved characters
     // twice where required by the general string unescape and Exec parsing.
@@ -61,7 +61,7 @@ fn exec_line(entry: &str) -> Option<String> {
 /// "Connection refused" window at login. Only installed builds call this.
 pub fn repair_startup() -> Result<bool, String> {
     let Some(current) = read_autostart_entry() else { return Ok(false) };
-    let exe = std::env::current_exe().map_err(|_| "Executável indisponível.")?;
+    let exe = std::env::current_exe().map_err(|_| "error.startup.executableUnavailable")?;
     if current == desktop_entry(&exe)? { return Ok(false); }
     set_startup(true).map(|_| true)
 }
@@ -69,21 +69,21 @@ pub fn repair_startup() -> Result<bool, String> {
 pub fn set_startup(enabled: bool) -> Result<(), String> {
     let path = autostart_path()?;
     if enabled {
-        let entry = desktop_entry(&std::env::current_exe().map_err(|_| "Executável indisponível.")?)?;
-        fs::create_dir_all(path.parent().unwrap()).map_err(|_| "Não foi possível criar autostart XDG.")?;
+        let entry = desktop_entry(&std::env::current_exe().map_err(|_| "error.startup.executableUnavailable")?)?;
+        fs::create_dir_all(path.parent().unwrap()).map_err(|_| "error.startup.createDir")?;
         // Never follow an existing symlink when replacing an autostart entry.
         let tmp = path.with_extension(format!("desktop.{}.tmp", std::process::id()));
         let mut file = fs::OpenOptions::new().write(true).create_new(true).mode(0o600)
-            .open(&tmp).map_err(|_| "Não foi possível preparar autostart XDG.")?;
+            .open(&tmp).map_err(|_| "error.startup.prepare")?;
         let result = file.write_all(entry.as_bytes()).and_then(|_| file.sync_all())
             .and_then(|_| fs::rename(&tmp, &path));
         if result.is_err() { let _ = fs::remove_file(tmp); }
-        result.map_err(|_| "Não foi possível salvar autostart XDG.".into())
+        result.map_err(|_| "error.startup.save".into())
     } else {
         match fs::remove_file(path) {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(_) => Err("Não foi possível desativar autostart XDG.".into()),
+            Err(_) => Err("error.startup.disable".into()),
         }
     }
 }
@@ -91,19 +91,19 @@ pub fn set_startup(enabled: bool) -> Result<(), String> {
 pub async fn capture_qr() -> Result<String, String> {
     let request = tokio::time::timeout(std::time::Duration::from_secs(90),
         ashpd::desktop::screenshot::Screenshot::request().interactive(true).modal(true).send())
-        .await.map_err(|_| "Tempo de captura esgotado.")?
-        .map_err(|_| "Captura indisponível ou cancelada no portal do desktop.")?;
-    let response = request.response().map_err(|_| "Captura cancelada.")?;
-    let uri = tauri::Url::parse(response.uri().as_str()).map_err(|_| "URI de captura inválida.")?;
-    let path = uri.to_file_path().map_err(|_| "Captura deve ser um arquivo local.")?;
+        .await.map_err(|_| "error.capture.timeout")?
+        .map_err(|_| "error.capture.portalCancelled")?;
+    let response = request.response().map_err(|_| "error.capture.cancelled")?;
+    let uri = tauri::Url::parse(response.uri().as_str()).map_err(|_| "error.capture.invalidUri")?;
+    let path = uri.to_file_path().map_err(|_| "error.capture.notLocal")?;
     let mut bytes = Vec::new();
-    fs::File::open(&path).map_err(|_| "Captura indisponível.")?
+    fs::File::open(&path).map_err(|_| "error.capture.unavailable")?
         .take(super::MAX_QR_IMAGE_BYTES as u64 + 1).read_to_end(&mut bytes)
-        .map_err(|_| "Captura indisponível.")?;
-    if bytes.len() > super::MAX_QR_IMAGE_BYTES { return Err("Captura excede o limite de imagem.".into()); }
+        .map_err(|_| "error.capture.unavailable")?;
+    if bytes.len() > super::MAX_QR_IMAGE_BYTES { return Err("error.qr.imageTooLarge".into()); }
     let (w, h) = super::read_qr_image_dimensions(&bytes)?;
     super::validate_qr_image_dimensions(w, h)?;
-    let image = image::load_from_memory(&bytes).map_err(|_| "Captura inválida.")?;
+    let image = image::load_from_memory(&bytes).map_err(|_| "error.capture.invalid")?;
     // The portal owns the screenshot file. Do not delete arbitrary returned paths.
     super::encode_qr_capture_as_png_data_url(&image)
 }
