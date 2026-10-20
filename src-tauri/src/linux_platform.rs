@@ -1,6 +1,5 @@
 //! Linux-only desktop integration. Windows implementations remain in lib.rs.
 use std::{fs, path::{Path, PathBuf}, io::{Read, Write}, os::unix::fs::OpenOptionsExt};
-use tauri::AppHandle;
 
 /// Called from main before GTK/WebKit or any worker starts. Keep this profile
 /// local to KPassword; never change the desktop or the user's environment files.
@@ -38,10 +37,33 @@ fn desktop_entry(exe: &Path) -> Result<String, String> {
     Ok(format!("[Desktop Entry]\nType=Application\nName=KPassword\nExec=\"{escaped}\" --startup\nIcon=kpassword\nTerminal=false\nX-GNOME-Autostart-enabled=true\n"))
 }
 
-pub fn startup_enabled() -> bool {
+fn read_autostart_entry() -> Option<String> {
     autostart_path().ok().and_then(|p| fs::read_to_string(p).ok())
-        .map(|s| s.contains("Name=KPassword\n") && !s.contains("Hidden=true"))
-        .unwrap_or(false)
+        .filter(|s| s.contains("Name=KPassword\n") && !s.contains("Hidden=true"))
+}
+
+pub fn startup_enabled() -> bool {
+    read_autostart_entry().is_some()
+}
+
+/// The Exec line the desktop session will actually run at login, which may
+/// differ from the running executable (for example a stale dev build path).
+pub fn startup_command() -> Option<String> {
+    exec_line(&read_autostart_entry()?)
+}
+
+fn exec_line(entry: &str) -> Option<String> {
+    entry.lines().find_map(|line| line.strip_prefix("Exec=").map(str::to_string))
+}
+
+/// Rewrites an enabled autostart entry so it points at the running executable.
+/// A dev build loads the Vite devUrl, so an entry saved by `tauri dev` opens a
+/// "Connection refused" window at login. Only installed builds call this.
+pub fn repair_startup() -> Result<bool, String> {
+    let Some(current) = read_autostart_entry() else { return Ok(false) };
+    let exe = std::env::current_exe().map_err(|_| "Executável indisponível.")?;
+    if current == desktop_entry(&exe)? { return Ok(false); }
+    set_startup(true).map(|_| true)
 }
 
 pub fn set_startup(enabled: bool) -> Result<(), String> {
@@ -64,31 +86,6 @@ pub fn set_startup(enabled: bool) -> Result<(), String> {
             Err(_) => Err("Não foi possível desativar autostart XDG.".into()),
         }
     }
-}
-
-pub async fn clipboard(app: AppHandle, value: Option<String>) -> Result<String, String> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    app.run_on_main_thread(move || {
-        let result = match gtk::gdk::Display::default() {
-            None => Err("Clipboard indisponível.".to_string()),
-            Some(display) => {
-                match gtk::Clipboard::default(&display) {
-                    None => Err("Clipboard indisponível.".to_string()),
-                    Some(clipboard) => if let Some(value) = value {
-                        clipboard.set_text(&value);
-                        Ok(String::new())
-                    } else {
-                        clipboard.wait_for_text().map(|s| s.to_string())
-                            .ok_or_else(|| "Clipboard não contém texto.".to_string())
-                    }
-                }
-            }
-        };
-        let _ = tx.send(result);
-    }).map_err(|_| "Clipboard indisponível.")?;
-    tokio::time::timeout(std::time::Duration::from_secs(5), rx).await
-        .map_err(|_| "Tempo de clipboard esgotado.")?
-        .map_err(|_| "Clipboard indisponível.".to_string())?
 }
 
 pub async fn capture_qr() -> Result<String, String> {
@@ -121,6 +118,13 @@ mod tests {
         assert!(s.contains("\\\\$"));
         assert!(s.contains(" --startup\n"));
         assert!(!s.contains("sh -c"));
+    }
+    #[test]
+    fn autostart_exec_line_reports_the_registered_binary() {
+        let entry = desktop_entry(Path::new("/home/u/KPassword/src-tauri/target/debug/kpassword")).unwrap();
+        assert_eq!(exec_line(&entry).as_deref(),
+            Some("\"/home/u/KPassword/src-tauri/target/debug/kpassword\" --startup"));
+        assert_ne!(entry, desktop_entry(Path::new("/usr/bin/kpassword")).unwrap());
     }
     #[test]
     fn autostart_rejects_relative_paths_and_line_injection() {

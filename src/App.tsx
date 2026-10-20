@@ -14,7 +14,7 @@ import { useAppearance } from "./useAppearance";
 import { UiIcon } from "./UiIcon";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { linuxTranslation, readClipboard, writeClipboard } from "./platform";
+import { clearSecretClipboard, linuxTranslation, writeSecretToClipboard } from "./platform";
 import { validateApiKey } from "./api-key";
 import {
   createEmptyVault,
@@ -2068,7 +2068,8 @@ export default function App() {
       setMessage((status.enabled || nextEnabled) ? t("settings.startupEnabled") : t("settings.startupDisabled"));
     } catch (error) {
       secureLogError("alterar inicialização com Windows", error);
-      setMessage(t("settings.startupError"));
+      // O backend explica quando recusa (ex.: build de desenvolvimento).
+      setMessage(typeof error === "string" && error ? error : t("settings.startupError"));
     } finally {
       setStartupBusy(false);
     }
@@ -2255,6 +2256,7 @@ export default function App() {
 
   const lockVault = useCallback((revokeBridge = true) => {
     if (revokeBridge) { void invoke("bridge_close").catch(() => {}); setBridgeGeneration(null); }
+    clearSecretClipboard();
     setBridgeAudit([]);
     teardownStrengthEngine();
     setVault(null);
@@ -4293,29 +4295,19 @@ export default function App() {
       clipboardCleanupRef.current = null;
     }
 
-    await writeClipboard(value, isLinux);
+    // O backend marca o conteúdo como sensível e limpa no prazo, só se ainda for o nosso.
+    const clearSeconds = vault?.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS;
+    await writeSecretToClipboard(value, clearSeconds);
     setCopiedField(label);
 
     if (historyEntry && vault) {
       void recordActionHistoryOnly(historyEntry.type, historyEntry.targetName);
     }
 
-    const copiedValue = value;
-
-    clipboardCleanupRef.current = window.setTimeout(async () => {
-      try {
-        const current = await readClipboard(isLinux);
-
-        if (current === copiedValue) {
-          await writeClipboard("", isLinux);
-        }
-      } catch {
-        // Sem permissão de leitura: não limpa para evitar apagar conteúdo novo do usuário.
-      } finally {
-        clipboardCleanupRef.current = null;
-        setCopiedField("");
-      }
-    }, (vault?.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS) * 1000);
+    clipboardCleanupRef.current = window.setTimeout(() => {
+      clipboardCleanupRef.current = null;
+      setCopiedField("");
+    }, clearSeconds * 1000);
   }
 
 
