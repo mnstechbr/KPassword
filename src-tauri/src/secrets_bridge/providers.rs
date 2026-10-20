@@ -50,14 +50,31 @@ fn public_ip(ip:IpAddr)->bool {
         IpAddr::V6(ip)=> { let s=ip.segments(); s[0]&0xe000==0x2000 && !(s[0]==0x2001 && (s[1]==0 || s[1]==2 || s[1]==0x10 || s[1]==0xdb8)) && !(s[0]==0x2002) },
     }
 }
+/// A client is only reusable for the exact host and validated address set it
+/// was pinned to; DNS is still resolved and checked on every call.
+type PinKey=(String,Vec<SocketAddr>);
+static CLIENTS:std::sync::Mutex<Vec<(PinKey,reqwest::blocking::Client)>>=std::sync::Mutex::new(Vec::new());
+const MAX_CLIENTS:usize=16;
 pub fn pinned_client(url:&str)->Result<reqwest::blocking::Client,String> {
     let url=checked_url(url)?;
     let host=url.host_str().ok_or("invalid_request")?;
     let addresses:Vec<SocketAddr>=(host,443).to_socket_addrs().map_err(|_| "provider_unavailable")?.take(33).collect();
     if addresses.is_empty() || addresses.len()>32 || addresses.iter().any(|a| !public_ip(a.ip())) { return Err("destination_blocked".into()); }
-    reqwest::blocking::Client::builder().https_only(true).no_proxy().redirect(reqwest::redirect::Policy::none())
+    let mut pinned=addresses.clone(); pinned.sort(); pinned.dedup();
+    let key:PinKey=(host.to_owned(),pinned);
+    if let Some(client)=CLIENTS.lock().ok().and_then(|cache| cache.iter().find(|(k,_)| *k==key).map(|(_,c)| c.clone())) { return Ok(client); }
+    let client=reqwest::blocking::Client::builder().https_only(true).no_proxy().redirect(reqwest::redirect::Policy::none())
         .resolve_to_addrs(host,&addresses).connect_timeout(std::time::Duration::from_secs(10))
-        .timeout(std::time::Duration::from_secs(120)).build().map_err(|_| "provider_unavailable".into())
+        .timeout(std::time::Duration::from_secs(120)).build().map_err(|_| "provider_unavailable")?;
+    let evicted=CLIENTS.lock().ok().and_then(|mut cache| {
+        if cache.iter().any(|(k,_)| *k==key) { return None; }
+        let evicted=(cache.len()>=MAX_CLIENTS).then(|| cache.remove(0));
+        cache.push((key,client.clone()));
+        evicted
+    });
+    // Drop an evicted client (and its runtime thread) outside the lock.
+    drop(evicted);
+    Ok(client)
 }
 #[cfg(test)] mod tests {
     use super::*;
