@@ -77,4 +77,10 @@ describe("validateNewVaultName", () => {
       expect(resultado.slug.trim()).toBe(resultado.slug);
     }
   });
+  it("rejects Windows device names that the backend refuses", () => {
+    for (const name of ["CON", "nul", "Com1", "lpt9"]) {
+      expect(validateNewVaultName(name, [])).toEqual({ ok: false, errorKey: "vault.invalidName" });
+    }
+    expect(validateNewVaultName("console", [])).toEqual({ ok: true, slug: "console" });
+  });
 });

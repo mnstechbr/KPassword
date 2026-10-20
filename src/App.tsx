@@ -1056,10 +1056,15 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
+// Decodifica localmente: a CSP não libera fetch() de URLs data:.
 async function dataUrlToImageFile(dataUrl: string, filename: string) {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  return new File([blob], filename, { type: blob.type || "image/png" });
+  const match = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(dataUrl);
+  if (!match) throw new Error("Imagem inválida.");
+  const [, mimeType, base64, payload] = match;
+  const bytes = base64
+    ? Uint8Array.from(atob(payload), (character) => character.charCodeAt(0))
+    : new TextEncoder().encode(decodeURIComponent(payload));
+  return new File([bytes], filename, { type: mimeType || "image/png" });
 }
 
 async function decodeQrFromDataUrlBestEffort(dataUrl: string) {
