@@ -11,7 +11,8 @@ retornou o mesmo commit. A pasta local continua sendo a fonte de verdade.
 Branch de implementação: `feature/fedora-native`.
 
 Antes da auditoria havia seis alterações locais, mantidas fora dos commits desta
-implementação: cinco `.diff` em `docs/archive/patch-notes/` (diferenças somente
+implementação: cinco `.diff` na antiga pasta `docs/archive/patch-notes/`, hoje
+removida e preservada só no histórico do git (diferenças somente
 de finais de linha) e `src-tauri/icons/icon.icns` (conteúdo binário diferente,
 mesmo tamanho; origem desconhecida). O ícone Windows `.ico`, os PNGs e o ícone
 RGBA da bandeja correspondem aos bytes do commit-base.
