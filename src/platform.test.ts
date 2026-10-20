@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
-import { clearSecretClipboard, linuxTranslation, writeSecretToClipboard } from "./platform";
+import { clearSecretClipboard, guessPlatform, linuxTranslation, writeSecretToClipboard } from "./platform";
 
 describe("platform clipboard", () => {
   beforeEach(() => { invoke.mockReset(); });
@@ -22,5 +22,12 @@ describe("platform clipboard", () => {
   it("keeps untranslated Windows keys outside the Linux adaptations", () => {
     expect(linuxTranslation("credential.copyPassword", "pt")).toBeUndefined();
     expect(linuxTranslation("settings.startupWithWindows", "pt")).toContain("Linux");
+    expect(linuxTranslation("settings.startupWithWindows", "es")).toBe("Iniciar con la sesión de Linux");
+    expect(linuxTranslation("settings.startupWithWindows", "tr")).toContain("Linux");
+  });
+  it("guesses the platform from the webview user agent", () => {
+    expect(guessPlatform("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Edg/120")).toBe("windows");
+    expect(guessPlatform("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15")).toBe("linux");
+    expect(guessPlatform("Mozilla/5.0 (Linux; Android 14)")).toBe("unknown");
   });
 });

@@ -13,32 +13,55 @@ use tauri_plugin_notification::NotificationExt;
 use zeroize::Zeroize;
 
 mod crypto_vault;
+mod qr;
 mod secure_clipboard;
+mod startup;
+mod storage;
+mod storage_io;
+mod tray;
 mod vault_removal;
+mod vault_session;
+mod windows_capture;
+mod windows_hello;
+#[allow(unused_imports)]
+use {qr::*, startup::*, storage::*, tray::*, windows_capture::*, windows_hello::*};
+mod secrets_bridge;
 #[cfg(test)]
 mod vault_compatibility_tests;
-mod secrets_bridge;
-#[cfg(target_os="linux")]
-use secrets_bridge::universal::HttpState as UniversalBridgeState;
-#[cfg(not(target_os="linux"))]
-#[derive(Default)]
-struct UniversalBridgeState;
 #[cfg(target_os = "linux")]
-pub fn secrets_bridge_child() -> Result<(), String> { secrets_bridge::child() }
+use secrets_bridge::universal::HttpState as UniversalBridgeState;
+// Sem ponte HTTP fora do Linux; o estado existe so para o `manage` comum.
+#[cfg(not(target_os = "linux"))]
+#[derive(Default)]
+struct UniversalBridgeState {
+    _unused: (),
+}
+#[cfg(target_os = "linux")]
+pub fn secrets_bridge_child() -> Result<(), String> {
+    secrets_bridge::child()
+}
 #[cfg(target_os = "linux")]
 mod linux_platform;
 #[cfg(target_os = "linux")]
-pub fn configure_linux_graphics() { linux_platform::configure_graphics(); }
+pub fn configure_linux_graphics() {
+    linux_platform::configure_graphics();
+}
 
 #[tauri::command]
-fn platform_name() -> &'static str { std::env::consts::OS }
+fn platform_name() -> &'static str {
+    std::env::consts::OS
+}
 
 #[tauri::command]
 async fn linux_capture_qr() -> Result<String, String> {
     #[cfg(target_os = "linux")]
-    { return linux_platform::capture_qr().await; }
+    {
+        linux_platform::capture_qr().await
+    }
     #[cfg(not(target_os = "linux"))]
-    { Err("Portal Linux indisponível.".into()) }
+    {
+        Err("error.capture.portalUnavailable".into())
+    }
 }
 use tauri::{
     image::Image,
@@ -47,10 +70,7 @@ use tauri::{
     AppHandle, Manager,
 };
 
-const BACKUP_INTERVAL_SECONDS: u64 = 4 * 60 * 60;
-const MAX_QR_IMAGE_BYTES: usize = 12 * 1024 * 1024;
-const MAX_QR_IMAGE_SIDE: u32 = 10_000;
-const MAX_QR_IMAGE_PIXELS: u64 = 25_000_000;
+const DEFAULT_BACKUP_INTERVAL_HOURS: u64 = 4;
 
 #[derive(Serialize)]
 struct BackupFile {
@@ -75,6 +95,9 @@ struct StorageInfo {
     backup_dir: String,
     backups: Vec<BackupFile>,
     vault_name: String,
+    /// Cofre salvo, mas algo secundario (ex.: backup pedido) falhou.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    warning: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -104,75 +127,6 @@ struct StartupStatus {
     value_name: String,
     command_line: String,
     startup_argument: String,
-}
-
-/// Limites de tamanho plausiveis para um registro Windows Hello v1.
-/// Serve apenas para distinguir arquivo truncado/absurdo de registro utilizavel.
-const HELLO_RECORD_MIN_BYTES: u64 = 16;
-const HELLO_RECORD_MAX_BYTES: u64 = 64 * 1024;
-
-pub const HELLO_STATE_DISABLED: &str = "disabled";
-pub const HELLO_STATE_CONFIGURED: &str = "configured";
-pub const HELLO_STATE_STALE: &str = "stale";
-pub const HELLO_STATE_INVALID: &str = "invalid";
-
-/// Classifica o estado do registro Windows Hello a partir de fatos observaveis.
-///
-/// Funcao pura, para permitir teste sem sistema de arquivos nem Windows.
-///
-/// IMPORTANTE: isto NAO prova vinculo criptografico entre o registro e o cofre.
-/// O formato v1 nao oferece essa propriedade. A classificacao apenas separa
-/// estados operacionais:
-///
-/// - `disabled`   nao ha registro;
-/// - `stale`      ha registro, mas o cofre correspondente nao existe (orfao);
-/// - `invalid`    ha registro, mas com tamanho fora do plausivel;
-/// - `configured` ha registro e ha cofre -- utilizavel, sem garantia de que abre.
-///
-/// Deliberadamente NAO inspecionamos o cabecalho interno do blob DPAPI: seu
-/// layout nao e documentado pela Microsoft, e esta fase existe justamente para
-/// deixar de depender de comportamento nao documentado.
-fn hello_record_state(vault_exists: bool, record_size: Option<u64>) -> &'static str {
-    match record_size {
-        None => HELLO_STATE_DISABLED,
-        Some(_) if !vault_exists => HELLO_STATE_STALE,
-        Some(size) if !(HELLO_RECORD_MIN_BYTES..=HELLO_RECORD_MAX_BYTES).contains(&size) => {
-            HELLO_STATE_INVALID
-        }
-        Some(_) => HELLO_STATE_CONFIGURED,
-    }
-}
-
-/// Caminhos do cofre e do registro Hello, SEM criar diretorios.
-fn vault_and_hello_paths(
-    app: &AppHandle,
-    vault_name: Option<String>,
-) -> Result<(PathBuf, PathBuf, String), String> {
-    let safe_vault_name = sanitize_vault_name(vault_name)?;
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
-
-    let vault_path = data_dir.join(vault_filename(&safe_vault_name));
-    let record_path = data_dir
-        .join("windows_hello")
-        .join(format!("{safe_vault_name}.kphello"));
-
-    Ok((vault_path, record_path, safe_vault_name))
-}
-
-/// Estado atual do registro Hello para um cofre.
-fn classify_hello_record(
-    app: &AppHandle,
-    vault_name: Option<String>,
-) -> Result<(&'static str, String), String> {
-    let (vault_path, record_path, safe_vault_name) = vault_and_hello_paths(app, vault_name)?;
-    let record_size = fs::metadata(&record_path).ok().map(|meta| meta.len());
-    Ok((
-        hello_record_state(vault_path.exists(), record_size),
-        safe_vault_name,
-    ))
 }
 
 fn now_epoch_seconds() -> u64 {
@@ -205,230 +159,32 @@ fn sanitize_vault_name(vault_name: Option<String>) -> Result<String, String> {
     }
 
     if trimmed.len() > 48 {
-        return Err("Nome do cofre muito longo.".to_string());
+        return Err("error.vault.nameTooLong".to_string());
     }
 
     if !trimmed
         .chars()
         .all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_')
     {
-        return Err("Nome de cofre inválido.".to_string());
+        return Err("error.vault.invalidName".to_string());
     }
 
+    // Nomes de dispositivo do Windows nao podem ser arquivos (CON.kpvault abre o console).
+    const RESERVED: [&str; 4] = ["con", "prn", "aux", "nul"];
+    let lower = trimmed.to_ascii_lowercase();
+    let is_port = (lower.starts_with("com") || lower.starts_with("lpt"))
+        && lower.len() == 4
+        && matches!(lower.as_bytes()[3], b'1'..=b'9');
+    if RESERVED.contains(&lower.as_str()) || is_port {
+        return Err("error.vault.reservedName".to_string());
+    }
+
+    // No Windows "Vault" e "vault" sao o mesmo arquivo, mas as pastas de backup
+    // seriam diferentes; o nome canonico e minusculo, como o frontend ja usa.
+    #[cfg(windows)]
+    return Ok(lower);
+    #[cfg(not(windows))]
     Ok(trimmed.to_string())
-}
-
-fn vault_filename(vault_name: &str) -> String {
-    if vault_name == "vault" {
-        "vault.kpvault".to_string()
-    } else {
-        format!("{vault_name}.kpvault")
-    }
-}
-
-fn storage_paths(
-    app: &AppHandle,
-    vault_name: Option<String>,
-) -> Result<(PathBuf, PathBuf, String), String> {
-    let safe_vault_name = sanitize_vault_name(vault_name)?;
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
-
-    fs::create_dir_all(&data_dir)
-        .map_err(|error| format!("Erro ao criar pasta do cofre: {error}"))?;
-
-    let backup_dir = if safe_vault_name == "vault" {
-        data_dir.join("backups")
-    } else {
-        data_dir.join("backups").join(&safe_vault_name)
-    };
-
-    fs::create_dir_all(&backup_dir)
-        .map_err(|error| format!("Erro ao criar pasta de backups: {error}"))?;
-
-    Ok((
-        data_dir.join(vault_filename(&safe_vault_name)),
-        backup_dir,
-        safe_vault_name,
-    ))
-}
-
-fn get_backups_from_dir(backup_dir: &Path) -> Result<Vec<BackupFile>, String> {
-    let mut backups = Vec::new();
-
-    if !backup_dir.exists() {
-        return Ok(backups);
-    }
-
-    let entries = fs::read_dir(backup_dir)
-        .map_err(|error| format!("Erro ao ler pasta de backups: {error}"))?;
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-
-        if path.extension().and_then(|value| value.to_str()) != Some("kpvault") {
-            continue;
-        }
-
-        if let Ok(metadata) = entry.metadata() {
-            backups.push(BackupFile {
-                filename: entry.file_name().to_string_lossy().to_string(),
-                size_bytes: metadata.len(),
-                modified_epoch_ms: metadata
-                    .modified()
-                    .map(modified_epoch_ms)
-                    .unwrap_or_default(),
-            });
-        }
-    }
-
-    backups.sort_by_key(|backup| std::cmp::Reverse(backup.modified_epoch_ms));
-
-    Ok(backups)
-}
-
-fn should_create_backup(backup_dir: &Path) -> bool {
-    let Ok(backups) = get_backups_from_dir(backup_dir) else {
-        return true;
-    };
-
-    let Some(last_backup) = backups.first() else {
-        return true;
-    };
-
-    let last_backup_seconds = (last_backup.modified_epoch_ms / 1000) as u64;
-    now_epoch_seconds().saturating_sub(last_backup_seconds) >= BACKUP_INTERVAL_SECONDS
-}
-
-fn create_labeled_backup(
-    backup_dir: &Path,
-    safe_vault_name: &str,
-    label: Option<&str>,
-    payload: &str,
-) -> Result<PathBuf, String> {
-    let backup_name = match label {
-        Some(label) => format!(
-            "{}-{}-{}.kpvault",
-            safe_vault_name,
-            label,
-            now_epoch_millis()
-        ),
-        None => format!("{}-{}.kpvault", safe_vault_name, now_epoch_millis()),
-    };
-    let backup_path = backup_dir.join(backup_name);
-
-    fs::write(&backup_path, payload.as_bytes())
-        .map_err(|error| format!("Erro ao criar backup criptografado: {error}"))?;
-
-    Ok(backup_path)
-}
-
-fn create_backup(backup_dir: &Path, safe_vault_name: &str, payload: &str) -> Result<(), String> {
-    create_labeled_backup(backup_dir, safe_vault_name, None, payload).map(|_| ())
-}
-
-/// Nucleo FAIL-CLOSED da restauracao de backup.
-///
-/// Defeito corrigido (reproduzido nas Fases 5.1 e 5.2): a copia de seguranca do
-/// cofre alvo vivia no frontend, sob `if (vault && masterPassword)`. Restaurando
-/// pela tela BLOQUEADA, `vault` e null -- a salvaguarda era pulada e o alvo era
-/// sobrescrito sem nenhuma copia. O conteudo anterior ficava irrecuperavel.
-///
-/// Aqui a copia deixa de ser best-effort e passa a ser PRE-CONDICAO da escrita,
-/// no mesmo comando: se o backup nao for criado E verificado byte a byte, nada
-/// e gravado e o arquivo original permanece intacto.
-///
-/// Preserva os BYTES CIFRADOS existentes: nunca decifra nem recifra, e por isso
-/// nao depende de senha mestra nem de cofre destravado.
-///
-/// Funcao pura sobre caminhos, para permitir teste deterministico sem AppHandle.
-///
-/// Devolve o nome do backup de seguranca criado, ou `None` quando o alvo ainda
-/// nao existia (nada a preservar).
-fn perform_safe_restore(
-    vault_path: &Path,
-    backup_dir: &Path,
-    safe_vault_name: &str,
-    payload: &str,
-) -> Result<Option<String>, String> {
-    let safety_backup = if vault_path.exists() {
-        let current = fs::read(vault_path).map_err(|error| {
-            format!("Restauracao abortada: nao foi possivel ler o cofre atual para backup: {error}")
-        })?;
-
-        let current_text = String::from_utf8(current.clone()).map_err(|_| {
-            "Restauracao abortada: o cofre atual nao e UTF-8 valido; nada foi sobrescrito."
-                .to_string()
-        })?;
-
-        let backup_path =
-            create_labeled_backup(backup_dir, safe_vault_name, Some("pre-restore"), &current_text)
-                .map_err(|error| format!("Restauracao abortada: {error}"))?;
-
-        // FAIL-CLOSED: so prossegue se o backup existir e conferir byte a byte.
-        let written = fs::read(&backup_path).map_err(|error| {
-            format!("Restauracao abortada: backup de seguranca nao pode ser lido de volta: {error}")
-        })?;
-
-        if written != current {
-            let _ = fs::remove_file(&backup_path);
-            return Err(
-                "Restauracao abortada: backup de seguranca nao confere byte a byte com o cofre atual."
-                    .to_string(),
-            );
-        }
-
-        Some(
-            backup_path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or_default()
-                .to_string(),
-        )
-    } else {
-        // Alvo inexistente: nao ha conteudo anterior a preservar.
-        None
-    };
-
-    // Escrita atomica, mesmo padrao de save_vault_file.
-    let temp_path = vault_path.with_extension("kpvault.tmp");
-
-    fs::write(&temp_path, payload.as_bytes())
-        .map_err(|error| format!("Erro ao gravar arquivo temporario do cofre: {error}"))?;
-
-    fs::rename(&temp_path, vault_path)
-        .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))?;
-
-    Ok(safety_backup)
-}
-
-/// Compara a identidade confirmada pelo usuario com a resolvida agora.
-///
-/// Guard rail contra estado obsoleto: o nome do cofre vive no `localStorage`
-/// (perfil do WebView2), separado dos arquivos. Se o cofre ativo mudar enquanto
-/// a confirmacao esta pendente, a restauracao tem de abortar em vez de gravar
-/// no cofre errado.
-fn restore_target_matches(expected: Option<&str>, resolved: &str) -> Result<(), String> {
-    match expected {
-        Some(expected) if expected != resolved => Err(format!(
-            "Restauracao abortada: o cofre alvo mudou durante a confirmacao (confirmado: {expected}, atual: {resolved}). Refaca a operacao."
-        )),
-        _ => Ok(()),
-    }
-}
-
-fn build_storage_info(app: &AppHandle, vault_name: Option<String>) -> Result<StorageInfo, String> {
-    let (vault_path, backup_dir, safe_vault_name) = storage_paths(app, vault_name)?;
-    let backups = get_backups_from_dir(&backup_dir)?;
-
-    Ok(StorageInfo {
-        vault_path: vault_path.to_string_lossy().to_string(),
-        backup_dir: backup_dir.to_string_lossy().to_string(),
-        backups,
-        vault_name: safe_vault_name,
-    })
 }
 
 fn show_main_window(app: &AppHandle) {
@@ -440,15 +196,14 @@ fn show_main_window(app: &AppHandle) {
 }
 
 fn open_folder(path: PathBuf) -> Result<(), String> {
-    fs::create_dir_all(&path)
-        .map_err(|error| format!("Erro ao preparar pasta para abrir: {error}"))?;
+    fs::create_dir_all(&path).map_err(|error| format!("error.platform.prepareFolder: {error}"))?;
 
     #[cfg(target_os = "windows")]
     {
         Command::new("explorer")
             .arg(path)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir pasta no Explorer: {error}"))?;
+            .map_err(|error| format!("error.platform.openFolder: {error}"))?;
         return Ok(());
     }
 
@@ -457,7 +212,7 @@ fn open_folder(path: PathBuf) -> Result<(), String> {
         Command::new("open")
             .arg(path)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir pasta no Finder: {error}"))?;
+            .map_err(|error| format!("error.platform.openFolder: {error}"))?;
         return Ok(());
     }
 
@@ -466,12 +221,12 @@ fn open_folder(path: PathBuf) -> Result<(), String> {
         Command::new("xdg-open")
             .arg(path)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir pasta: {error}"))?;
+            .map_err(|error| format!("error.platform.openFolder: {error}"))?;
         return Ok(());
     }
 
     #[allow(unreachable_code)]
-    Err("Abrir pasta não é suportado nesta plataforma.".to_string())
+    Err("error.platform.openFolderUnsupported".to_string())
 }
 
 fn is_safe_external_url(url: &str) -> bool {
@@ -493,7 +248,7 @@ fn open_external_url(url: String) -> Result<(), String> {
             .arg("url.dll,FileProtocolHandler")
             .arg(trimmed)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir site no navegador: {error}"))?;
+            .map_err(|error| format!("error.platform.openUrl: {error}"))?;
         return Ok(());
     }
 
@@ -502,7 +257,7 @@ fn open_external_url(url: String) -> Result<(), String> {
         Command::new("open")
             .arg(trimmed)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir site no navegador: {error}"))?;
+            .map_err(|error| format!("error.platform.openUrl: {error}"))?;
         return Ok(());
     }
 
@@ -511,1988 +266,22 @@ fn open_external_url(url: String) -> Result<(), String> {
         Command::new("xdg-open")
             .arg(trimmed)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir site no navegador: {error}"))?;
+            .map_err(|error| format!("error.platform.openUrl: {error}"))?;
         return Ok(());
     }
 
     #[allow(unreachable_code)]
-    Err("Abrir site não é suportado nesta plataforma.".to_string())
+    Err("error.platform.openUrlUnsupported".to_string())
 }
 
-#[tauri::command]
-fn open_vault_folder(app: AppHandle, vault_name: Option<String>) -> Result<(), String> {
-    let (vault_path, _, _) = storage_paths(&app, vault_name)?;
-    let folder = vault_path
-        .parent()
-        .ok_or_else(|| "Erro ao localizar pasta do cofre.".to_string())?
-        .to_path_buf();
-
-    open_folder(folder)
-}
-
-#[tauri::command]
-fn open_backup_folder(app: AppHandle, vault_name: Option<String>) -> Result<(), String> {
-    let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
-    open_folder(backup_dir)
-}
-
-#[tauri::command]
-fn load_vault_file(app: AppHandle, vault_name: Option<String>) -> Result<Option<String>, String> {
-    let (vault_path, _, _) = storage_paths(&app, vault_name)?;
-
-    if !vault_path.exists() {
-        return Ok(None);
-    }
-
-    fs::read_to_string(vault_path)
-        .map(Some)
-        .map_err(|error| format!("Erro ao carregar o cofre local criptografado: {error}"))
-}
-
-#[tauri::command]
-fn save_vault_file(
-    app: AppHandle,
-    payload: String,
-    vault_name: Option<String>,
-    force_backup: Option<bool>,
-    history_password: Option<String>,
-) -> Result<StorageInfo, String> {
-    let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
-    let temp_path = vault_path.with_extension("kpvault.tmp");
-    secrets_bridge::save_with_history_check(&app, &safe_vault_name, &payload, history_password, || {
-        fs::write(&temp_path, payload.as_bytes())
-            .map_err(|error| format!("Erro ao gravar arquivo temporário do cofre: {error}"))?;
-        fs::rename(&temp_path, &vault_path)
-            .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))
-    })?;
-
-    let force_backup_requested = force_backup.unwrap_or(false);
-
-    if force_backup_requested || should_create_backup(&backup_dir) {
-        if let Err(error) = create_backup(&backup_dir, &safe_vault_name, &payload) {
-            if force_backup_requested {
-                return Err(format!(
-                    "Cofre salvo, mas não foi possível criar o backup solicitado: {error}"
-                ));
-            }
-
-            eprintln!("Aviso: cofre salvo, mas backup automático falhou.");
-        }
-    }
-
-    build_storage_info(&app, Some(safe_vault_name))
-}
-
-/// Restaura um backup sobre um cofre, criando a copia de seguranca do conteudo
-/// atual ANTES de sobrescrever -- numa unica operacao de backend.
-///
-/// Substitui a coordenacao de duas operacoes destrutivas separadas no frontend,
-/// que era onde o defeito HIGH vivia. Nao decifra nada e nao exige senha, entao
-/// funciona igualmente na tela bloqueada e com o cofre destravado.
-#[tauri::command]
-fn restore_vault_file(
-    app: AppHandle,
-    payload: String,
-    vault_name: Option<String>,
-    expected_vault_name: Option<String>,
-) -> Result<RestoreOutcome, String> {
-    secrets_bridge::close(&app);
-    let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
-
-    // Identidade estavel: o alvo resolvido tem de ser o que o usuario confirmou.
-    let expected = match expected_vault_name {
-        Some(name) => Some(sanitize_vault_name(Some(name))?),
-        None => None,
-    };
-    restore_target_matches(expected.as_deref(), &safe_vault_name)?;
-
-    let safety_backup = perform_safe_restore(&vault_path, &backup_dir, &safe_vault_name, &payload)?;
-
-    Ok(RestoreOutcome {
-        storage: build_storage_info(&app, Some(safe_vault_name))?,
-        safety_backup,
-    })
-}
-
-#[tauri::command]
-fn get_storage_info(app: AppHandle, vault_name: Option<String>) -> Result<StorageInfo, String> {
-    build_storage_info(&app, vault_name)
-}
-
-#[tauri::command]
-fn delete_vault_file(app: AppHandle, vault_name: String, expected_vault_name: String, master_password: String) -> Result<String, String> {
-    let password = zeroize::Zeroizing::new(master_password);
-    let (path, backups, safe_name) = storage_paths(&app, Some(vault_name))?;
-    if safe_name != sanitize_vault_name(Some(expected_vault_name))? {
-        return Err("Cofre selecionado mudou; exclusão cancelada.".into());
-    }
-    let (_, hello, _) = vault_and_hello_paths(&app, Some(safe_name))?;
-    secrets_bridge::close(&app);
-    vault_removal::remove(&path, &hello, &backups, &password)
-}
-
-#[tauri::command]
-fn list_vault_files(app: AppHandle) -> Result<Vec<VaultFileInfo>, String> {
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
-
-    fs::create_dir_all(&data_dir)
-        .map_err(|error| format!("Erro ao criar pasta do cofre: {error}"))?;
-
-    let mut vaults = Vec::new();
-    let entries = fs::read_dir(&data_dir)
-        .map_err(|error| format!("Erro ao listar cofres locais: {error}"))?;
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-
-        if path.extension().and_then(|value| value.to_str()) != Some("kpvault") {
-            continue;
-        }
-
-        let filename = entry.file_name().to_string_lossy().to_string();
-        let name = filename.trim_end_matches(".kpvault").to_string();
-        let safe_name = if name == "vault" {
-            "vault".to_string()
-        } else {
-            name
-        };
-
-        if let Ok(metadata) = entry.metadata() {
-            vaults.push(VaultFileInfo {
-                display_name: if safe_name == "vault" {
-                    "Principal".to_string()
-                } else {
-                    safe_name.replace(['_', '-'], " ")
-                },
-                filename,
-                name: safe_name.clone(),
-                size_bytes: metadata.len(),
-                modified_epoch_ms: metadata
-                    .modified()
-                    .map(modified_epoch_ms)
-                    .unwrap_or_default(),
-                is_default: safe_name == "vault",
-            });
-        }
-    }
-
-    vaults.sort_by(|a, b| {
-        b.is_default
-            .cmp(&a.is_default)
-            .then_with(|| b.modified_epoch_ms.cmp(&a.modified_epoch_ms))
-    });
-
-    Ok(vaults)
-}
-
-#[tauri::command]
-fn list_backup_files(
-    app: AppHandle,
-    vault_name: Option<String>,
-) -> Result<Vec<BackupFile>, String> {
-    let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
-    get_backups_from_dir(&backup_dir)
-}
-
-#[tauri::command]
-fn read_backup_file(
-    app: AppHandle,
-    filename: String,
-    vault_name: Option<String>,
-) -> Result<String, String> {
-    if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
-        return Err("Nome de backup inválido.".to_string());
-    }
-
-    let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
-    let backup_path = backup_dir.join(filename);
-
-    fs::read_to_string(backup_path)
-        .map_err(|error| format!("Erro ao ler backup criptografado: {error}"))
-}
-
-#[tauri::command]
-fn create_pre_argon2_backup(
-    app: AppHandle,
-    payload: String,
-    vault_name: Option<String>,
-) -> Result<StorageInfo, String> {
-    let (_, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
-    create_labeled_backup(&backup_dir, &safe_vault_name, Some("pre-argon2"), &payload)?;
-    build_storage_info(&app, Some(safe_vault_name))
-}
-
-#[tauri::command]
-fn encrypt_vault_argon2id(
-    plain_vault_json: String,
-    mut master_password: String,
-    created_at: Option<String>,
-) -> Result<serde_json::Value, String> {
-    let result = crypto_vault::encrypt_vault_v2_default(
-        &plain_vault_json,
-        &master_password,
-        created_at.as_deref(),
-    )
-    .and_then(|encrypted| {
-        serde_json::to_value(encrypted)
-            .map_err(|_| "Erro ao preparar cofre criptografado.".to_string())
-    });
-
-    master_password.zeroize();
-    result
-}
-
-#[tauri::command]
-fn decrypt_vault_payload(
-    file: serde_json::Value,
-    mut master_password: String,
-) -> Result<String, String> {
-    let result = crypto_vault::decrypt_vault_file(&file, &master_password);
-    master_password.zeroize();
-    result
-}
-
-#[tauri::command]
-fn verify_backup_payload(
-    raw: String,
-    mut master_password: String,
-) -> crypto_vault::BackupVerificationReport {
-    let result = crypto_vault::verify_backup_payload(&raw, &master_password);
-    master_password.zeroize();
-    result
-}
-#[cfg(windows)]
-mod windows_hello_native {
-    use super::{sanitize_vault_name, WindowsHelloStatus};
-    use std::ffi::c_void;
-    use std::{fs, path::PathBuf, ptr};
-    use tauri::{AppHandle, Manager};
-    use windows::core::HSTRING;
-    use windows::Security::Credentials::UI::{
-        UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
-    };
-    use zeroize::Zeroize;
-
-    #[repr(C)]
-    #[allow(non_snake_case)]
-    struct DATA_BLOB {
-        cbData: u32,
-        pbData: *mut u8,
-    }
-
-    const CRYPTPROTECT_UI_FORBIDDEN: u32 = 0x1;
-
-    #[link(name = "Crypt32")]
-    extern "system" {
-        fn CryptProtectData(
-            p_data_in: *const DATA_BLOB,
-            sz_data_descr: *const u16,
-            p_optional_entropy: *const DATA_BLOB,
-            pv_reserved: *mut c_void,
-            p_prompt_struct: *mut c_void,
-            dw_flags: u32,
-            p_data_out: *mut DATA_BLOB,
-        ) -> i32;
-
-        fn CryptUnprotectData(
-            p_data_in: *const DATA_BLOB,
-            ppsz_data_descr: *mut *mut u16,
-            p_optional_entropy: *const DATA_BLOB,
-            pv_reserved: *mut c_void,
-            p_prompt_struct: *mut c_void,
-            dw_flags: u32,
-            p_data_out: *mut DATA_BLOB,
-        ) -> i32;
-    }
-
-    #[link(name = "Kernel32")]
-    extern "system" {
-        fn LocalFree(h_mem: *mut c_void) -> *mut c_void;
-    }
-
-    type Hwnd = isize;
-
-    const SW_RESTORE: i32 = 9;
-    const SWP_NOSIZE: u32 = 0x0001;
-    const SWP_NOMOVE: u32 = 0x0002;
-    const SWP_SHOWWINDOW: u32 = 0x0040;
-    const HWND_TOPMOST: Hwnd = -1isize;
-    const HWND_NOTOPMOST: Hwnd = -2isize;
-    const ASFW_ANY: u32 = u32::MAX;
-
-    #[repr(C)]
-    struct WindowSearchState {
-        process_id: u32,
-        hwnd: Hwnd,
-    }
-
-    #[link(name = "User32")]
-    extern "system" {
-        fn EnumWindows(
-            callback: Option<unsafe extern "system" fn(Hwnd, isize) -> i32>,
-            l_param: isize,
-        ) -> i32;
-        fn GetWindowThreadProcessId(hwnd: Hwnd, process_id: *mut u32) -> u32;
-        fn IsWindowVisible(hwnd: Hwnd) -> i32;
-        fn GetWindowTextLengthW(hwnd: Hwnd) -> i32;
-        fn GetWindowTextW(hwnd: Hwnd, lp_string: *mut u16, n_max_count: i32) -> i32;
-        fn ShowWindow(hwnd: Hwnd, n_cmd_show: i32) -> i32;
-        fn SetForegroundWindow(hwnd: Hwnd) -> i32;
-        fn BringWindowToTop(hwnd: Hwnd) -> i32;
-        fn SetActiveWindow(hwnd: Hwnd) -> Hwnd;
-        fn SetFocus(hwnd: Hwnd) -> Hwnd;
-        fn SetWindowPos(
-            hwnd: Hwnd,
-            hwnd_insert_after: Hwnd,
-            x: i32,
-            y: i32,
-            cx: i32,
-            cy: i32,
-            flags: u32,
-        ) -> i32;
-        fn GetForegroundWindow() -> Hwnd;
-        fn AttachThreadInput(id_attach: u32, id_attach_to: u32, attach: i32) -> i32;
-        fn AllowSetForegroundWindow(process_id: u32) -> i32;
-    }
-
-    #[link(name = "Kernel32")]
-    extern "system" {
-        fn GetCurrentProcessId() -> u32;
-        fn GetCurrentThreadId() -> u32;
-    }
-
-    unsafe extern "system" fn enum_kpassword_windows(hwnd: Hwnd, l_param: isize) -> i32 {
-        if hwnd == 0 || IsWindowVisible(hwnd) == 0 {
-            return 1;
-        }
-
-        let state = &mut *(l_param as *mut WindowSearchState);
-        let mut process_id = 0u32;
-        let _ = GetWindowThreadProcessId(hwnd, &mut process_id as *mut u32);
-
-        if process_id != state.process_id {
-            return 1;
-        }
-
-        let title_len = GetWindowTextLengthW(hwnd);
-        if title_len <= 0 {
-            return 1;
-        }
-
-        let mut title_buffer = vec![0u16; (title_len as usize) + 1];
-        let copied = GetWindowTextW(hwnd, title_buffer.as_mut_ptr(), title_buffer.len() as i32);
-        if copied <= 0 {
-            return 1;
-        }
-
-        let title = String::from_utf16_lossy(&title_buffer[..copied as usize]);
-        if title.contains("KPassword") {
-            state.hwnd = hwnd;
-            return 0;
-        }
-
-        1
-    }
-
-    fn find_kpassword_hwnd() -> Option<Hwnd> {
-        let mut state = WindowSearchState {
-            process_id: unsafe { GetCurrentProcessId() },
-            hwnd: 0,
-        };
-
-        unsafe {
-            let _ = EnumWindows(
-                Some(enum_kpassword_windows),
-                &mut state as *mut WindowSearchState as isize,
-            );
-        }
-
-        if state.hwnd == 0 {
-            None
-        } else {
-            Some(state.hwnd)
-        }
-    }
-
-    fn force_windows_hello_foreground() {
-        let Some(hwnd) = find_kpassword_hwnd() else {
-            return;
-        };
-
-        unsafe {
-            let _ = AllowSetForegroundWindow(ASFW_ANY);
-            let _ = ShowWindow(hwnd, SW_RESTORE);
-
-            let foreground_hwnd = GetForegroundWindow();
-            let current_thread = GetCurrentThreadId();
-            let mut attached = false;
-
-            if foreground_hwnd != 0 {
-                let foreground_thread =
-                    GetWindowThreadProcessId(foreground_hwnd, std::ptr::null_mut());
-                if foreground_thread != 0 && foreground_thread != current_thread {
-                    attached = AttachThreadInput(current_thread, foreground_thread, 1) != 0;
-                }
-            }
-
-            let flags = SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW;
-            let _ = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags);
-            let _ = BringWindowToTop(hwnd);
-            let _ = SetActiveWindow(hwnd);
-            let _ = SetFocus(hwnd);
-            let _ = SetForegroundWindow(hwnd);
-            std::thread::sleep(std::time::Duration::from_millis(180));
-
-            let _ = SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
-            let _ = BringWindowToTop(hwnd);
-            let _ = SetActiveWindow(hwnd);
-            let _ = SetFocus(hwnd);
-            let _ = SetForegroundWindow(hwnd);
-
-            if attached && foreground_hwnd != 0 {
-                let foreground_thread =
-                    GetWindowThreadProcessId(foreground_hwnd, std::ptr::null_mut());
-                let _ = AttachThreadInput(current_thread, foreground_thread, 0);
-            }
-
-            std::thread::sleep(std::time::Duration::from_millis(120));
-        }
-    }
-
-    fn hello_dir(app: &AppHandle) -> Result<PathBuf, String> {
-        let data_dir = app
-            .path()
-            .app_data_dir()
-            .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
-        let dir = data_dir.join("windows_hello");
-        fs::create_dir_all(&dir)
-            .map_err(|error| format!("Erro ao criar pasta do Windows Hello: {error}"))?;
-        Ok(dir)
-    }
-
-    fn token_path(
-        app: &AppHandle,
-        vault_name: Option<String>,
-    ) -> Result<(PathBuf, String), String> {
-        let safe_vault_name = sanitize_vault_name(vault_name)?;
-        let file_name = format!("{safe_vault_name}.kphello");
-        Ok((hello_dir(app)?.join(file_name), safe_vault_name))
-    }
-
-    fn entropy(vault_name: &str) -> Vec<u8> {
-        format!("KPassword.WindowsHello.{vault_name}.v1").into_bytes()
-    }
-
-    fn availability_reason(availability: UserConsentVerifierAvailability) -> String {
-        match availability {
-            UserConsentVerifierAvailability::Available => "available".to_string(),
-            UserConsentVerifierAvailability::DeviceNotPresent => "device_not_present".to_string(),
-            UserConsentVerifierAvailability::NotConfiguredForUser => {
-                "not_configured_for_user".to_string()
-            }
-            UserConsentVerifierAvailability::DisabledByPolicy => "disabled_by_policy".to_string(),
-            UserConsentVerifierAvailability::DeviceBusy => "device_busy".to_string(),
-            _ => "unavailable".to_string(),
-        }
-    }
-
-    fn verification_reason(result: UserConsentVerificationResult) -> String {
-        match result {
-            UserConsentVerificationResult::Verified => "verified".to_string(),
-            UserConsentVerificationResult::DeviceNotPresent => "device_not_present".to_string(),
-            UserConsentVerificationResult::NotConfiguredForUser => {
-                "not_configured_for_user".to_string()
-            }
-            UserConsentVerificationResult::DisabledByPolicy => "disabled_by_policy".to_string(),
-            UserConsentVerificationResult::DeviceBusy => "device_busy".to_string(),
-            UserConsentVerificationResult::RetriesExhausted => "retries_exhausted".to_string(),
-            UserConsentVerificationResult::Canceled => "canceled".to_string(),
-            _ => "failed".to_string(),
-        }
-    }
-
-    fn check_availability() -> Result<UserConsentVerifierAvailability, String> {
-        UserConsentVerifier::CheckAvailabilityAsync()
-            .map_err(|error| format!("Erro ao consultar Windows Hello: {error}"))?
-            .get()
-            .map_err(|error| format!("Erro ao consultar Windows Hello: {error}"))
-    }
-
-    fn verify_user(reason: &str) -> Result<(), String> {
-        force_windows_hello_foreground();
-
-        let availability = check_availability()?;
-
-        if availability != UserConsentVerifierAvailability::Available {
-            return Err(format!(
-                "Windows Hello indisponível: {}",
-                availability_reason(availability)
-            ));
-        }
-
-        let result = UserConsentVerifier::RequestVerificationAsync(&HSTRING::from(reason))
-            .map_err(|error| format!("Erro ao abrir Windows Hello: {error}"))?
-            .get()
-            .map_err(|error| format!("Erro ao validar Windows Hello: {error}"))?;
-
-        if result != UserConsentVerificationResult::Verified {
-            return Err(format!(
-                "Windows Hello não validado: {}",
-                verification_reason(result)
-            ));
-        }
-
-        Ok(())
-    }
-
-    fn protect_secret(secret: &str, vault_name: &str) -> Result<Vec<u8>, String> {
-        let mut secret_bytes = secret.as_bytes().to_vec();
-        let mut entropy_bytes = entropy(vault_name);
-
-        let input = DATA_BLOB {
-            cbData: secret_bytes.len() as u32,
-            pbData: secret_bytes.as_mut_ptr(),
-        };
-
-        let optional_entropy = DATA_BLOB {
-            cbData: entropy_bytes.len() as u32,
-            pbData: entropy_bytes.as_mut_ptr(),
-        };
-
-        let mut output = DATA_BLOB {
-            cbData: 0,
-            pbData: ptr::null_mut(),
-        };
-
-        let ok = unsafe {
-            CryptProtectData(
-                &input,
-                ptr::null(),
-                &optional_entropy,
-                ptr::null_mut(),
-                ptr::null_mut(),
-                CRYPTPROTECT_UI_FORBIDDEN,
-                &mut output,
-            )
-        };
-
-        if ok == 0 {
-            secret_bytes.zeroize();
-            entropy_bytes.zeroize();
-            return Err("Erro ao proteger segredo com DPAPI.".to_string());
-        }
-
-        let protected =
-            unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec() };
-
-        unsafe {
-            let _ = LocalFree(output.pbData as _);
-        }
-
-        secret_bytes.zeroize();
-        entropy_bytes.zeroize();
-        Ok(protected)
-    }
-
-    fn unprotect_secret(protected: &[u8], vault_name: &str) -> Result<String, String> {
-        let mut protected_bytes = protected.to_vec();
-        let mut entropy_bytes = entropy(vault_name);
-
-        let input = DATA_BLOB {
-            cbData: protected_bytes.len() as u32,
-            pbData: protected_bytes.as_mut_ptr(),
-        };
-
-        let optional_entropy = DATA_BLOB {
-            cbData: entropy_bytes.len() as u32,
-            pbData: entropy_bytes.as_mut_ptr(),
-        };
-
-        let mut output = DATA_BLOB {
-            cbData: 0,
-            pbData: ptr::null_mut(),
-        };
-
-        let ok = unsafe {
-            CryptUnprotectData(
-                &input,
-                ptr::null_mut(),
-                &optional_entropy,
-                ptr::null_mut(),
-                ptr::null_mut(),
-                CRYPTPROTECT_UI_FORBIDDEN,
-                &mut output,
-            )
-        };
-
-        if ok == 0 {
-            protected_bytes.zeroize();
-            entropy_bytes.zeroize();
-            return Err("Erro ao desbloquear segredo protegido pelo dispositivo.".to_string());
-        }
-
-        let unprotected =
-            unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize).to_vec() };
-
-        unsafe {
-            let _ = LocalFree(output.pbData as _);
-        }
-
-        protected_bytes.zeroize();
-        entropy_bytes.zeroize();
-
-        match String::from_utf8(unprotected) {
-            Ok(secret) => Ok(secret),
-            Err(error) => {
-                let mut bytes = error.into_bytes();
-                bytes.zeroize();
-                Err("Segredo local inválido.".to_string())
-            }
-        }
-    }
-
-    pub fn status(
-        app: AppHandle,
-        vault_name: Option<String>,
-    ) -> Result<WindowsHelloStatus, String> {
-        let (state, safe_vault_name) = super::classify_hello_record(&app, vault_name)?;
-        let availability = check_availability();
-
-        let (available, reason) = match availability {
-            Ok(value) => (
-                value == UserConsentVerifierAvailability::Available,
-                availability_reason(value),
-            ),
-            Err(error) => (false, error),
-        };
-
-        Ok(WindowsHelloStatus {
-            available,
-            // `enabled` deixa de significar "o arquivo existe" e passa a
-            // significar "ha registro utilizavel para um cofre existente".
-            enabled: state == super::HELLO_STATE_CONFIGURED,
-            state: state.to_string(),
-            reason,
-            vault_name: safe_vault_name,
-        })
-    }
-
-    pub fn enable(
-        app: AppHandle,
-        vault_name: Option<String>,
-        mut master_password: String,
-        reason: String,
-    ) -> Result<WindowsHelloStatus, String> {
-        if master_password.is_empty() {
-            return Err("Senha mestra indisponível.".to_string());
-        }
-
-        let (path, safe_vault_name) = match token_path(&app, vault_name.clone()) {
-            Ok(value) => value,
-            Err(error) => {
-                master_password.zeroize();
-                return Err(error);
-            }
-        };
-
-        if let Err(error) = verify_user(&reason) {
-            master_password.zeroize();
-            return Err(error);
-        }
-
-        let protected = match protect_secret(&master_password, &safe_vault_name) {
-            Ok(value) => value,
-            Err(error) => {
-                master_password.zeroize();
-                return Err(error);
-            }
-        };
-        master_password.zeroize();
-        fs::write(path, protected).map_err(|error| {
-            format!("Erro ao salvar credencial local do Windows Hello: {error}")
-        })?;
-
-        status(app, vault_name)
-    }
-
-    pub fn disable(
-        app: AppHandle,
-        vault_name: Option<String>,
-    ) -> Result<WindowsHelloStatus, String> {
-        let (path, _) = token_path(&app, vault_name.clone())?;
-
-        if path.exists() {
-            fs::remove_file(path)
-                .map_err(|error| format!("Erro ao remover Windows Hello deste cofre: {error}"))?;
-        }
-
-        status(app, vault_name)
-    }
-
-    pub fn unlock(
-        app: AppHandle,
-        vault_name: Option<String>,
-        reason: String,
-    ) -> Result<String, String> {
-        let (path, safe_vault_name) = token_path(&app, vault_name)?;
-
-        if !path.exists() {
-            return Err("Windows Hello não está ativado para este cofre.".to_string());
-        }
-
-        verify_user(&reason)?;
-
-        let protected = fs::read(path)
-            .map_err(|error| format!("Erro ao ler credencial local do Windows Hello: {error}"))?;
-
-        unprotect_secret(&protected, &safe_vault_name)
-    }
-}
-
-#[cfg(windows)]
-async fn run_windows_hello_task<T, F>(operation: &'static str, task: F) -> Result<T, String>
-where
-    T: Send + 'static,
-    F: FnOnce() -> Result<T, String> + Send + 'static,
-{
-    tauri::async_runtime::spawn_blocking(task)
+/// Roda trabalho pesado (Argon2, disco, QR) fora da thread principal, para a
+/// janela continuar respondendo.
+async fn run_blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
         .await
-        .map_err(|error| format!("Falha ao executar Windows Hello ({operation}): {error}"))?
-}
-
-#[tauri::command]
-async fn windows_hello_status(
-    app: AppHandle,
-    vault_name: Option<String>,
-) -> Result<WindowsHelloStatus, String> {
-    #[cfg(windows)]
-    {
-        run_windows_hello_task("status", move || {
-            windows_hello_native::status(app, vault_name)
-        })
-        .await
-    }
-
-    #[cfg(not(windows))]
-    {
-        let _ = app;
-        let safe_vault_name = sanitize_vault_name(vault_name)?;
-        Ok(WindowsHelloStatus {
-            available: false,
-            enabled: false,
-            state: HELLO_STATE_DISABLED.to_string(),
-            reason: "not_windows".to_string(),
-            vault_name: safe_vault_name,
-        })
-    }
-}
-
-/// Remove um registro Hello ORFAO (estado `stale`): existe o `.kphello`, mas nao
-/// existe o `.kpvault` correspondente.
-///
-/// Recusa-se a agir em qualquer outro estado -- em particular, nunca remove o
-/// registro de um cofre existente. Devolve `true` quando removeu algo.
-#[tauri::command]
-fn discard_orphan_windows_hello(
-    app: AppHandle,
-    vault_name: Option<String>,
-) -> Result<bool, String> {
-    let (state, _) = classify_hello_record(&app, vault_name.clone())?;
-
-    if state != HELLO_STATE_STALE {
-        return Ok(false);
-    }
-
-    let (_, record_path, _) = vault_and_hello_paths(&app, vault_name)?;
-    fs::remove_file(&record_path)
-        .map_err(|error| format!("Erro ao remover registro Windows Hello orfao: {error}"))?;
-    Ok(true)
-}
-
-/// Coloca o registro Hello em quarentena, renomeando-o em vez de apagar.
-///
-/// Usado quando o segredo recuperado nao abre o cofre atual. Preserva o arquivo
-/// para diagnostico e evita que a interface continue oferecendo um Hello que
-/// comprovadamente nao funciona.
-#[tauri::command]
-fn quarantine_windows_hello(app: AppHandle, vault_name: Option<String>) -> Result<bool, String> {
-    let (_, record_path, _) = vault_and_hello_paths(&app, vault_name)?;
-
-    if !record_path.exists() {
-        return Ok(false);
-    }
-
-    let quarantined = record_path.with_extension(format!("kphello.invalid-{}", now_epoch_millis()));
-    fs::rename(&record_path, &quarantined)
-        .map_err(|error| format!("Erro ao isolar registro Windows Hello invalido: {error}"))?;
-    Ok(true)
-}
-
-#[tauri::command]
-async fn enable_windows_hello(
-    app: AppHandle,
-    vault_name: Option<String>,
-    master_password: String,
-    reason: String,
-) -> Result<WindowsHelloStatus, String> {
-    #[cfg(windows)]
-    {
-        show_main_window(&app);
-        run_windows_hello_task("enable", move || {
-            windows_hello_native::enable(app, vault_name, master_password, reason)
-        })
-        .await
-    }
-
-    #[cfg(not(windows))]
-    {
-        let _ = app;
-        let safe_vault_name = sanitize_vault_name(vault_name)?;
-        let _ = master_password;
-        let _ = reason;
-        Ok(WindowsHelloStatus {
-            available: false,
-            enabled: false,
-            state: HELLO_STATE_DISABLED.to_string(),
-            reason: "not_windows".to_string(),
-            vault_name: safe_vault_name,
-        })
-    }
-}
-
-#[tauri::command]
-async fn disable_windows_hello(
-    app: AppHandle,
-    vault_name: Option<String>,
-) -> Result<WindowsHelloStatus, String> {
-    #[cfg(windows)]
-    {
-        run_windows_hello_task("disable", move || {
-            windows_hello_native::disable(app, vault_name)
-        })
-        .await
-    }
-
-    #[cfg(not(windows))]
-    {
-        let _ = app;
-        let safe_vault_name = sanitize_vault_name(vault_name)?;
-        Ok(WindowsHelloStatus {
-            available: false,
-            enabled: false,
-            state: HELLO_STATE_DISABLED.to_string(),
-            reason: "not_windows".to_string(),
-            vault_name: safe_vault_name,
-        })
-    }
-}
-
-#[tauri::command]
-async fn unlock_with_windows_hello(
-    app: AppHandle,
-    vault_name: Option<String>,
-    reason: String,
-) -> Result<String, String> {
-    #[cfg(windows)]
-    {
-        show_main_window(&app);
-        run_windows_hello_task("unlock", move || {
-            windows_hello_native::unlock(app, vault_name, reason)
-        })
-        .await
-    }
-
-    #[cfg(not(windows))]
-    {
-        let _ = app;
-        let _ = vault_name;
-        let _ = reason;
-        Err("Windows Hello disponível apenas no Windows.".to_string())
-    }
-}
-
-#[cfg(test)]
-mod storage_tests {
-    /// Regressao do defeito HIGH das Fases 5.1/5.2.
-    ///
-    /// Antes do fix a salvaguarda vivia no frontend, sob `vault && masterPassword`.
-    /// Restaurando pela tela bloqueada, `vault` era null: o cofre alvo era
-    /// sobrescrito sem copia e o conteudo anterior se perdia.
-    ///
-    /// `perform_safe_restore` nao recebe senha nem estado de sessao, entao os
-    /// casos destravado e bloqueado percorrem a mesma chamada -- e esse e o ponto.
-    fn restore_dirs(tag: &str) -> (PathBuf, PathBuf) {
-        let base = std::env::temp_dir().join(format!(
-            "kpassword-restore-test-{}-{}",
-            tag,
-            now_epoch_millis()
-        ));
-        let backup_dir = base.join("backups");
-        fs::create_dir_all(&backup_dir).unwrap();
-        (base.join("beta.kpvault"), backup_dir)
-    }
-
-    fn backups_em(dir: &Path) -> Vec<String> {
-        let mut v: Vec<String> = fs::read_dir(dir)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .map(|e| e.file_name().to_string_lossy().to_string())
-            .collect();
-        v.sort();
-        v
-    }
-
-    #[test]
-    fn a_restore_com_cofre_destravado_cria_backup_e_grava() {
-        let (vault_path, backup_dir) = restore_dirs("a-unlocked");
-        fs::write(&vault_path, "CONTEUDO-BETA-ANTIGO").unwrap();
-
-        let criado = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1").unwrap();
-
-        assert!(criado.is_some(), "deveria criar backup de seguranca");
-        assert_eq!(fs::read_to_string(&vault_path).unwrap(), "CONTEUDO-A1");
-        let backups = backups_em(&backup_dir);
-        assert_eq!(backups.len(), 1);
-        assert_eq!(
-            fs::read_to_string(backup_dir.join(&backups[0])).unwrap(),
-            "CONTEUDO-BETA-ANTIGO"
-        );
-    }
-
-    #[test]
-    fn b_restore_com_cofre_bloqueado_cria_backup_e_grava() {
-        // O nucleo nao conhece sessao: sem senha, sem cofre em memoria, sem modo.
-        let (vault_path, backup_dir) = restore_dirs("b-locked");
-        fs::write(&vault_path, "CONTEUDO-BETA-ANTIGO").unwrap();
-
-        let criado = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1").unwrap();
-
-        assert!(criado.is_some());
-        assert_eq!(fs::read_to_string(&vault_path).unwrap(), "CONTEUDO-A1");
-        assert_eq!(backups_em(&backup_dir).len(), 1);
-    }
-
-    #[test]
-    fn c_falha_ao_criar_backup_aborta_e_preserva_o_alvo() {
-        let (vault_path, backup_dir) = restore_dirs("c-fail");
-        fs::write(&vault_path, "CONTEUDO-BETA-ANTIGO").unwrap();
-
-        // Torna a criacao do backup impossivel: o diretorio deixa de existir.
-        fs::remove_dir_all(&backup_dir).unwrap();
-
-        let resultado = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1");
-
-        assert!(resultado.is_err(), "deveria abortar");
-        assert!(resultado.unwrap_err().contains("Restauracao abortada"));
-        assert_eq!(
-            fs::read_to_string(&vault_path).unwrap(),
-            "CONTEUDO-BETA-ANTIGO",
-            "o alvo tem de permanecer byte a byte intacto"
-        );
-    }
-
-    #[test]
-    fn d_backup_de_alpha_sobre_beta_preserva_o_beta_anterior() {
-        let (vault_path, backup_dir) = restore_dirs("d-cross");
-        fs::write(&vault_path, "MARCADOR-BETA").unwrap();
-
-        let criado =
-            perform_safe_restore(&vault_path, &backup_dir, "beta", "MARCADOR-ALPHA").unwrap();
-
-        assert_eq!(fs::read_to_string(&vault_path).unwrap(), "MARCADOR-ALPHA");
-        let nome = criado.unwrap();
-        assert!(nome.starts_with("beta-pre-restore-"), "nome: {nome}");
-        assert_eq!(
-            fs::read_to_string(backup_dir.join(&nome)).unwrap(),
-            "MARCADOR-BETA"
-        );
-    }
-
-    #[test]
-    fn e_troca_de_cofre_durante_a_confirmacao_aborta() {
-        assert!(restore_target_matches(Some("beta"), "beta").is_ok());
-        assert!(restore_target_matches(None, "beta").is_ok());
-
-        let erro = restore_target_matches(Some("beta"), "alpha").unwrap_err();
-        assert!(erro.contains("Restauracao abortada"));
-        assert!(erro.contains("beta") && erro.contains("alpha"));
-    }
-
-    #[test]
-    fn f_alvo_inexistente_grava_sem_backup() {
-        let (vault_path, backup_dir) = restore_dirs("f-novo");
-        assert!(!vault_path.exists());
-
-        let criado = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1").unwrap();
-
-        assert!(criado.is_none(), "nao ha conteudo anterior a preservar");
-        assert_eq!(fs::read_to_string(&vault_path).unwrap(), "CONTEUDO-A1");
-        assert!(backups_em(&backup_dir).is_empty());
-    }
-
-    #[test]
-    fn g_o_backup_de_seguranca_preserva_os_bytes_exatos() {
-        let (vault_path, backup_dir) = restore_dirs("g-verify");
-        let original = "CONTEUDO-BETA-COM-BYTES-NAO-ASCII-cao-acentuacao";
-        fs::write(&vault_path, original).unwrap();
-
-        let nome = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1")
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(
-            fs::read(backup_dir.join(&nome)).unwrap(),
-            original.as_bytes(),
-            "o backup preserva os bytes exatos, sem recodificar"
-        );
-    }
-
-    #[test]
-    fn h_alvo_so_muda_por_chamada_explicita_de_restore() {
-        // Cancelamento do usuario nunca alcanca esta funcao.
-        let (vault_path, backup_dir) = restore_dirs("h-cancel");
-        fs::write(&vault_path, "CONTEUDO-BETA-ANTIGO").unwrap();
-
-        assert_eq!(
-            fs::read_to_string(&vault_path).unwrap(),
-            "CONTEUDO-BETA-ANTIGO"
-        );
-        assert!(backups_em(&backup_dir).is_empty());
-    }
-
-    use super::*;
-
-    // --- HELLO-2 / STATUS: classificacao de estado do registro Windows Hello ---
-    // Funcao pura: nao exige Windows, sistema de arquivos nem prompt.
-
-    #[test]
-    fn sem_registro_o_estado_e_disabled() {
-        assert_eq!(hello_record_state(true, None), HELLO_STATE_DISABLED);
-        assert_eq!(hello_record_state(false, None), HELLO_STATE_DISABLED);
-    }
-
-    #[test]
-    fn registro_sem_cofre_correspondente_e_orfao() {
-        // HELLO-2: o .kpvault foi removido, o .kphello sobreviveu.
-        assert_eq!(hello_record_state(false, Some(246)), HELLO_STATE_STALE);
-    }
-
-    #[test]
-    fn registro_com_tamanho_implausivel_e_invalido() {
-        assert_eq!(hello_record_state(true, Some(0)), HELLO_STATE_INVALID);
-        assert_eq!(
-            hello_record_state(true, Some(HELLO_RECORD_MIN_BYTES - 1)),
-            HELLO_STATE_INVALID
-        );
-        assert_eq!(
-            hello_record_state(true, Some(HELLO_RECORD_MAX_BYTES + 1)),
-            HELLO_STATE_INVALID
-        );
-    }
-
-    #[test]
-    fn registro_com_cofre_e_tamanho_plausivel_e_configured() {
-        assert_eq!(hello_record_state(true, Some(246)), HELLO_STATE_CONFIGURED);
-        assert_eq!(
-            hello_record_state(true, Some(HELLO_RECORD_MIN_BYTES)),
-            HELLO_STATE_CONFIGURED
-        );
-        assert_eq!(
-            hello_record_state(true, Some(HELLO_RECORD_MAX_BYTES)),
-            HELLO_STATE_CONFIGURED
-        );
-    }
-
-    #[test]
-    fn apenas_configured_habilita_o_desbloqueio_por_hello() {
-        // A interface so deve oferecer Hello no estado configured.
-        for (vault, size) in [(false, Some(246)), (true, Some(0)), (true, None), (false, None)] {
-            assert_ne!(hello_record_state(vault, size), HELLO_STATE_CONFIGURED);
-        }
-    }
-
-    #[test]
-    fn orfao_tem_precedencia_sobre_tamanho_invalido() {
-        // Sem cofre, o registro e orfao independentemente do tamanho: em ambos
-        // os casos nao deve ser usado, mas "stale" descreve melhor a causa.
-        assert_eq!(hello_record_state(false, Some(0)), HELLO_STATE_STALE);
-    }
-
-    #[test]
-    fn pre_argon2_backup_name_is_identifiable_and_preserves_payload() {
-        let backup_dir =
-            std::env::temp_dir().join(format!("kpassword-pre-argon2-test-{}", now_epoch_millis(),));
-        fs::create_dir_all(&backup_dir).unwrap();
-
-        let backup_path = create_labeled_backup(
-            &backup_dir,
-            "vault",
-            Some("pre-argon2"),
-            "legacy encrypted payload",
-        )
-        .unwrap();
-
-        let filename = backup_path.file_name().unwrap().to_string_lossy();
-        assert!(filename.contains("pre-argon2"));
-        assert_eq!(
-            fs::read_to_string(&backup_path).unwrap(),
-            "legacy encrypted payload"
-        );
-
-        let _ = fs::remove_dir_all(&backup_dir);
-    }
-}
-
-#[cfg(windows)]
-fn trim_current_process_working_set() {
-    #[link(name = "Kernel32")]
-    extern "system" {
-        fn GetCurrentProcess() -> *mut std::ffi::c_void;
-        fn SetProcessWorkingSetSize(
-            h_process: *mut std::ffi::c_void,
-            minimum_working_set_size: usize,
-            maximum_working_set_size: usize,
-        ) -> i32;
-    }
-
-    unsafe {
-        let process = GetCurrentProcess();
-        let _ = SetProcessWorkingSetSize(process, usize::MAX, usize::MAX);
-    }
-}
-
-#[cfg(not(windows))]
-fn trim_current_process_working_set() {}
-
-#[cfg(windows)]
-const STARTUP_REGISTRY_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
-#[cfg(windows)]
-const STARTUP_VALUE_NAME: &str = "KPassword";
-
-#[cfg(windows)]
-fn startup_command_line() -> Result<String, String> {
-    let exe = std::env::current_exe()
-        .map_err(|error| format!("Não foi possível localizar o executável do KPassword: {error}"))?;
-    Ok(format!("\"{}\" --startup", exe.to_string_lossy()))
-}
-
-#[cfg(windows)]
-fn run_reg_command(args: &[&str]) -> Result<(), String> {
-    let status = Command::new("reg")
-        .args(args)
-        .status()
-        .map_err(|error| format!("Não foi possível executar reg.exe: {error}"))?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("reg.exe retornou código {:?}", status.code()))
-    }
-}
-
-#[cfg(windows)]
-fn is_startup_enabled_impl() -> bool {
-    Command::new("reg")
-        .args(["query", STARTUP_REGISTRY_KEY, "/v", STARTUP_VALUE_NAME])
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
-}
-
-#[cfg(all(not(windows), not(target_os = "linux")))]
-fn is_startup_enabled_impl() -> bool {
-    false
-}
-
-#[cfg(windows)]
-fn set_startup_enabled_impl(enabled: bool) -> Result<(), String> {
-    if enabled {
-        let command_line = startup_command_line()?;
-        run_reg_command(&[
-            "add",
-            STARTUP_REGISTRY_KEY,
-            "/v",
-            STARTUP_VALUE_NAME,
-            "/t",
-            "REG_SZ",
-            "/d",
-            &command_line,
-            "/f",
-        ])
-    } else if is_startup_enabled_impl() {
-        run_reg_command(&["delete", STARTUP_REGISTRY_KEY, "/v", STARTUP_VALUE_NAME, "/f"])
-    } else {
-        Ok(())
-    }
-}
-
-#[cfg(all(not(windows), not(target_os = "linux")))]
-fn set_startup_enabled_impl(_enabled: bool) -> Result<(), String> {
-    Err("Inicialização com Windows disponível apenas no Windows.".to_string())
-}
-
-#[tauri::command]
-fn is_startup_enabled() -> bool {
-    is_startup_enabled_impl()
-}
-
-#[cfg(target_os = "linux")]
-fn is_startup_enabled_impl() -> bool { linux_platform::startup_enabled() }
-
-#[cfg(target_os = "linux")]
-fn set_startup_enabled_impl(enabled: bool) -> Result<(), String> { linux_platform::set_startup(enabled) }
-
-#[cfg(target_os = "linux")]
-fn get_startup_status_impl() -> StartupStatus {
-    StartupStatus {
-        enabled: is_startup_enabled_impl(),
-        registry_key: linux_platform::autostart_path().map(|p| p.display().to_string()).unwrap_or_default(),
-        value_name: "KPassword".into(),
-        command_line: linux_platform::startup_command()
-            .or_else(|| std::env::current_exe().ok().map(|p| format!("{} --startup", p.display())))
-            .unwrap_or_default(),
-        startup_argument: "--startup".into(),
-    }
-}
-
-#[cfg(windows)]
-fn get_startup_status_impl() -> StartupStatus {
-    StartupStatus {
-        enabled: is_startup_enabled_impl(),
-        registry_key: STARTUP_REGISTRY_KEY.to_string(),
-        value_name: STARTUP_VALUE_NAME.to_string(),
-        command_line: startup_command_line().unwrap_or_default(),
-        startup_argument: "--startup".to_string(),
-    }
-}
-
-#[cfg(all(not(windows), not(target_os = "linux")))]
-fn get_startup_status_impl() -> StartupStatus {
-    StartupStatus {
-        enabled: false,
-        registry_key: "Disponível apenas no Windows".to_string(),
-        value_name: "KPassword".to_string(),
-        command_line: String::new(),
-        startup_argument: "--startup".to_string(),
-    }
-}
-
-#[tauri::command]
-fn get_startup_status() -> StartupStatus {
-    get_startup_status_impl()
-}
-
-#[tauri::command]
-fn set_startup_enabled(enabled: bool) -> Result<bool, String> {
-    // Um build de desenvolvimento carrega o devUrl do Vite; registrado no
-    // autostart, ele abre "Connection refused" no login. Sempre desativar e
-    // permitido, para o usuario conseguir limpar um registro antigo.
-    if enabled && tauri::is_dev() {
-        return Err(
-            "Ative a inicialização com o sistema pelo KPassword instalado. A versão de desenvolvimento depende do servidor do Vite e não abre no login."
-                .to_string(),
-        );
-    }
-    set_startup_enabled_impl(enabled)?;
-    Ok(is_startup_enabled_impl())
-}
-
-#[tauri::command]
-fn hide_to_tray(
-    app: AppHandle,
-    reason: String,
-    notify: Option<bool>,
-    notification_title: Option<String>,
-    notification_body: Option<String>,
-) {
-    let _ = reason;
-
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
-    }
-
-    // Ao ir para a bandeja, o cofre já foi bloqueado no frontend.
-    // Este ajuste apenas pede ao Windows para reduzir o working set do processo principal.
-    // Os processos filhos do WebView2 continuam sob controle do runtime do Windows.
-    trim_current_process_working_set();
-
-    if notify.unwrap_or(true) {
-        let title = notification_title.unwrap_or_else(|| "KPassword protegido".to_string());
-        let body = notification_body
-            .unwrap_or_else(|| "O KPassword continua protegido na bandeja.".to_string());
-
-        #[cfg(target_os = "linux")]
-        {
-            // The notification plugin itself spawns onto Tokio. Call the
-            // blocking Linux backend directly on a regular thread instead.
-            std::thread::spawn(move || {
-                let _ = notify_rust::Notification::new().summary(&title).body(&body).show();
-            });
-        }
-        #[cfg(not(target_os = "linux"))]
-        let _ = app.notification().builder().title(title).body(body).show();
-    }
-}
-
-fn first_non_empty_qr_payload(payloads: Vec<String>) -> Option<String> {
-    payloads
-        .into_iter()
-        .map(|content| content.trim().to_string())
-        .find(|content| !content.is_empty())
-}
-
-fn decode_qr_with_rqrr(gray_image: image::GrayImage) -> Option<String> {
-    let mut prepared = rqrr::PreparedImage::prepare(gray_image);
-    let grids = prepared.detect_grids();
-
-    let mut payloads = Vec::new();
-    for grid in grids {
-        if let Ok((_meta, content)) = grid.decode() {
-            payloads.push(content);
-        }
-    }
-
-    first_non_empty_qr_payload(payloads)
-}
-
-fn decode_qr_with_quircs(gray_image: &image::GrayImage) -> Option<String> {
-    let mut decoder = quircs::Quirc::default();
-    let codes = decoder.identify(
-        gray_image.width() as usize,
-        gray_image.height() as usize,
-        gray_image.as_raw(),
-    );
-
-    let mut payloads = Vec::new();
-    for code in codes {
-        let Ok(code) = code else {
-            continue;
-        };
-        let Ok(decoded) = code.decode() else {
-            continue;
-        };
-        if let Ok(content) = std::str::from_utf8(&decoded.payload) {
-            payloads.push(content.to_string());
-        }
-    }
-
-    first_non_empty_qr_payload(payloads)
-}
-
-fn validate_qr_image_dimensions(width: u32, height: u32) -> Result<(), String> {
-    if width == 0 || height == 0 {
-        return Err("Imagem inválida ou corrompida.".to_string());
-    }
-
-    let pixels = u64::from(width) * u64::from(height);
-
-    if width > MAX_QR_IMAGE_SIDE || height > MAX_QR_IMAGE_SIDE || pixels > MAX_QR_IMAGE_PIXELS {
-        return Err("Imagem muito grande. Use um print menor do QR Code.".to_string());
-    }
-
-    Ok(())
-}
-
-fn read_qr_image_dimensions(image_bytes: &[u8]) -> Result<(u32, u32), String> {
-    let reader = image::ImageReader::new(Cursor::new(image_bytes))
-        .with_guessed_format()
-        .map_err(|_| "Imagem inválida ou corrompida.".to_string())?;
-
-    reader
-        .into_dimensions()
-        .map_err(|_| "Não foi possível abrir a imagem do QR Code.".to_string())
-}
-
-fn threshold_qr_image(gray_image: &image::GrayImage, threshold: u8) -> image::GrayImage {
-    let mut output = gray_image.clone();
-
-    for pixel in output.pixels_mut() {
-        let value = pixel[0];
-        pixel[0] = if value < threshold { 0 } else { 255 };
-    }
-
-    output
-}
-
-fn qr_gray_variants(original: &image::GrayImage) -> Vec<image::GrayImage> {
-    let mut variants = vec![
-        original.clone(),
-        threshold_qr_image(original, 110),
-        threshold_qr_image(original, 145),
-        threshold_qr_image(original, 180),
-    ];
-
-    let max_dimension = original.width().max(original.height());
-    let mut add_scaled = |scale: u32| {
-        let scaled_width = original.width().saturating_mul(scale);
-        let scaled_height = original.height().saturating_mul(scale);
-
-        if scaled_width == 0 || scaled_height == 0 {
-            return;
-        }
-
-        let scaled = image::imageops::resize(
-            original,
-            scaled_width,
-            scaled_height,
-            image::imageops::FilterType::Nearest,
-        );
-        variants.push(scaled.clone());
-        variants.push(threshold_qr_image(&scaled, 145));
-    };
-
-    if max_dimension < 450 {
-        add_scaled(4);
-    } else if max_dimension < 900 {
-        add_scaled(3);
-    } else if max_dimension < 1400 {
-        add_scaled(2);
-    }
-
-    variants
-}
-
-fn decode_qr_from_gray_image(gray_image: &image::GrayImage) -> Option<String> {
-    for variant in qr_gray_variants(gray_image) {
-        if let Some(content) = decode_qr_with_quircs(&variant) {
-            return Some(content);
-        }
-
-        if let Some(content) = decode_qr_with_rqrr(variant) {
-            return Some(content);
-        }
-    }
-
-    None
-}
-
-fn tile_starts(total: u32, tile: u32) -> Vec<u32> {
-    if tile >= total {
-        return vec![0];
-    }
-
-    let step = (tile / 2).max(160);
-    let mut starts = vec![0];
-    let mut current = step;
-
-    while current + tile < total {
-        starts.push(current);
-        current = current.saturating_add(step);
-    }
-
-    starts.push(total - tile);
-    starts.sort_unstable();
-    starts.dedup();
-    starts
-}
-
-fn centered_crop(gray_image: &image::GrayImage, width: u32, height: u32) -> image::GrayImage {
-    let crop_width = width.min(gray_image.width());
-    let crop_height = height.min(gray_image.height());
-    let x = (gray_image.width() - crop_width) / 2;
-    let y = (gray_image.height() - crop_height) / 2;
-
-    image::imageops::crop_imm(gray_image, x, y, crop_width, crop_height).to_image()
-}
-
-fn decode_qr_from_large_gray_image(gray_image: &image::GrayImage) -> Option<String> {
-    let width = gray_image.width();
-    let height = gray_image.height();
-    let max_dimension = width.max(height);
-
-    // Primeiro tentamos recortes centrais. Na tela de configuração 2FA, o QR quase sempre
-    // fica no centro da janela do navegador, como no cenário relatado pelo usuário.
-    for size in [420, 560, 720, 900, 1100, 1400, 1700] {
-        if size > max_dimension.saturating_add(200) {
-            continue;
-        }
-
-        let crop = centered_crop(gray_image, size.min(width), size.min(height));
-        if let Some(content) = decode_qr_from_gray_image(&crop) {
-            return Some(content);
-        }
-    }
-
-    // Depois varremos a tela com recortes sobrepostos. Isso evita pedir recorte manual e
-    // resolve QR pequeno dentro de uma captura de desktop grande.
-    for size in [420, 560, 720, 900, 1100, 1400] {
-        let tile_width = size.min(width);
-        let tile_height = size.min(height);
-
-        if tile_width < 180 || tile_height < 180 {
-            continue;
-        }
-
-        for y in tile_starts(height, tile_height) {
-            for x in tile_starts(width, tile_width) {
-                let crop = image::imageops::crop_imm(gray_image, x, y, tile_width, tile_height).to_image();
-                if let Some(content) = decode_qr_from_gray_image(&crop) {
-                    return Some(content);
-                }
-            }
-        }
-    }
-
-    None
-}
-
-fn decode_qr_from_dynamic_image(decoded_image: &image::DynamicImage) -> Result<String, String> {
-    validate_qr_image_dimensions(decoded_image.width(), decoded_image.height())?;
-
-    let gray_image = decoded_image.to_luma8();
-
-    if let Some(content) = decode_qr_from_gray_image(&gray_image) {
-        return Ok(content);
-    }
-
-    if gray_image.width().max(gray_image.height()) > 900 {
-        if let Some(content) = decode_qr_from_large_gray_image(&gray_image) {
-            return Ok(content);
-        }
-    }
-
-    Err("Não foi possível ler um QR Code nessa imagem.".to_string())
-}
-
-fn encode_qr_capture_as_png_data_url(image: &image::DynamicImage) -> Result<String, String> {
-    validate_qr_image_dimensions(image.width(), image.height())?;
-
-    let mut cursor = Cursor::new(Vec::new());
-    image
-        .write_to(&mut cursor, image::ImageFormat::Png)
-        .map_err(|_| "Não foi possível preparar a captura da tela.".to_string())?;
-    let bytes = cursor.into_inner();
-
-    if bytes.len() > MAX_QR_IMAGE_BYTES.saturating_mul(2) {
-        return Err("A captura ficou grande demais. Deixe apenas o QR visível e tente novamente.".to_string());
-    }
-
-    Ok(format!(
-        "data:image/png;base64,{}",
-        general_purpose::STANDARD.encode(bytes)
-    ))
-}
-
-#[cfg(windows)]
-mod windows_screen_snip_native {
-    use super::{encode_qr_capture_as_png_data_url, validate_qr_image_dimensions, MAX_QR_IMAGE_BYTES};
-    use image::{DynamicImage, RgbaImage};
-    use std::{ffi::c_void, mem, thread, time::Duration};
-
-    const CF_DIB: u32 = 8;
-    const CF_DIBV5: u32 = 17;
-    const BI_BITFIELDS: u32 = 3;
-    const BI_ALPHABITFIELDS: u32 = 6;
-    const INPUT_KEYBOARD: u32 = 1;
-    const KEYEVENTF_KEYUP: u32 = 0x0002;
-
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    struct MouseInput {
-        dx: i32,
-        dy: i32,
-        mouse_data: u32,
-        dw_flags: u32,
-        time: u32,
-        dw_extra_info: usize,
-    }
-
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    struct KeyboardInput {
-        w_vk: u16,
-        w_scan: u16,
-        dw_flags: u32,
-        time: u32,
-        dw_extra_info: usize,
-    }
-
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    struct HardwareInput {
-        u_msg: u32,
-        w_param_l: u16,
-        w_param_h: u16,
-    }
-
-    #[repr(C)]
-    union InputUnion {
-        mi: MouseInput,
-        ki: KeyboardInput,
-        hi: HardwareInput,
-    }
-
-    #[repr(C)]
-    struct Input {
-        input_type: u32,
-        union: InputUnion,
-    }
-
-    #[link(name = "User32")]
-    extern "system" {
-        fn OpenClipboard(hwnd_new_owner: *mut c_void) -> i32;
-        fn CloseClipboard() -> i32;
-        fn IsClipboardFormatAvailable(format: u32) -> i32;
-        fn GetClipboardData(format: u32) -> *mut c_void;
-        fn GetClipboardSequenceNumber() -> u32;
-        fn RegisterClipboardFormatW(format: *const u16) -> u32;
-        fn SendInput(c_inputs: u32, p_inputs: *const Input, cb_size: i32) -> u32;
-    }
-
-    #[link(name = "Kernel32")]
-    extern "system" {
-        fn GlobalLock(memory: *mut c_void) -> *mut c_void;
-        fn GlobalUnlock(memory: *mut c_void) -> i32;
-        fn GlobalSize(memory: *mut c_void) -> usize;
-    }
-
-    struct ClipboardGuard;
-
-    impl Drop for ClipboardGuard {
-        fn drop(&mut self) {
-            unsafe {
-                let _ = CloseClipboard();
-            }
-        }
-    }
-
-    fn open_clipboard() -> Option<ClipboardGuard> {
-        let opened = unsafe { OpenClipboard(std::ptr::null_mut()) } != 0;
-        opened.then_some(ClipboardGuard)
-    }
-
-    fn clipboard_sequence_number() -> u32 {
-        unsafe { GetClipboardSequenceNumber() }
-    }
-
-    fn register_clipboard_format(name: &str) -> u32 {
-        let mut wide: Vec<u16> = name.encode_utf16().collect();
-        wide.push(0);
-        unsafe { RegisterClipboardFormatW(wide.as_ptr()) }
-    }
-
-    fn read_clipboard_format_bytes(format: u32) -> Option<Vec<u8>> {
-        if unsafe { IsClipboardFormatAvailable(format) } == 0 {
-            return None;
-        }
-
-        let handle = unsafe { GetClipboardData(format) };
-        if handle.is_null() {
-            return None;
-        }
-
-        let size = unsafe { GlobalSize(handle) };
-        if size == 0 || size > MAX_QR_IMAGE_BYTES.saturating_mul(10) {
-            return None;
-        }
-
-        let locked = unsafe { GlobalLock(handle) };
-        if locked.is_null() {
-            return None;
-        }
-
-        let bytes = unsafe { std::slice::from_raw_parts(locked.cast::<u8>(), size).to_vec() };
-        unsafe {
-            let _ = GlobalUnlock(handle);
-        }
-
-        Some(bytes)
-    }
-
-    fn read_le_u16(bytes: &[u8], offset: usize) -> Option<u16> {
-        let value = bytes.get(offset..offset + 2)?;
-        Some(u16::from_le_bytes([value[0], value[1]]))
-    }
-
-    fn read_le_u32(bytes: &[u8], offset: usize) -> Option<u32> {
-        let value = bytes.get(offset..offset + 4)?;
-        Some(u32::from_le_bytes([value[0], value[1], value[2], value[3]]))
-    }
-
-    fn read_le_i32(bytes: &[u8], offset: usize) -> Option<i32> {
-        let value = bytes.get(offset..offset + 4)?;
-        Some(i32::from_le_bytes([value[0], value[1], value[2], value[3]]))
-    }
-
-    fn clipboard_dib_to_image(bytes: &[u8]) -> Option<DynamicImage> {
-        let header_size = usize::try_from(read_le_u32(bytes, 0)?).ok()?;
-        if header_size < 40 || bytes.len() < header_size {
-            return None;
-        }
-
-        let width_i32 = read_le_i32(bytes, 4)?;
-        let height_i32 = read_le_i32(bytes, 8)?;
-        let planes = read_le_u16(bytes, 12)?;
-        let bit_count = read_le_u16(bytes, 14)?;
-        let compression = read_le_u32(bytes, 16)?;
-        let colors_used = read_le_u32(bytes, 32).unwrap_or(0);
-
-        if planes != 1 || width_i32 <= 0 || height_i32 == 0 {
-            return None;
-        }
-
-        let width = u32::try_from(width_i32).ok()?;
-        let height = height_i32.unsigned_abs();
-        validate_qr_image_dimensions(width, height).ok()?;
-
-        let mut pixel_offset = header_size;
-        if bit_count <= 8 {
-            let colors = if colors_used > 0 { colors_used } else { 1u32.checked_shl(bit_count.into()).unwrap_or(0) };
-            pixel_offset = pixel_offset.checked_add(usize::try_from(colors).ok()?.checked_mul(4)?)?;
-        } else if header_size == 40 && (compression == BI_BITFIELDS || compression == BI_ALPHABITFIELDS) {
-            pixel_offset = pixel_offset.checked_add(if compression == BI_ALPHABITFIELDS { 16 } else { 12 })?;
-        }
-
-        let width_usize = usize::try_from(width).ok()?;
-        let height_usize = usize::try_from(height).ok()?;
-        let bottom_up = height_i32 > 0;
-        let mut rgba = vec![0u8; width_usize.checked_mul(height_usize)?.checked_mul(4)?];
-
-        match bit_count {
-            32 => {
-                let stride = width_usize.checked_mul(4)?;
-                if bytes.len() < pixel_offset.checked_add(stride.checked_mul(height_usize)?)? {
-                    return None;
-                }
-
-                for y in 0..height_usize {
-                    let source_y = if bottom_up { height_usize - 1 - y } else { y };
-                    let source_row = pixel_offset + source_y * stride;
-                    let target_row = y * width_usize * 4;
-
-                    for x in 0..width_usize {
-                        let source = source_row + x * 4;
-                        let target = target_row + x * 4;
-                        rgba[target] = bytes[source + 2];
-                        rgba[target + 1] = bytes[source + 1];
-                        rgba[target + 2] = bytes[source];
-                        rgba[target + 3] = 255;
-                    }
-                }
-            }
-            24 => {
-                let stride = width_usize.checked_mul(3)?.checked_add(3)? & !3;
-                if bytes.len() < pixel_offset.checked_add(stride.checked_mul(height_usize)?)? {
-                    return None;
-                }
-
-                for y in 0..height_usize {
-                    let source_y = if bottom_up { height_usize - 1 - y } else { y };
-                    let source_row = pixel_offset + source_y * stride;
-                    let target_row = y * width_usize * 4;
-
-                    for x in 0..width_usize {
-                        let source = source_row + x * 3;
-                        let target = target_row + x * 4;
-                        rgba[target] = bytes[source + 2];
-                        rgba[target + 1] = bytes[source + 1];
-                        rgba[target + 2] = bytes[source];
-                        rgba[target + 3] = 255;
-                    }
-                }
-            }
-            _ => return None,
-        }
-
-        let image = RgbaImage::from_raw(width, height, rgba)?;
-        Some(DynamicImage::ImageRgba8(image))
-    }
-
-    fn read_clipboard_image() -> Option<DynamicImage> {
-        let _guard = open_clipboard()?;
-
-        let png_format = register_clipboard_format("PNG");
-        if png_format != 0 {
-            if let Some(bytes) = read_clipboard_format_bytes(png_format) {
-                if let Ok(image) = image::load_from_memory(&bytes) {
-                    return Some(image);
-                }
-            }
-        }
-
-        for format in [CF_DIBV5, CF_DIB] {
-            if let Some(bytes) = read_clipboard_format_bytes(format) {
-                if let Some(image) = clipboard_dib_to_image(&bytes) {
-                    return Some(image);
-                }
-            }
-        }
-
-        None
-    }
-
-    fn send_keyboard_input(vk: u16, flags: u32) -> Result<(), String> {
-        let input = Input {
-            input_type: INPUT_KEYBOARD,
-            union: InputUnion {
-                ki: KeyboardInput {
-                    w_vk: vk,
-                    w_scan: 0,
-                    dw_flags: flags,
-                    time: 0,
-                    dw_extra_info: 0,
-                },
-            },
-        };
-
-        let sent = unsafe { SendInput(1, &input as *const Input, mem::size_of::<Input>() as i32) };
-        if sent == 0 {
-            return Err("Não foi possível acionar o atalho de recorte do Windows.".to_string());
-        }
-
-        Ok(())
-    }
-
-    pub fn launch_screen_snip() -> Result<(), String> {
-        // Aciona o mesmo fluxo do atalho global Win + Shift + S.
-        // SendInput é mais confiável que keybd_event para o atalho global do Windows.
-        const VK_LWIN: u16 = 0x5B;
-        const VK_SHIFT: u16 = 0x10;
-        const VK_S: u16 = 0x53;
-
-        send_keyboard_input(VK_LWIN, 0)?;
-        thread::sleep(Duration::from_millis(45));
-        send_keyboard_input(VK_SHIFT, 0)?;
-        thread::sleep(Duration::from_millis(45));
-        send_keyboard_input(VK_S, 0)?;
-        thread::sleep(Duration::from_millis(80));
-        send_keyboard_input(VK_S, KEYEVENTF_KEYUP)?;
-        thread::sleep(Duration::from_millis(45));
-        send_keyboard_input(VK_SHIFT, KEYEVENTF_KEYUP)?;
-        thread::sleep(Duration::from_millis(45));
-        send_keyboard_input(VK_LWIN, KEYEVENTF_KEYUP)?;
-
-        Ok(())
-    }
-
-    pub fn clipboard_sequence() -> u32 {
-        clipboard_sequence_number()
-    }
-
-    pub fn read_clipboard_image_png_data_url(after_sequence: u32) -> Result<String, String> {
-        let current_sequence = clipboard_sequence_number();
-        if after_sequence != 0 && current_sequence == after_sequence {
-            return Err("Aguardando um novo recorte no clipboard.".to_string());
-        }
-
-        let image = read_clipboard_image()
-            .ok_or_else(|| "Nenhuma imagem recortada foi encontrada no clipboard.".to_string())?;
-
-        encode_qr_capture_as_png_data_url(&image)
-    }
-}
-
-#[cfg(windows)]
-fn get_windows_clipboard_sequence_number_impl() -> u32 {
-    windows_screen_snip_native::clipboard_sequence()
-}
-
-#[cfg(not(windows))]
-fn get_windows_clipboard_sequence_number_impl() -> u32 {
-    0
-}
-
-#[tauri::command]
-fn get_windows_clipboard_sequence_number() -> u32 {
-    get_windows_clipboard_sequence_number_impl()
-}
-
-#[cfg(windows)]
-fn start_windows_screen_snip_impl() -> Result<(), String> {
-    windows_screen_snip_native::launch_screen_snip()
-}
-
-#[cfg(not(windows))]
-fn start_windows_screen_snip_impl() -> Result<(), String> {
-    Err("O recorte automático de QR está disponível apenas no Windows.".to_string())
-}
-
-#[tauri::command]
-fn start_windows_screen_snip(window: tauri::Window) -> Result<(), String> {
-    // Fazemos a preparação no backend para garantir que a janela suma antes do Win + Shift + S.
-    // O frontend continua responsável por aguardar o novo recorte no clipboard e restaurar a janela.
-    let _ = window.set_always_on_top(false);
-    let _ = window.minimize();
-    std::thread::sleep(std::time::Duration::from_millis(900));
-    start_windows_screen_snip_impl()
-}
-
-#[tauri::command]
-fn restore_main_window_after_screen_snip(window: tauri::Window) -> Result<(), String> {
-    // Depois que o Windows copia o recorte para o clipboard, trazemos o KPassword de volta.
-    // O pulso topmost ajuda quando o foco ainda fica preso no navegador ou na overlay de recorte.
-    let _ = window.unminimize();
-    let _ = window.show();
-    let _ = window.set_always_on_top(true);
-    let _ = window.set_focus();
-    std::thread::sleep(std::time::Duration::from_millis(220));
-    let _ = window.set_focus();
-    std::thread::sleep(std::time::Duration::from_millis(320));
-    let _ = window.set_always_on_top(false);
-    let _ = window.set_focus();
-    Ok(())
-}
-
-#[cfg(windows)]
-fn read_windows_clipboard_image_png_data_url_impl(after_sequence: u32) -> Result<String, String> {
-    windows_screen_snip_native::read_clipboard_image_png_data_url(after_sequence)
-}
-
-#[cfg(not(windows))]
-fn read_windows_clipboard_image_png_data_url_impl(_after_sequence: u32) -> Result<String, String> {
-    Err("O recorte automático de QR está disponível apenas no Windows.".to_string())
-}
-
-#[tauri::command]
-fn read_windows_clipboard_image_png_data_url(after_sequence: u32) -> Result<String, String> {
-    read_windows_clipboard_image_png_data_url_impl(after_sequence)
-}
-
-#[tauri::command]
-fn decode_qr_from_image_data_url(data_url: String) -> Result<String, String> {
-    let encoded = data_url
-        .split_once(',')
-        .map(|(_, payload)| payload)
-        .unwrap_or(data_url.as_str());
-
-    let image_bytes = general_purpose::STANDARD
-        .decode(encoded.as_bytes())
-        .map_err(|_| "Imagem inválida ou corrompida.".to_string())?;
-
-    if image_bytes.len() > MAX_QR_IMAGE_BYTES {
-        return Err("Imagem muito grande. Use um print menor do QR Code.".to_string());
-    }
-
-    let (width, height) = read_qr_image_dimensions(&image_bytes)?;
-    validate_qr_image_dimensions(width, height)?;
-
-    let decoded_image = image::load_from_memory(&image_bytes)
-        .map_err(|_| "Não foi possível abrir a imagem do QR Code.".to_string())?;
-
-    decode_qr_from_dynamic_image(&decoded_image)
-}
-
-#[cfg(test)]
-mod qr_safety_tests {
-    use super::*;
-
-    #[test]
-    fn qr_dimensions_accept_reasonable_image() {
-        assert!(validate_qr_image_dimensions(1024, 1024).is_ok());
-    }
-
-    #[test]
-    fn qr_dimensions_reject_oversized_side() {
-        assert!(validate_qr_image_dimensions(MAX_QR_IMAGE_SIDE + 1, 512).is_err());
-    }
-
-    #[test]
-    fn qr_dimensions_reject_oversized_pixel_count() {
-        assert!(validate_qr_image_dimensions(5001, 5001).is_err());
-    }
+        .map_err(|_| "error.task.interrupted".to_string())?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -2503,6 +292,8 @@ pub fn run() {
         .manage(secrets_bridge::broker::BrokerState::default())
         .manage(UniversalBridgeState::default())
         .manage(secure_clipboard::SecureClipboard::default())
+        .manage(TrayMenu::default())
+        .manage(vault_session::VaultSession::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -2512,60 +303,19 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             secrets_bridge::queue_request(app.handle(), &std::env::args().collect::<Vec<_>>());
+            // Cofres e backups antigos foram criados com 0644/0755.
+            if let Ok(data_dir) = app.path().app_data_dir() {
+                if storage_io::create_private_dir(&data_dir).is_ok() {
+                    storage_io::harden_existing_files(&data_dir, 2);
+                }
+            }
             #[cfg(target_os = "linux")]
             if !tauri::is_dev() {
                 // Corrige um autostart salvo por outro executavel (ex.: `tauri dev`).
                 let _ = linux_platform::repair_startup();
             }
 
-            // Abrir restaura a janela como o usuario deixou (tamanho/maximizado).
-            let open_item = MenuItem::with_id(app, "open", "Abrir KPassword", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
-            let separator = PredefinedMenuItem::separator(app)?;
-            #[cfg(target_os = "linux")]
-            let bridge_stop = MenuItem::with_id(app, "bridge_stop", "Revogar todos os acessos da ponte", true, None::<&str>)?;
-            #[cfg(target_os = "linux")]
-            let bridge_separator = PredefinedMenuItem::separator(app)?;
-            #[cfg(target_os = "linux")]
-            let menu = Menu::with_items(app, &[&open_item, &separator, &bridge_stop, &bridge_separator, &quit_item])?;
-            #[cfg(not(target_os = "linux"))]
-            let menu = Menu::with_items(app, &[&open_item, &separator, &quit_item])?;
-
-            TrayIconBuilder::new()
-                .tooltip("KPassword")
-                .icon(Image::new(
-                    include_bytes!("../icons/tray-icon.rgba"),
-                    32,
-                    32,
-                ))
-                .menu(&menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open" => {
-                        show_main_window(app);
-                    }
-                    "bridge_stop" => { secrets_bridge::close(app); }
-                    "quit" => {
-                        secure_clipboard::clear_now(app);
-                        secrets_bridge::close(app);
-                        app.exit(0);
-                    }
-                    _ => {
-                        println!("Item de menu nao tratado.");
-                    }
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-                        show_main_window(app);
-                    }
-                })
-                .build(app)?;
+            tray::build(app)?;
 
             if std::env::args().any(|arg| arg == "--startup") {
                 if let Some(window) = app.get_webview_window("main") {
@@ -2578,56 +328,66 @@ pub fn run() {
         })
         .invoke_handler({
             let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
-            secrets_bridge::bridge_open,
-            secrets_bridge::bridge_close,
-            secrets_bridge::bridge_prepare,
-            secrets_bridge::bridge_launch,
-            secrets_bridge::bridge_history,
-            secrets_bridge::bridge_take_request,
-            secrets_bridge::broker::bridge_take_access_request,
-            secrets_bridge::broker::bridge_answer_access_request,
-            secrets_bridge::broker::bridge_status,
-            secrets_bridge::broker::bridge_set_limits,
-            secrets_bridge::broker::bridge_revoke_grant,
-            platform_name,
-            secure_clipboard::clipboard_write_secret,
-            secure_clipboard::clipboard_clear_secret,
-            linux_capture_qr,
-            hide_to_tray,
-            is_startup_enabled,
-            get_startup_status,
-            set_startup_enabled,
-            load_vault_file,
-            save_vault_file,
-            restore_vault_file,
-            get_storage_info,
-            list_vault_files,
-            delete_vault_file,
-            list_backup_files,
-            read_backup_file,
-            create_pre_argon2_backup,
-            encrypt_vault_argon2id,
-            decrypt_vault_payload,
-            verify_backup_payload,
-            open_vault_folder,
-            open_backup_folder,
-            open_external_url,
-            windows_hello_status,
-            enable_windows_hello,
-            disable_windows_hello,
-            unlock_with_windows_hello,
-            discard_orphan_windows_hello,
-            quarantine_windows_hello,
-            decode_qr_from_image_data_url,
-            get_windows_clipboard_sequence_number,
-            start_windows_screen_snip,
-            restore_main_window_after_screen_snip,
-            read_windows_clipboard_image_png_data_url
-        ];
+                secrets_bridge::bridge_open,
+                secrets_bridge::bridge_close,
+                secrets_bridge::bridge_prepare,
+                secrets_bridge::bridge_launch,
+                secrets_bridge::bridge_history,
+                secrets_bridge::bridge_take_request,
+                secrets_bridge::broker::bridge_take_access_request,
+                secrets_bridge::broker::bridge_answer_access_request,
+                secrets_bridge::broker::bridge_status,
+                secrets_bridge::broker::bridge_set_limits,
+                secrets_bridge::broker::bridge_revoke_grant,
+                platform_name,
+                secure_clipboard::clipboard_write_secret,
+                secure_clipboard::clipboard_clear_secret,
+                linux_capture_qr,
+                hide_to_tray,
+                set_tray_labels,
+                vault_session::vault_session_unlock,
+                vault_session::vault_session_encrypt,
+                vault_session::vault_session_verify_password,
+                vault_session::vault_session_decrypt,
+                vault_session::vault_session_close,
+                is_startup_enabled,
+                get_startup_status,
+                set_startup_enabled,
+                load_vault_file,
+                save_vault_file,
+                restore_vault_file,
+                get_storage_info,
+                list_vault_files,
+                delete_vault_file,
+                list_backup_files,
+                read_backup_file,
+                create_pre_argon2_backup,
+                reencrypt_backups,
+                encrypt_vault_argon2id,
+                decrypt_vault_payload,
+                verify_backup_payload,
+                open_vault_folder,
+                open_backup_folder,
+                open_external_url,
+                windows_hello_status,
+                enable_windows_hello,
+                disable_windows_hello,
+                unlock_with_windows_hello,
+                discard_orphan_windows_hello,
+                quarantine_windows_hello,
+                decode_qr_from_image_data_url,
+                get_windows_clipboard_sequence_number,
+                start_windows_screen_snip,
+                restore_main_window_after_screen_snip,
+                read_windows_clipboard_image_png_data_url
+            ];
             move |invoke: tauri::ipc::Invoke<tauri::Wry>| {
                 if invoke.message.webview().label() == "bridge-approval"
-                    && !["bridge_take_access_request", "bridge_answer_access_request"].contains(&invoke.message.command()) {
-                    invoke.resolver.reject("Comando indisponível nesta janela."); return true;
+                    && !["bridge_take_access_request", "bridge_answer_access_request"]
+                        .contains(&invoke.message.command())
+                {
+                    invoke.resolver.reject("error.ipc.commandNotAllowed");
+                    return true;
                 }
                 handler(invoke)
             }
@@ -2635,10 +395,66 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("erro ao executar o KPassword")
         .run(|app, event| {
-            // Senha copiada nao sobrevive ao encerramento do app.
+            // Senha copiada e senha da sessao nao sobrevivem ao encerramento.
             if let tauri::RunEvent::Exit = event {
                 secure_clipboard::clear_now(app);
+                vault_session::close(&app.state::<vault_session::VaultSession>());
             }
         });
 }
 
+#[cfg(test)]
+mod vault_name_tests {
+    use super::sanitize_vault_name;
+
+    #[test]
+    fn rejects_windows_device_names() {
+        for name in ["con", "CON", "nul", "aux", "prn", "com1", "LPT9"] {
+            assert!(sanitize_vault_name(Some(name.into())).is_err(), "{name}");
+        }
+        for name in ["console", "com0", "com10", "lpt", "vault", "trabalho_2"] {
+            assert!(sanitize_vault_name(Some(name.into())).is_ok(), "{name}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod acl_tests {
+    /// Cada comando registrado no handler precisa estar no manifesto do
+    /// build.rs, senao o ACL do Tauri recusa a chamada em tempo de execucao.
+    #[test]
+    fn handler_commands_match_the_app_manifest_and_capabilities() {
+        let lib = include_str!("lib.rs");
+        let start = lib.find("tauri::generate_handler![").unwrap();
+        let end = start + lib[start..].find("];").unwrap();
+        let mut handler: Vec<&str> = lib[start..end]
+            .lines()
+            .skip(1)
+            .map(|line| line.trim().trim_end_matches(','))
+            .filter(|line| !line.is_empty())
+            .map(|line| line.rsplit("::").next().unwrap())
+            .collect();
+        let build = include_str!("../build.rs");
+        let mut manifest: Vec<&str> = build
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix('"')?.strip_suffix("\","))
+            .collect();
+        handler.sort();
+        manifest.sort();
+        assert_eq!(handler, manifest);
+
+        let main = include_str!("../capabilities/default.json");
+        let approval = include_str!("../capabilities/bridge-approval.json");
+        for command in ["save_vault_file", "clipboard_write_secret", "bridge_open"] {
+            assert!(
+                main.contains(&format!("\"allow-{}\"", command.replace('_', "-"))),
+                "{command}"
+            );
+            assert!(
+                !approval.contains(&format!("\"allow-{}\"", command.replace('_', "-"))),
+                "{command}"
+            );
+        }
+        assert_eq!(approval.matches("\"allow-").count(), 2);
+    }
+}
