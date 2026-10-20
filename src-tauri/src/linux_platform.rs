@@ -1,6 +1,5 @@
 //! Linux-only desktop integration. Windows implementations remain in lib.rs.
 use std::{fs, path::{Path, PathBuf}, io::{Read, Write}, os::unix::fs::OpenOptionsExt};
-use tauri::AppHandle;
 
 /// Called from main before GTK/WebKit or any worker starts. Keep this profile
 /// local to KPassword; never change the desktop or the user's environment files.
@@ -87,31 +86,6 @@ pub fn set_startup(enabled: bool) -> Result<(), String> {
             Err(_) => Err("Não foi possível desativar autostart XDG.".into()),
         }
     }
-}
-
-pub async fn clipboard(app: AppHandle, value: Option<String>) -> Result<String, String> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    app.run_on_main_thread(move || {
-        let result = match gtk::gdk::Display::default() {
-            None => Err("Clipboard indisponível.".to_string()),
-            Some(display) => {
-                match gtk::Clipboard::default(&display) {
-                    None => Err("Clipboard indisponível.".to_string()),
-                    Some(clipboard) => if let Some(value) = value {
-                        clipboard.set_text(&value);
-                        Ok(String::new())
-                    } else {
-                        clipboard.wait_for_text().map(|s| s.to_string())
-                            .ok_or_else(|| "Clipboard não contém texto.".to_string())
-                    }
-                }
-            }
-        };
-        let _ = tx.send(result);
-    }).map_err(|_| "Clipboard indisponível.")?;
-    tokio::time::timeout(std::time::Duration::from_secs(5), rx).await
-        .map_err(|_| "Tempo de clipboard esgotado.")?
-        .map_err(|_| "Clipboard indisponível.".to_string())?
 }
 
 pub async fn capture_qr() -> Result<String, String> {

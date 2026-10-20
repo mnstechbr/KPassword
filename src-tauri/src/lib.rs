@@ -13,6 +13,7 @@ use tauri_plugin_notification::NotificationExt;
 use zeroize::Zeroize;
 
 mod crypto_vault;
+mod secure_clipboard;
 mod vault_removal;
 #[cfg(test)]
 mod vault_compatibility_tests;
@@ -31,14 +32,6 @@ pub fn configure_linux_graphics() { linux_platform::configure_graphics(); }
 
 #[tauri::command]
 fn platform_name() -> &'static str { std::env::consts::OS }
-
-#[tauri::command]
-async fn linux_clipboard(app: AppHandle, value: Option<String>) -> Result<String, String> {
-    #[cfg(target_os = "linux")]
-    { return linux_platform::clipboard(app, value).await; }
-    #[cfg(not(target_os = "linux"))]
-    { let _ = (app, value); Err("Clipboard Linux indisponível.".into()) }
-}
 
 #[tauri::command]
 async fn linux_capture_qr() -> Result<String, String> {
@@ -2509,6 +2502,7 @@ pub fn run() {
         .manage(secrets_bridge::BridgeRequests::default())
         .manage(secrets_bridge::broker::BrokerState::default())
         .manage(UniversalBridgeState::default())
+        .manage(secure_clipboard::SecureClipboard::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -2552,6 +2546,7 @@ pub fn run() {
                     }
                     "bridge_stop" => { secrets_bridge::close(app); }
                     "quit" => {
+                        secure_clipboard::clear_now(app);
                         secrets_bridge::close(app);
                         app.exit(0);
                     }
@@ -2595,7 +2590,8 @@ pub fn run() {
             secrets_bridge::broker::bridge_set_limits,
             secrets_bridge::broker::bridge_revoke_grant,
             platform_name,
-            linux_clipboard,
+            secure_clipboard::clipboard_write_secret,
+            secure_clipboard::clipboard_clear_secret,
             linux_capture_qr,
             hide_to_tray,
             is_startup_enabled,
@@ -2636,7 +2632,13 @@ pub fn run() {
                 handler(invoke)
             }
         })
-        .run(tauri::generate_context!())
-        .expect("erro ao executar o KPassword");
+        .build(tauri::generate_context!())
+        .expect("erro ao executar o KPassword")
+        .run(|app, event| {
+            // Senha copiada nao sobrevive ao encerramento do app.
+            if let tauri::RunEvent::Exit = event {
+                secure_clipboard::clear_now(app);
+            }
+        });
 }
 
