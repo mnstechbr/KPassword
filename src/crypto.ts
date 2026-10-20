@@ -87,18 +87,68 @@ export async function decryptVault(
   masterPassword: string,
 ): Promise<PlainVault> {
   try {
-    const decrypted = await invoke<string>("decrypt_vault_payload", { file, masterPassword });
-    const parsed = JSON.parse(decrypted) as unknown;
-    assertPlainVault(parsed);
-    return parsed;
+    return parsePlainVault(await invoke<string>("decrypt_vault_payload", { file, masterPassword }));
   } catch {
     throw new Error("Senha mestra incorreta ou arquivo de cofre invalido.");
   }
 }
 
-export async function validateEncryptedVaultBackup(raw: string, masterPassword: string) {
+function parsePlainVault(decrypted: string): PlainVault {
+  const parsed = JSON.parse(decrypted) as unknown;
+  assertPlainVault(parsed);
+  return parsed;
+}
+
+/**
+ * Desbloqueia o cofre e abre a sessão no backend: a senha e a chave derivada
+ * ficam no Rust, e as gravações seguintes não precisam mais da senha.
+ */
+export async function unlockVaultSession(
+  vaultName: string,
+  file: EncryptedVaultFile,
+  masterPassword: string,
+): Promise<PlainVault> {
+  try {
+    return parsePlainVault(await invoke<string>("vault_session_unlock", { vaultName, file, masterPassword }));
+  } catch {
+    throw new Error("Senha mestra incorreta ou arquivo de cofre invalido.");
+  }
+}
+
+/** Cifra com a chave da sessão aberta (sem Argon2id, com nonce novo). */
+export async function encryptVaultWithSession(
+  vault: PlainVault,
+  vaultName: string,
+  previousFile?: EncryptedVaultFile | null,
+): Promise<EncryptedVaultFile> {
+  const updatedVault: PlainVault = {
+    ...vault,
+    updatedAt: new Date().toISOString(),
+  };
+
+  return invoke<EncryptedVaultFileV2>("vault_session_encrypt", {
+    vaultName,
+    plainVaultJson: JSON.stringify(updatedVault),
+    createdAt: previousFile?.createdAt ?? updatedVault.createdAt,
+  });
+}
+
+export function verifyVaultSessionPassword(masterPassword: string) {
+  return invoke<boolean>("vault_session_verify_password", { masterPassword }).catch(() => false);
+}
+
+export function closeVaultSession() {
+  void invoke("vault_session_close").catch(() => {});
+}
+
+/**
+ * Valida um backup com a senha digitada ou, sem senha, com a da sessão aberta.
+ */
+export async function validateEncryptedVaultBackup(raw: string, masterPassword: string | null) {
   const file = parseEncryptedVault(raw);
-  const plainVault = await decryptVault(file, masterPassword);
+  const plainVault = masterPassword === null
+    ? parsePlainVault(await invoke<string>("vault_session_decrypt", { file }))
+    : await decryptVault(file, masterPassword);
 
   return { file, plainVault };
 }
