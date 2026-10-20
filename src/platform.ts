@@ -1,6 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AppLanguage } from "./i18n";
 
+/** Plataforma provável pelo user agent (WebView2 no Windows, WebKitGTK no Linux), até o backend confirmar. */
+export function guessPlatform(userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent): string {
+  if (/Windows/i.test(userAgent)) return "windows";
+  if (/Linux/i.test(userAgent) && !/Android/i.test(userAgent)) return "linux";
+  return "unknown";
+}
+
 /** Copia um segredo fora do histórico do clipboard; o backend o apaga após `clearAfterSeconds`. */
 export async function writeSecretToClipboard(value: string, clearAfterSeconds: number) {
   await invoke("clipboard_write_secret", { value, clearAfterSeconds });

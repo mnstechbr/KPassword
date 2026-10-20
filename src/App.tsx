@@ -14,7 +14,7 @@ import { useAppearance } from "./useAppearance";
 import { UiIcon } from "./UiIcon";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { clearSecretClipboard, linuxTranslation, writeSecretToClipboard } from "./platform";
+import { clearSecretClipboard, guessPlatform, linuxTranslation, writeSecretToClipboard } from "./platform";
 import { validateApiKey } from "./api-key";
 import {
   createEmptyVault,
@@ -1815,7 +1815,8 @@ function normalizeVault(vault: PlainVault): PlainVault {
 
 export default function App() {
   useDialogFocus();
-  const [platform, setPlatform] = useState("unknown");
+  // Palpite síncrono evita renderizar a interface do Windows antes de o backend responder.
+  const [platform, setPlatform] = useState(guessPlatform);
   const isLinux = platform === "linux";
   const [bridgeGeneration, setBridgeGeneration] = useState<number | null>(null);
   const [bridgeBusy, setBridgeBusy] = useState(false);
@@ -1823,12 +1824,6 @@ export default function App() {
   const [bridgeHours, setBridgeHours] = useState(48);
   type BridgePermission = { keyId: string; identity: string; application: string; entryScript: string | null; project: string; operation: string; model: string; callsThisMinute: number; outputTokensThisHour: number; limits: { callsPerMinute: number; outputTokensPerHour: number } };
   const [bridgeStatus, setBridgeStatus] = useState<{ active: boolean; remainingSeconds: number; grants: BridgePermission[] }>({active:false,remainingSeconds:0,grants:[]});
-  useEffect(() => {
-    if (!isLinux) return;
-    const refresh = () => { void invoke<typeof bridgeStatus>("bridge_status").then(status => { setBridgeStatus(status); if (!status.active) setBridgeGeneration(null); }).catch(() => {}); };
-    refresh(); const timer = window.setInterval(refresh, 2000);
-    return () => window.clearInterval(timer);
-  }, [isLinux]);
 
   useEffect(() => {
     void invoke<string>("platform_name").then((name) => {
@@ -1850,11 +1845,34 @@ export default function App() {
   }, [screen, preferencesSection, backupsSection, securitySection]);
   const [vault, setVault] = useState<PlainVault | null>(null);
   const [encryptedVault, setEncryptedVault] = useState<EncryptedVaultFile | null>(null);
+  // Estado mais recente para a fila de gravação (os closures do React podem estar defasados).
+  const vaultRef = useRef<PlainVault | null>(null);
+  const encryptedVaultRef = useRef<EncryptedVaultFile | null>(null);
+  vaultRef.current = vault;
+  encryptedVaultRef.current = encryptedVault;
+  const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   const [masterPassword, setMasterPassword] = useState("");
   const [unlockPassword, setUnlockPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [setupPassword, setSetupPassword] = useState("");
   const [mode, setMode] = useState<"loading" | "setup" | "locked" | "unlocked">("loading");
+  const bridgeStatusJsonRef = useRef("");
+  const vaultUnlockedForBridge = mode === "unlocked";
+  useEffect(() => {
+    // O status só aparece com o cofre aberto; janela oculta ou cofre bloqueado não consultam.
+    if (!isLinux || !vaultUnlockedForBridge) return;
+    const refresh = () => {
+      if (document.hidden) return;
+      void invoke<typeof bridgeStatus>("bridge_status").then(status => {
+        const json = JSON.stringify(status);
+        if (json !== bridgeStatusJsonRef.current) { bridgeStatusJsonRef.current = json; setBridgeStatus(status); }
+        if (!status.active) setBridgeGeneration(null);
+      }).catch(() => {});
+    };
+    refresh(); const timer = window.setInterval(refresh, 2000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [isLinux, vaultUnlockedForBridge]);
   const [busy, setBusy] = useState(false);
   const [unlockGateOpen, setUnlockGateOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -2258,6 +2276,7 @@ export default function App() {
   const lockVault = useCallback((revokeBridge = true) => {
     if (revokeBridge) { void invoke("bridge_close").catch(() => {}); setBridgeGeneration(null); }
     clearSecretClipboard();
+    vaultRef.current = null;
     setBridgeAudit([]);
     teardownStrengthEngine();
     setVault(null);
@@ -2358,65 +2377,88 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [busy, lockVault, mode, requestTrayProtection, vault?.settings.lockOnMinimize, windowsHelloBusy]);
 
+  /**
+   * Grava o cofre em fila: uma gravação só começa quando a anterior terminou,
+   * e um `updater` recebe o cofre já salvo por ela. Sem isso, uma entrada de
+   * histórico (ex.: cópia de senha) gravada durante o Argon2 de uma edição
+   * podia terminar por último e apagar a edição.
+   */
   const persistVault = useCallback(
-    async (nextVault: PlainVault, passwordOverride?: string, forceBackup = false) => {
-      const password = passwordOverride ?? masterPassword;
+    (
+      next: PlainVault | ((current: PlainVault) => PlainVault),
+      passwordOverride?: string,
+      forceBackup = false,
+    ): Promise<EncryptedVaultFile> => {
+      const job = saveQueueRef.current.then(async () => {
+        const password = passwordOverride ?? masterPassword;
+        const current = vaultRef.current;
 
-      if (!password) {
-        throw new Error(t("errors.masterPasswordUnavailable"));
-      }
+        if (!password || !current) {
+          throw new Error(t("errors.masterPasswordUnavailable"));
+        }
 
-      const file = await encryptVault(nextVault, password, encryptedVault);
-      const info = await saveVaultFile(
-        JSON.stringify(file, null, 2),
-        activeVaultName,
-        forceBackup,
-        isLinux ? password : undefined,
-        nextVault.settings.backupIntervalHours,
-      );
+        const nextVault = typeof next === "function" ? next(current) : next;
+        const file = await encryptVault(nextVault, password, encryptedVaultRef.current);
+        const info = await saveVaultFile(
+          JSON.stringify(file, null, 2),
+          activeVaultName,
+          forceBackup,
+          isLinux ? password : undefined,
+          nextVault.settings.backupIntervalHours,
+        );
 
-      setEncryptedVault(file);
-      setVault({
-        ...nextVault,
-        updatedAt: file.updatedAt,
+        setStorageInfo(info);
+        setBackups(info.backups);
+        if (info.warning) setMessage(info.warning);
+
+        // Cofre bloqueado durante a gravação: o arquivo foi salvo, mas a tela não reabre.
+        if (!vaultRef.current) return file;
+
+        const saved = { ...nextVault, updatedAt: file.updatedAt };
+        vaultRef.current = saved;
+        encryptedVaultRef.current = file;
+        setEncryptedVault(file);
+        setVault(saved);
+
+        return file;
       });
-      setStorageInfo(info);
-      setBackups(info.backups);
-      if (info.warning) setMessage(info.warning);
-
-      return file;
+      saveQueueRef.current = job.catch(() => undefined);
+      return job;
     },
-    [activeVaultName, encryptedVault, masterPassword],
+    [activeVaultName, isLinux, masterPassword, t],
   );
 
   const persistVaultWithHistory = useCallback(
     async (
-      nextVault: PlainVault,
+      nextVault: PlainVault | ((current: PlainVault) => PlainVault),
       historyEntry?: ActionHistoryEntry | ActionHistoryEntry[],
       passwordOverride?: string,
       forceBackup = false,
-    ) => persistVault(addActionHistoryEntries(nextVault, historyEntry), passwordOverride, forceBackup),
+    ) => persistVault(
+      typeof nextVault === "function"
+        ? (current) => addActionHistoryEntries(nextVault(current), historyEntry)
+        : addActionHistoryEntries(nextVault, historyEntry),
+      passwordOverride,
+      forceBackup,
+    ),
     [persistVault],
   );
 
   const recordActionHistoryOnly = useCallback(
     async (type: ActionHistoryType, targetName?: string) => {
-      if (!vault) return;
+      if (!vaultRef.current) return;
 
       try {
-        const now = new Date().toISOString();
+        const entry = createActionHistoryEntry(type, targetName);
         await persistVaultWithHistory(
-          {
-            ...vault,
-            updatedAt: now,
-          },
-          createActionHistoryEntry(type, targetName),
+          (current) => ({ ...current, updatedAt: new Date().toISOString() }),
+          entry,
         );
       } catch (error) {
         secureLogError("registrar histórico de ações", error);
       }
     },
-    [persistVaultWithHistory, vault],
+    [persistVaultWithHistory],
   );
 
   async function migrateLegacyVaultIfNeeded(
@@ -2440,7 +2482,7 @@ export default function App() {
     }
 
     const interval = window.setInterval(() => {
-      void persistVault(vault).catch((error) => {
+      void persistVault((current) => current).catch((error) => {
         secureLogError("criar backup automático", error);
       });
     }, vault.settings.backupIntervalHours * 60 * 60 * 1000);
