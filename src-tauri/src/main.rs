@@ -4,7 +4,11 @@
 fn main() {
     #[cfg(target_os = "linux")]
     if std::env::args().nth(1).as_deref() == Some("--secrets-bridge-child") {
-        std::process::exit(if kpassword_lib::secrets_bridge_child().is_ok() { 0 } else { 1 });
+        std::process::exit(if kpassword_lib::secrets_bridge_child().is_ok() {
+            0
+        } else {
+            1
+        });
     }
     #[cfg(target_os = "linux")]
     kpassword_lib::configure_linux_graphics();

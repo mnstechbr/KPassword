@@ -35,7 +35,7 @@ Cargo.lock      text eol=lf
 # --- Scripts do Windows: CRLF na árvore de trabalho --------------------------
 # Continuam guardados como LF no repositório; o git entrega CRLF em qualquer
 # plataforma. É a convenção do PowerShell/cmd, os únicos consumidores destes
-# arquivos (package.json os invoca via `powershell -File`).
+# arquivos (os scripts de build Windows em tools/ rodam via `powershell -File`).
 *.ps1           text eol=crlf
 *.psm1          text eol=crlf
 *.psd1          text eol=crlf

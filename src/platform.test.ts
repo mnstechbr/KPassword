@@ -22,6 +22,8 @@ describe("platform clipboard", () => {
   it("keeps untranslated Windows keys outside the Linux adaptations", () => {
     expect(linuxTranslation("credential.copyPassword", "pt")).toBeUndefined();
     expect(linuxTranslation("settings.startupWithWindows", "pt")).toContain("Linux");
+    expect(linuxTranslation("settings.startupWithWindows", "es")).toBe("Iniciar con la sesión de Linux");
+    expect(linuxTranslation("settings.startupWithWindows", "tr")).toContain("Linux");
   });
   it("guesses the platform from the webview user agent", () => {
     expect(guessPlatform("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Edg/120")).toBe("windows");
