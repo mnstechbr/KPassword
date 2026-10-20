@@ -246,7 +246,11 @@ impl VaultKey {
         Self::derive(master_password, salt, params)
     }
 
-    fn derive(master_password: &str, salt: Vec<u8>, params: Argon2idParams) -> Result<Self, String> {
+    fn derive(
+        master_password: &str,
+        salt: Vec<u8>,
+        params: Argon2idParams,
+    ) -> Result<Self, String> {
         let password = Zeroizing::new(master_password.as_bytes().to_vec());
         let key = Zeroizing::new(derive_argon2id_key(&password, &salt, params)?);
         Ok(Self { salt, params, key })
@@ -254,7 +258,8 @@ impl VaultKey {
 
     /// A chave abre `file` sem derivar de novo: mesmo sal e mesmos parametros.
     fn matches(&self, file: &EncryptedVaultFileV2) -> bool {
-        file.kdf.params == self.params && decode_base64(&file.kdf.salt).is_ok_and(|salt| salt == self.salt)
+        file.kdf.params == self.params
+            && decode_base64(&file.kdf.salt).is_ok_and(|salt| salt == self.salt)
     }
 }
 
@@ -291,7 +296,8 @@ pub fn encrypt_with_key(
     };
 
     let aad = aad_v2(&file);
-    let cipher = Aes256Gcm::new_from_slice(&vault_key.key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+    let cipher =
+        Aes256Gcm::new_from_slice(&vault_key.key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
     let encrypted = cipher
         .encrypt(
             Nonce::from_slice(&nonce),
@@ -312,7 +318,8 @@ fn encrypt_vault_v2_with_params(
     params: Argon2idParams,
 ) -> Result<EncryptedVaultFileV2, String> {
     validate_argon2id_params(params)?;
-    serde_json::from_str::<Value>(plain_vault_json).map_err(|_| "error.vault.invalidContent".to_string())?;
+    serde_json::from_str::<Value>(plain_vault_json)
+        .map_err(|_| "error.vault.invalidContent".to_string())?;
     let vault_key = VaultKey::generate_with_params(master_password, params)?;
     encrypt_with_key(plain_vault_json, &vault_key, created_at)
 }
@@ -330,7 +337,10 @@ fn validate_v2_metadata(file: &EncryptedVaultFileV2) -> Result<(), String> {
     Ok(())
 }
 
-fn decrypt_v2_with_key(file: &EncryptedVaultFileV2, vault_key: &VaultKey) -> Result<String, String> {
+fn decrypt_v2_with_key(
+    file: &EncryptedVaultFileV2,
+    vault_key: &VaultKey,
+) -> Result<String, String> {
     validate_v2_metadata(file)?;
     let nonce = decode_base64(&file.cipher.nonce)?;
     let payload = decode_base64(&file.payload)?;
@@ -340,7 +350,8 @@ fn decrypt_v2_with_key(file: &EncryptedVaultFileV2, vault_key: &VaultKey) -> Res
     }
 
     let aad = aad_v2(file);
-    let cipher = Aes256Gcm::new_from_slice(&vault_key.key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+    let cipher =
+        Aes256Gcm::new_from_slice(&vault_key.key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
     let decrypted = cipher
         .decrypt(
             Nonce::from_slice(&nonce),
@@ -353,7 +364,10 @@ fn decrypt_v2_with_key(file: &EncryptedVaultFileV2, vault_key: &VaultKey) -> Res
     String::from_utf8(decrypted).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())
 }
 
-fn decrypt_v2(file: EncryptedVaultFileV2, master_password: &str) -> Result<(String, VaultKey), String> {
+fn decrypt_v2(
+    file: EncryptedVaultFileV2,
+    master_password: &str,
+) -> Result<(String, VaultKey), String> {
     validate_v2_metadata(&file)?;
     let salt = decode_base64(&file.kdf.salt)?;
     let vault_key = VaultKey::derive(master_password, salt, file.kdf.params)?;
@@ -418,7 +432,10 @@ pub fn decrypt_vault_file(file: &Value, master_password: &str) -> Result<String,
 
 /// Decifra com a senha e devolve tambem a chave derivada (so no formato v2;
 /// um cofre PBKDF2 ganha chave nova quando for regravado em Argon2id).
-pub fn unlock_vault_file(file: &Value, master_password: &str) -> Result<(String, Option<VaultKey>), String> {
+pub fn unlock_vault_file(
+    file: &Value,
+    master_password: &str,
+) -> Result<(String, Option<VaultKey>), String> {
     match crypto_version(file) {
         CRYPTO_VERSION_ARGON2ID => {
             let v2: EncryptedVaultFileV2 = serde_json::from_value(file.clone())
@@ -440,7 +457,9 @@ pub fn decrypt_with_key(file: &Value, vault_key: &VaultKey) -> Option<Result<Str
         return None;
     }
     let v2: EncryptedVaultFileV2 = serde_json::from_value(file.clone()).ok()?;
-    vault_key.matches(&v2).then(|| decrypt_v2_with_key(&v2, vault_key))
+    vault_key
+        .matches(&v2)
+        .then(|| decrypt_v2_with_key(&v2, vault_key))
 }
 
 pub fn failed_backup_verification() -> BackupVerificationReport {
