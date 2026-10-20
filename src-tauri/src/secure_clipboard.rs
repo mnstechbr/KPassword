@@ -41,9 +41,13 @@ pub async fn clipboard_write_secret(
     let value = zeroize::Zeroizing::new(value);
     let ownership = platform::write_secret(&app, &value).await?;
     let generation = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
-    *state.owned.lock().map_err(|_| "error.clipboard.unavailable")? = Some(ownership);
+    *state
+        .owned
+        .lock()
+        .map_err(|_| "error.clipboard.unavailable")? = Some(ownership);
 
-    let delay = Duration::from_secs(clear_after_seconds.clamp(MIN_CLEAR_SECONDS, MAX_CLEAR_SECONDS));
+    let delay =
+        Duration::from_secs(clear_after_seconds.clamp(MIN_CLEAR_SECONDS, MAX_CLEAR_SECONDS));
     std::thread::spawn(move || {
         std::thread::sleep(delay);
         let state = app.state::<SecureClipboard>();
@@ -244,11 +248,17 @@ mod platform {
                         selection.set_text(&text);
                     }
                 });
-                if stored { Ok(owned) } else { Err("error.clipboard.write".to_string()) }
+                if stored {
+                    Ok(owned)
+                } else {
+                    Err("error.clipboard.write".to_string())
+                }
             })();
             let _ = tx.send(result);
-        }).map_err(|_| "error.clipboard.unavailable")?;
-        tokio::time::timeout(std::time::Duration::from_secs(5), rx).await
+        })
+        .map_err(|_| "error.clipboard.unavailable")?;
+        tokio::time::timeout(std::time::Duration::from_secs(5), rx)
+            .await
             .map_err(|_| "error.clipboard.timeout")?
             .map_err(|_| "error.clipboard.unavailable".to_string())?
     }
