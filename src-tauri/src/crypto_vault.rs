@@ -8,7 +8,7 @@ use pbkdf2::pbkdf2_hmac;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::Sha256;
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 const APP_NAME: &str = "KPassword";
 const FILE_VERSION: u8 = 1;
@@ -227,14 +227,47 @@ pub fn encrypt_vault_v2_default(
     )
 }
 
-fn encrypt_vault_v2_with_params(
-    plain_vault_json: &str,
-    master_password: &str,
-    created_at: Option<&str>,
+/// Chave derivada da senha mestra, guardada pela sessao do cofre para cifrar
+/// cada gravacao sem rodar o Argon2id de novo. Cada gravacao usa um nonce novo.
+pub struct VaultKey {
+    salt: Vec<u8>,
     params: Argon2idParams,
-) -> Result<EncryptedVaultFileV2, String> {
-    validate_argon2id_params(params)?;
+    key: Zeroizing<Vec<u8>>,
+}
 
+impl VaultKey {
+    /// Sal novo com os parametros padrao (cofre novo ou migrado do PBKDF2).
+    pub fn generate(master_password: &str) -> Result<Self, String> {
+        Self::generate_with_params(master_password, default_argon2id_params())
+    }
+
+    fn generate_with_params(master_password: &str, params: Argon2idParams) -> Result<Self, String> {
+        let salt = random_bytes(32)?;
+        Self::derive(master_password, salt, params)
+    }
+
+    fn derive(
+        master_password: &str,
+        salt: Vec<u8>,
+        params: Argon2idParams,
+    ) -> Result<Self, String> {
+        let password = Zeroizing::new(master_password.as_bytes().to_vec());
+        let key = Zeroizing::new(derive_argon2id_key(&password, &salt, params)?);
+        Ok(Self { salt, params, key })
+    }
+
+    /// A chave abre `file` sem derivar de novo: mesmo sal e mesmos parametros.
+    fn matches(&self, file: &EncryptedVaultFileV2) -> bool {
+        file.kdf.params == self.params
+            && decode_base64(&file.kdf.salt).is_ok_and(|salt| salt == self.salt)
+    }
+}
+
+pub fn encrypt_with_key(
+    plain_vault_json: &str,
+    vault_key: &VaultKey,
+    created_at: Option<&str>,
+) -> Result<EncryptedVaultFileV2, String> {
     let plain_value: Value = serde_json::from_str(plain_vault_json)
         .map_err(|_| "error.vault.invalidContent".to_string())?;
     let updated_at = extract_string(&plain_value, "updatedAt").unwrap_or_default();
@@ -243,25 +276,15 @@ fn encrypt_vault_v2_with_params(
         .or_else(|| extract_string(&plain_value, "createdAt"))
         .unwrap_or_else(|| updated_at.clone());
 
-    let salt = random_bytes(32)?;
     let nonce = random_bytes(12)?;
-    let mut password_bytes = master_password.as_bytes().to_vec();
-    let mut key = match derive_argon2id_key(&password_bytes, &salt, params) {
-        Ok(key) => key,
-        Err(error) => {
-            password_bytes.zeroize();
-            return Err(error);
-        }
-    };
-
     let mut file = EncryptedVaultFileV2 {
         version: FILE_VERSION,
         app: APP_NAME.to_string(),
         crypto_version: CRYPTO_VERSION_ARGON2ID,
         kdf: KdfMetadata {
             algorithm: ARGON2ID_KDF.to_string(),
-            params,
-            salt: encode_base64(&salt),
+            params: vault_key.params,
+            salt: encode_base64(&vault_key.salt),
         },
         cipher: CipherMetadata {
             algorithm: ARGON2ID_CIPHER.to_string(),
@@ -272,26 +295,33 @@ fn encrypt_vault_v2_with_params(
         payload: String::new(),
     };
 
-    let encrypted_result = (|| {
-        let aad = aad_v2(&file);
-        let cipher =
-            Aes256Gcm::new_from_slice(&key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
-        cipher
-            .encrypt(
-                Nonce::from_slice(&nonce),
-                Payload {
-                    msg: plain_vault_json.as_bytes(),
-                    aad: &aad,
-                },
-            )
-            .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())
-    })();
-
-    key.zeroize();
-    password_bytes.zeroize();
-    let encrypted = encrypted_result?;
+    let aad = aad_v2(&file);
+    let cipher =
+        Aes256Gcm::new_from_slice(&vault_key.key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+    let encrypted = cipher
+        .encrypt(
+            Nonce::from_slice(&nonce),
+            Payload {
+                msg: plain_vault_json.as_bytes(),
+                aad: &aad,
+            },
+        )
+        .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
     file.payload = encode_base64(&encrypted);
     Ok(file)
+}
+
+fn encrypt_vault_v2_with_params(
+    plain_vault_json: &str,
+    master_password: &str,
+    created_at: Option<&str>,
+    params: Argon2idParams,
+) -> Result<EncryptedVaultFileV2, String> {
+    validate_argon2id_params(params)?;
+    serde_json::from_str::<Value>(plain_vault_json)
+        .map_err(|_| "error.vault.invalidContent".to_string())?;
+    let vault_key = VaultKey::generate_with_params(master_password, params)?;
+    encrypt_with_key(plain_vault_json, &vault_key, created_at)
 }
 
 fn validate_v2_metadata(file: &EncryptedVaultFileV2) -> Result<(), String> {
@@ -307,10 +337,11 @@ fn validate_v2_metadata(file: &EncryptedVaultFileV2) -> Result<(), String> {
     Ok(())
 }
 
-fn decrypt_v2(file: EncryptedVaultFileV2, master_password: &str) -> Result<String, String> {
-    validate_v2_metadata(&file)?;
-
-    let salt = decode_base64(&file.kdf.salt)?;
+fn decrypt_v2_with_key(
+    file: &EncryptedVaultFileV2,
+    vault_key: &VaultKey,
+) -> Result<String, String> {
+    validate_v2_metadata(file)?;
     let nonce = decode_base64(&file.cipher.nonce)?;
     let payload = decode_base64(&file.payload)?;
 
@@ -318,33 +349,30 @@ fn decrypt_v2(file: EncryptedVaultFileV2, master_password: &str) -> Result<Strin
         return Err(GENERIC_CRYPTO_ERROR.to_string());
     }
 
-    let mut password_bytes = master_password.as_bytes().to_vec();
-    let mut key = match derive_argon2id_key(&password_bytes, &salt, file.kdf.params) {
-        Ok(key) => key,
-        Err(error) => {
-            password_bytes.zeroize();
-            return Err(error);
-        }
-    };
-    let decrypted_result = (|| {
-        let aad = aad_v2(&file);
-        let cipher =
-            Aes256Gcm::new_from_slice(&key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
-        cipher
-            .decrypt(
-                Nonce::from_slice(&nonce),
-                Payload {
-                    msg: payload.as_ref(),
-                    aad: &aad,
-                },
-            )
-            .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())
-    })();
-
-    key.zeroize();
-    password_bytes.zeroize();
-    let decrypted = decrypted_result?;
+    let aad = aad_v2(file);
+    let cipher =
+        Aes256Gcm::new_from_slice(&vault_key.key).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
+    let decrypted = cipher
+        .decrypt(
+            Nonce::from_slice(&nonce),
+            Payload {
+                msg: payload.as_ref(),
+                aad: &aad,
+            },
+        )
+        .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
     String::from_utf8(decrypted).map_err(|_| GENERIC_CRYPTO_ERROR.to_string())
+}
+
+fn decrypt_v2(
+    file: EncryptedVaultFileV2,
+    master_password: &str,
+) -> Result<(String, VaultKey), String> {
+    validate_v2_metadata(&file)?;
+    let salt = decode_base64(&file.kdf.salt)?;
+    let vault_key = VaultKey::derive(master_password, salt, file.kdf.params)?;
+    let plaintext = decrypt_v2_with_key(&file, &vault_key)?;
+    Ok((plaintext, vault_key))
 }
 
 fn validate_legacy_metadata(file: &LegacyEncryptedVaultFile) -> Result<(), String> {
@@ -399,19 +427,39 @@ fn decrypt_legacy(file: LegacyEncryptedVaultFile, master_password: &str) -> Resu
 }
 
 pub fn decrypt_vault_file(file: &Value, master_password: &str) -> Result<String, String> {
+    unlock_vault_file(file, master_password).map(|(plaintext, _)| plaintext)
+}
+
+/// Decifra com a senha e devolve tambem a chave derivada (so no formato v2;
+/// um cofre PBKDF2 ganha chave nova quando for regravado em Argon2id).
+pub fn unlock_vault_file(
+    file: &Value,
+    master_password: &str,
+) -> Result<(String, Option<VaultKey>), String> {
     match crypto_version(file) {
         CRYPTO_VERSION_ARGON2ID => {
             let v2: EncryptedVaultFileV2 = serde_json::from_value(file.clone())
                 .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
-            decrypt_v2(v2, master_password)
+            decrypt_v2(v2, master_password).map(|(plaintext, key)| (plaintext, Some(key)))
         }
         CRYPTO_VERSION_LEGACY => {
             let legacy: LegacyEncryptedVaultFile = serde_json::from_value(file.clone())
                 .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
-            decrypt_legacy(legacy, master_password)
+            decrypt_legacy(legacy, master_password).map(|plaintext| (plaintext, None))
         }
         _ => Err(GENERIC_CRYPTO_ERROR.to_string()),
     }
+}
+
+/// Decifra sem Argon2id quando o arquivo foi cifrado com esta mesma chave.
+pub fn decrypt_with_key(file: &Value, vault_key: &VaultKey) -> Option<Result<String, String>> {
+    if crypto_version(file) != CRYPTO_VERSION_ARGON2ID {
+        return None;
+    }
+    let v2: EncryptedVaultFileV2 = serde_json::from_value(file.clone()).ok()?;
+    vault_key
+        .matches(&v2)
+        .then(|| decrypt_v2_with_key(&v2, vault_key))
 }
 
 pub fn failed_backup_verification() -> BackupVerificationReport {

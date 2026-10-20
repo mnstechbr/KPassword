@@ -1292,7 +1292,7 @@ textarea:focus {
 }
 
 
-/* Final icon tuning: app UI +5% to +7%. Native icons are handled by tools/boost-native-icon.ps1 */
+/* Final icon tuning: app UI +5% to +7%. Native icons are generated from app-icon.png by `tauri icon` */
 .appLogo.sm {
   width: 28px;
   height: 28px;
