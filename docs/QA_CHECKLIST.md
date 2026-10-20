@@ -144,12 +144,13 @@ Regra visual:
 - [ ] Inatividade envia para bandeja.
 - [ ] Clicar/minimizar pela barra de tarefas não envia para bandeja.
 - [ ] Clique direito na bandeja mostra:
-  - [ ] Abrir APP Completo.
-  - [ ] Abrir APP Compacto.
+  - [ ] Abrir KPassword.
+  - [ ] Revogar todos os acessos da ponte (somente Linux).
   - [ ] Sair.
-- [ ] Abrir APP Completo restaura tamanho desktop.
-- [ ] Abrir APP Compacto restaura tamanho compacto.
+- [ ] Abrir KPassword restaura a janela com o tamanho em que foi deixada.
 - [ ] Sair encerra o processo.
+- [ ] Autostart ativado pelo app instalado reinicia a sessão sem "Connection refused".
+- [ ] `npm run tauri dev` recusa ativar o autostart.
 
 ## 12. Updater
 
