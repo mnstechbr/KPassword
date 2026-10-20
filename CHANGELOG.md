@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.8.0
+
+- Senhas copiadas ficam fora do histórico do clipboard (Win+V, Klipper) e são limpas ao bloquear e ao sair.
+- Senha mestra e chave derivada vivem numa sessão do backend; gravações não rodam mais o Argon2id.
+- Gravação atômica com permissões restritas, fila única de gravação e retenção automática de backups.
+- Argon2id, QR e restauração fora da thread principal; erros do backend traduzidos nos quatro idiomas.
+- Autostart de build de desenvolvimento corrigido e menu da bandeja simplificado e traduzido.
+- Detalhes em [notas da release](docs/releases/v1.8.0.md).
+
 ## v1.7.0
 
 - Secrets Bridge universal no Linux com MCP Streamable HTTP e gateway Chat, Responses e Messages em JSON/SSE.

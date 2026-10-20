@@ -15,8 +15,14 @@ pub static STORAGE_LOCK: Mutex<()> = Mutex::new(());
 /// Grava `bytes` em `path` sem nunca deixar um arquivo truncado no lugar:
 /// temporario exclusivo (0600 no Unix), fsync, rename e fsync da pasta.
 pub fn write_atomic_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
-    let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or("kpassword");
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("kpassword");
     let temp_path = path.with_file_name(format!(".{file_name}.{}.{nanos}.tmp", std::process::id()));
 
     let mut options = fs::OpenOptions::new();
@@ -68,9 +74,13 @@ pub fn create_private_dir(path: &Path) -> std::io::Result<()> {
 #[cfg(unix)]
 pub fn harden_existing_files(dir: &Path, depth: u8) {
     use std::os::unix::fs::PermissionsExt;
-    let Ok(entries) = fs::read_dir(dir) else { return };
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
     for entry in entries.flatten() {
-        let Ok(kind) = entry.file_type() else { continue };
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
         if kind.is_symlink() {
             continue;
         }
@@ -130,7 +140,9 @@ pub fn is_automatic_backup(file_name: &str, safe_vault_name: &str) -> bool {
         .strip_prefix(safe_vault_name)
         .and_then(|rest| rest.strip_prefix('-'))
         .and_then(|rest| rest.strip_suffix(".kpvault"))
-        .is_some_and(|millis| !millis.is_empty() && millis.bytes().all(|byte| byte.is_ascii_digit()))
+        .is_some_and(|millis| {
+            !millis.is_empty() && millis.bytes().all(|byte| byte.is_ascii_digit())
+        })
 }
 
 #[cfg(test)]
@@ -138,7 +150,10 @@ mod tests {
     use super::*;
 
     fn temp_dir(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("kpassword-storage-io-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "kpassword-storage-io-{name}-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
@@ -163,8 +178,14 @@ mod tests {
         create_private_dir(&dir).unwrap();
         let path = dir.join("vault.kpvault");
         write_atomic_private(&path, b"x").unwrap();
-        assert_eq!(fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
-        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(&dir).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
         let _ = fs::remove_dir_all(dir.parent().unwrap());
     }
 
@@ -186,7 +207,8 @@ mod tests {
 
     #[test]
     fn retention_never_prunes_small_sets() {
-        let backups: Vec<(String, u64)> = (0..10u64).map(|i| (format!("v-{i}.kpvault"), i)).collect();
+        let backups: Vec<(String, u64)> =
+            (0..10u64).map(|i| (format!("v-{i}.kpvault"), i)).collect();
         assert!(backups_to_prune(&backups, 10_000_000).is_empty());
     }
 
@@ -194,7 +216,10 @@ mod tests {
     fn only_numbered_backups_are_automatic() {
         assert!(is_automatic_backup("vault-1712345678901.kpvault", "vault"));
         assert!(is_automatic_backup("work-1.kpvault", "work"));
-        assert!(!is_automatic_backup("vault-pre-restore-1712345678901.kpvault", "vault"));
+        assert!(!is_automatic_backup(
+            "vault-pre-restore-1712345678901.kpvault",
+            "vault"
+        ));
         assert!(!is_automatic_backup("vault-pre-argon2-1.kpvault", "vault"));
         assert!(!is_automatic_backup("other-1.kpvault", "vault"));
         assert!(!is_automatic_backup("vault-.kpvault", "vault"));

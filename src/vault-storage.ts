@@ -28,10 +28,9 @@ export async function saveVaultFile(
   payload: string,
   vaultName = "vault",
   forceBackup = false,
-  historyPassword?: string,
   backupIntervalHours?: number,
 ) {
-  return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup, historyPassword, backupIntervalHours });
+  return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup, backupIntervalHours });
 }
 
 /** Após trocar a senha mestra, recifra com a senha nova os backups que abriam com a anterior. */
@@ -118,9 +117,9 @@ export async function getWindowsHelloStatus(vaultName = "vault") {
   );
 }
 
-export async function enableWindowsHello(vaultName = "vault", masterPassword: string, reason: string) {
+export async function enableWindowsHello(vaultName = "vault", reason: string) {
   return withCommandTimeout(
-    invoke<WindowsHelloStatus>("enable_windows_hello", { vaultName, masterPassword, reason }),
+    invoke<WindowsHelloStatus>("enable_windows_hello", { vaultName, reason }),
     WINDOWS_HELLO_ACTION_TIMEOUT_MS,
     "Windows Hello enable",
   );
