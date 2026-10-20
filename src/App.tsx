@@ -193,7 +193,7 @@ import { LanguageSelector } from "./components/LanguageSelector";
 import { getItemTypeIcon } from "./components/item-type-icon";
 
 // Fica aqui: tools/version-check.mjs lê a versão deste arquivo.
-const APP_VERSION = "1.7.1";
+const APP_VERSION = "1.8.0";
 
 export default function App() {
   useDialogFocus();
