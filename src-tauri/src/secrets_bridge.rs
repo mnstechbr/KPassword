@@ -215,7 +215,17 @@ pub fn save_with_history_check(
 pub fn bridge_close(app: AppHandle) { close(&app); }
 
 #[tauri::command]
-pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String, master_password: String, duration_hours: Option<u64>) -> Result<u64, String> {
+pub async fn bridge_open(app: AppHandle, vault_name: String, master_password: String, duration_hours: Option<u64>) -> Result<u64, String> {
+    let master_password = Zeroizing::new(master_password);
+    // Broker, limites e expiracao da sessao so existem no Linux.
+    if !cfg!(target_os = "linux") { return Err(DENIED.into()); }
+    // Decifrar o cofre (Argon2) fora da thread principal.
+    tauri::async_runtime::spawn_blocking(move || bridge_open_blocking(app, vault_name, master_password, duration_hours))
+        .await.map_err(|_| DENIED)?
+}
+
+fn bridge_open_blocking(app: AppHandle, vault_name: String, password: Zeroizing<String>, duration_hours: Option<u64>) -> Result<u64, String> {
+    let state = app.state::<BridgeState>();
     let _lifecycle=state.1.lock().map_err(|_| DENIED)?;
     close_unlocked(&app);
     let generation = {
@@ -223,7 +233,6 @@ pub fn bridge_open(app: AppHandle, state: State<BridgeState>, vault_name: String
         core.close();
         core.generation
     };
-    let password = Zeroizing::new(master_password);
     let (path, _, name) = super::storage_paths(&app, Some(vault_name))?;
     let raw = fs::read(&path).map_err(|_| DENIED)?;
     let encrypted: Value = serde_json::from_slice(&raw).map_err(|_| DENIED)?;

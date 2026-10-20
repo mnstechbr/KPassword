@@ -53,6 +53,7 @@ import {
   openBackupFolder,
   openVaultFolder,
   readActiveVaultName,
+  reencryptBackups,
   restoreVaultFile,
   saveVaultFile,
   unlockWithWindowsHello,
@@ -2366,7 +2367,13 @@ export default function App() {
       }
 
       const file = await encryptVault(nextVault, password, encryptedVault);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, forceBackup, isLinux ? password : undefined);
+      const info = await saveVaultFile(
+        JSON.stringify(file, null, 2),
+        activeVaultName,
+        forceBackup,
+        isLinux ? password : undefined,
+        nextVault.settings.backupIntervalHours,
+      );
 
       setEncryptedVault(file);
       setVault({
@@ -2375,6 +2382,7 @@ export default function App() {
       });
       setStorageInfo(info);
       setBackups(info.backups);
+      if (info.warning) setMessage(info.warning);
 
       return file;
     },
@@ -2522,7 +2530,7 @@ export default function App() {
           createActionHistoryEntry("vault_unlocked"),
         );
         const historyFile = await encryptVault(vaultWithHistory, unlockPassword, encryptedVault);
-        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, isLinux ? unlockPassword : undefined);
+        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, isLinux ? unlockPassword : undefined, plainVault.settings?.backupIntervalHours);
 
         setEncryptedVault(historyFile);
         setStorageInfo(historyInfo);
@@ -2623,7 +2631,7 @@ export default function App() {
           createActionHistoryEntry("vault_unlocked_windows_hello"),
         );
         const historyFile = await encryptVault(vaultWithHistory, password, encryptedVault);
-        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false);
+        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, undefined, plainVault.settings?.backupIntervalHours);
 
         setEncryptedVault(historyFile);
         setStorageInfo(historyInfo);
@@ -3001,7 +3009,12 @@ export default function App() {
       }
 
       const file = await encryptVault(nextVault, newMasterPassword, null);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName);
+      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false, undefined, nextVault.settings.backupIntervalHours);
+      // Backups da senha anterior deixam de abrir com ela.
+      const backupReport = await reencryptBackups(activeVaultName, currentMasterPassword, newMasterPassword).catch((error) => {
+        secureLogError("recifrar backups após troca de senha", error);
+        return null;
+      });
 
       setEncryptedVault(file);
       setVault({ ...nextVault, updatedAt: file.updatedAt });
@@ -3027,7 +3040,11 @@ export default function App() {
         }
       }
 
-      setMessage(t("success.masterPasswordChanged"));
+      setMessage(
+        backupReport
+          ? `${t("success.masterPasswordChanged")} ${t("backups.reencrypted", { count: backupReport.reencrypted })}`
+          : t("success.masterPasswordChanged"),
+      );
     } catch {
       setMessage(t("errors.changeMaster"));
     } finally {

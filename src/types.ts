@@ -236,4 +236,6 @@ export type StorageInfo = {
   backup_dir: string;
   backups: BackupFile[];
   vault_name?: string;
+  /** Cofre salvo, mas uma etapa secundária (ex.: backup pedido) falhou. */
+  warning?: string;
 };

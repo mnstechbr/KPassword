@@ -13,6 +13,7 @@ use tauri_plugin_notification::NotificationExt;
 use zeroize::Zeroize;
 
 mod crypto_vault;
+mod storage_io;
 mod secure_clipboard;
 mod vault_removal;
 #[cfg(test)]
@@ -47,7 +48,7 @@ use tauri::{
     AppHandle, Manager,
 };
 
-const BACKUP_INTERVAL_SECONDS: u64 = 4 * 60 * 60;
+const DEFAULT_BACKUP_INTERVAL_HOURS: u64 = 4;
 const MAX_QR_IMAGE_BYTES: usize = 12 * 1024 * 1024;
 const MAX_QR_IMAGE_SIDE: u32 = 10_000;
 const MAX_QR_IMAGE_PIXELS: u64 = 25_000_000;
@@ -75,6 +76,9 @@ struct StorageInfo {
     backup_dir: String,
     backups: Vec<BackupFile>,
     vault_name: String,
+    /// Cofre salvo, mas algo secundario (ex.: backup pedido) falhou.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    warning: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -236,7 +240,7 @@ fn storage_paths(
         .app_data_dir()
         .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
 
-    fs::create_dir_all(&data_dir)
+    storage_io::create_private_dir(&data_dir)
         .map_err(|error| format!("Erro ao criar pasta do cofre: {error}"))?;
 
     let backup_dir = if safe_vault_name == "vault" {
@@ -245,7 +249,8 @@ fn storage_paths(
         data_dir.join("backups").join(&safe_vault_name)
     };
 
-    fs::create_dir_all(&backup_dir)
+    storage_io::create_private_dir(&data_dir.join("backups"))
+        .and_then(|_| storage_io::create_private_dir(&backup_dir))
         .map_err(|error| format!("Erro ao criar pasta de backups: {error}"))?;
 
     Ok((
@@ -289,7 +294,7 @@ fn get_backups_from_dir(backup_dir: &Path) -> Result<Vec<BackupFile>, String> {
     Ok(backups)
 }
 
-fn should_create_backup(backup_dir: &Path) -> bool {
+fn should_create_backup(backup_dir: &Path, interval_hours: u64) -> bool {
     let Ok(backups) = get_backups_from_dir(backup_dir) else {
         return true;
     };
@@ -299,7 +304,7 @@ fn should_create_backup(backup_dir: &Path) -> bool {
     };
 
     let last_backup_seconds = (last_backup.modified_epoch_ms / 1000) as u64;
-    now_epoch_seconds().saturating_sub(last_backup_seconds) >= BACKUP_INTERVAL_SECONDS
+    now_epoch_seconds().saturating_sub(last_backup_seconds) >= interval_hours.clamp(1, 24) * 60 * 60
 }
 
 fn create_labeled_backup(
@@ -319,14 +324,40 @@ fn create_labeled_backup(
     };
     let backup_path = backup_dir.join(backup_name);
 
-    fs::write(&backup_path, payload.as_bytes())
+    storage_io::write_atomic_private(&backup_path, payload.as_bytes())
         .map_err(|error| format!("Erro ao criar backup criptografado: {error}"))?;
 
     Ok(backup_path)
 }
 
 fn create_backup(backup_dir: &Path, safe_vault_name: &str, payload: &str) -> Result<(), String> {
-    create_labeled_backup(backup_dir, safe_vault_name, None, payload).map(|_| ())
+    create_labeled_backup(backup_dir, safe_vault_name, None, payload)?;
+    prune_automatic_backups(backup_dir, safe_vault_name);
+    Ok(())
+}
+
+/// Aplica a retencao aos backups automaticos; copias com rotulo ficam.
+fn prune_automatic_backups(backup_dir: &Path, safe_vault_name: &str) {
+    let Ok(backups) = get_backups_from_dir(backup_dir) else { return };
+    let automatic: Vec<(String, u64)> = backups
+        .into_iter()
+        .filter(|backup| storage_io::is_automatic_backup(&backup.filename, safe_vault_name))
+        .map(|backup| (backup.filename, (backup.modified_epoch_ms / 1000) as u64))
+        .collect();
+    for name in storage_io::backups_to_prune(&automatic, now_epoch_seconds()) {
+        let _ = fs::remove_file(backup_dir.join(name));
+    }
+}
+
+/// Recusa gravar como cofre algo que nao seja um arquivo cifrado do KPassword.
+fn validate_encrypted_payload(payload: &str) -> Result<(), String> {
+    let value: serde_json::Value = serde_json::from_str(payload)
+        .map_err(|_| "Conteúdo do cofre inválido; nada foi gravado.".to_string())?;
+    if crypto_vault::is_encrypted_vault_file(&value) {
+        Ok(())
+    } else {
+        Err("Conteúdo do cofre inválido; nada foi gravado.".to_string())
+    }
 }
 
 /// Nucleo FAIL-CLOSED da restauracao de backup.
@@ -392,13 +423,8 @@ fn perform_safe_restore(
         None
     };
 
-    // Escrita atomica, mesmo padrao de save_vault_file.
-    let temp_path = vault_path.with_extension("kpvault.tmp");
-
-    fs::write(&temp_path, payload.as_bytes())
-        .map_err(|error| format!("Erro ao gravar arquivo temporario do cofre: {error}"))?;
-
-    fs::rename(&temp_path, vault_path)
+    // Escrita atomica e duravel, mesmo padrao de save_vault_file.
+    storage_io::write_atomic_private(vault_path, payload.as_bytes())
         .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))?;
 
     Ok(safety_backup)
@@ -428,6 +454,7 @@ fn build_storage_info(app: &AppHandle, vault_name: Option<String>) -> Result<Sto
         backup_dir: backup_dir.to_string_lossy().to_string(),
         backups,
         vault_name: safe_vault_name,
+        warning: None,
     })
 }
 
@@ -549,38 +576,65 @@ fn load_vault_file(app: AppHandle, vault_name: Option<String>) -> Result<Option<
         .map_err(|error| format!("Erro ao carregar o cofre local criptografado: {error}"))
 }
 
+/// Roda trabalho pesado (Argon2, disco, QR) fora da thread principal, para a
+/// janela continuar respondendo.
+async fn run_blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|_| "Operação interrompida.".to_string())?
+}
+
 #[tauri::command]
-fn save_vault_file(
+async fn save_vault_file(
     app: AppHandle,
     payload: String,
     vault_name: Option<String>,
     force_backup: Option<bool>,
     history_password: Option<String>,
+    backup_interval_hours: Option<u64>,
 ) -> Result<StorageInfo, String> {
-    let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
-    let temp_path = vault_path.with_extension("kpvault.tmp");
-    secrets_bridge::save_with_history_check(&app, &safe_vault_name, &payload, history_password, || {
-        fs::write(&temp_path, payload.as_bytes())
-            .map_err(|error| format!("Erro ao gravar arquivo temporário do cofre: {error}"))?;
-        fs::rename(&temp_path, &vault_path)
+    run_blocking(move || {
+        save_vault_file_blocking(&app, payload, vault_name, force_backup, history_password, backup_interval_hours)
+    })
+    .await
+}
+
+fn save_vault_file_blocking(
+    app: &AppHandle,
+    payload: String,
+    vault_name: Option<String>,
+    force_backup: Option<bool>,
+    history_password: Option<String>,
+    backup_interval_hours: Option<u64>,
+) -> Result<StorageInfo, String> {
+    validate_encrypted_payload(&payload)?;
+    let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "Armazenamento indisponível.")?;
+    let (vault_path, backup_dir, safe_vault_name) = storage_paths(app, vault_name)?;
+    secrets_bridge::save_with_history_check(app, &safe_vault_name, &payload, history_password, || {
+        storage_io::write_atomic_private(&vault_path, payload.as_bytes())
             .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))
     })?;
 
     let force_backup_requested = force_backup.unwrap_or(false);
+    let interval_hours = backup_interval_hours.unwrap_or(DEFAULT_BACKUP_INTERVAL_HOURS);
+    let mut warning = None;
 
-    if force_backup_requested || should_create_backup(&backup_dir) {
+    if force_backup_requested || should_create_backup(&backup_dir, interval_hours) {
         if let Err(error) = create_backup(&backup_dir, &safe_vault_name, &payload) {
+            // O cofre ja foi gravado: devolver erro deixaria a tela diferente do disco.
             if force_backup_requested {
-                return Err(format!(
-                    "Cofre salvo, mas não foi possível criar o backup solicitado: {error}"
-                ));
+                warning = Some(format!("Cofre salvo, mas não foi possível criar o backup solicitado: {error}"));
+            } else {
+                eprintln!("Aviso: cofre salvo, mas backup automático falhou.");
             }
-
-            eprintln!("Aviso: cofre salvo, mas backup automático falhou.");
         }
     }
 
-    build_storage_info(&app, Some(safe_vault_name))
+    let mut info = build_storage_info(app, Some(safe_vault_name))?;
+    info.warning = warning;
+    Ok(info)
 }
 
 /// Restaura um backup sobre um cofre, criando a copia de seguranca do conteudo
@@ -590,12 +644,18 @@ fn save_vault_file(
 /// que era onde o defeito HIGH vivia. Nao decifra nada e nao exige senha, entao
 /// funciona igualmente na tela bloqueada e com o cofre destravado.
 #[tauri::command]
-fn restore_vault_file(
+async fn restore_vault_file(app: AppHandle, payload: String, vault_name: Option<String>, expected_vault_name: Option<String>) -> Result<RestoreOutcome, String> {
+    run_blocking(move || restore_vault_file_blocking(app, payload, vault_name, expected_vault_name)).await
+}
+
+fn restore_vault_file_blocking(
     app: AppHandle,
     payload: String,
     vault_name: Option<String>,
     expected_vault_name: Option<String>,
 ) -> Result<RestoreOutcome, String> {
+    validate_encrypted_payload(&payload)?;
+    let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "Armazenamento indisponível.")?;
     secrets_bridge::close(&app);
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
 
@@ -620,8 +680,13 @@ fn get_storage_info(app: AppHandle, vault_name: Option<String>) -> Result<Storag
 }
 
 #[tauri::command]
-fn delete_vault_file(app: AppHandle, vault_name: String, expected_vault_name: String, master_password: String) -> Result<String, String> {
+async fn delete_vault_file(app: AppHandle, vault_name: String, expected_vault_name: String, master_password: String) -> Result<String, String> {
+    run_blocking(move || delete_vault_file_blocking(app, vault_name, expected_vault_name, master_password)).await
+}
+
+fn delete_vault_file_blocking(app: AppHandle, vault_name: String, expected_vault_name: String, master_password: String) -> Result<String, String> {
     let password = zeroize::Zeroizing::new(master_password);
+    let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "Armazenamento indisponível.")?;
     let (path, backups, safe_name) = storage_paths(&app, Some(vault_name))?;
     if safe_name != sanitize_vault_name(Some(expected_vault_name))? {
         return Err("Cofre selecionado mudou; exclusão cancelada.".into());
@@ -638,7 +703,7 @@ fn list_vault_files(app: AppHandle) -> Result<Vec<VaultFileInfo>, String> {
         .app_data_dir()
         .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
 
-    fs::create_dir_all(&data_dir)
+    storage_io::create_private_dir(&data_dir)
         .map_err(|error| format!("Erro ao criar pasta do cofre: {error}"))?;
 
     let mut vaults = Vec::new();
@@ -714,8 +779,63 @@ fn read_backup_file(
         .map_err(|error| format!("Erro ao ler backup criptografado: {error}"))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupReencryptReport {
+    reencrypted: usize,
+    skipped: usize,
+}
+
+/// Depois de trocar a senha mestra, recifra com a senha nova os backups que
+/// abriam com a anterior, para a senha antiga deixar de abrir copias do cofre.
+/// Backups de senhas ainda mais antigas ficam como estao e entram em `skipped`.
 #[tauri::command]
-fn create_pre_argon2_backup(
+async fn reencrypt_backups(
+    app: AppHandle,
+    vault_name: Option<String>,
+    old_password: String,
+    new_password: String,
+) -> Result<BackupReencryptReport, String> {
+    let old_password = zeroize::Zeroizing::new(old_password);
+    let new_password = zeroize::Zeroizing::new(new_password);
+    run_blocking(move || {
+        let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "Armazenamento indisponível.")?;
+        let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
+        Ok(reencrypt_backups_in_dir(&backup_dir, &old_password, &new_password))
+    })
+    .await
+}
+
+fn reencrypt_backups_in_dir(backup_dir: &Path, old_password: &str, new_password: &str) -> BackupReencryptReport {
+    let mut report = BackupReencryptReport { reencrypted: 0, skipped: 0 };
+    let Ok(backups) = get_backups_from_dir(backup_dir) else { return report };
+    for backup in backups {
+        let path = backup_dir.join(&backup.filename);
+        let reencrypted = (|| {
+            let modified = fs::metadata(&path).ok()?.modified().ok()?;
+            let file: serde_json::Value = serde_json::from_slice(&fs::read(&path).ok()?).ok()?;
+            let plain = zeroize::Zeroizing::new(crypto_vault::decrypt_vault_file(&file, old_password).ok()?);
+            let created_at = file.get("createdAt").and_then(serde_json::Value::as_str);
+            let encrypted = crypto_vault::encrypt_vault_v2_default(&plain, new_password, created_at).ok()?;
+            let payload = serde_json::to_vec_pretty(&encrypted).ok()?;
+            storage_io::write_atomic_private(&path, &payload).ok()?;
+            // A data do backup e a do arquivo: preserva para a lista e a retencao.
+            if let Ok(file) = fs::File::options().write(true).open(&path) {
+                let _ = file.set_modified(modified);
+            }
+            Some(())
+        })();
+        if reencrypted.is_some() { report.reencrypted += 1 } else { report.skipped += 1 }
+    }
+    report
+}
+
+#[tauri::command]
+async fn create_pre_argon2_backup(app: AppHandle, payload: String, vault_name: Option<String>) -> Result<StorageInfo, String> {
+    run_blocking(move || create_pre_argon2_backup_blocking(app, payload, vault_name)).await
+}
+
+fn create_pre_argon2_backup_blocking(
     app: AppHandle,
     payload: String,
     vault_name: Option<String>,
@@ -726,7 +846,11 @@ fn create_pre_argon2_backup(
 }
 
 #[tauri::command]
-fn encrypt_vault_argon2id(
+async fn encrypt_vault_argon2id(plain_vault_json: String, master_password: String, created_at: Option<String>) -> Result<serde_json::Value, String> {
+    run_blocking(move || encrypt_vault_argon2id_blocking(plain_vault_json, master_password, created_at)).await
+}
+
+fn encrypt_vault_argon2id_blocking(
     plain_vault_json: String,
     mut master_password: String,
     created_at: Option<String>,
@@ -746,7 +870,11 @@ fn encrypt_vault_argon2id(
 }
 
 #[tauri::command]
-fn decrypt_vault_payload(
+async fn decrypt_vault_payload(file: serde_json::Value, master_password: String) -> Result<String, String> {
+    run_blocking(move || decrypt_vault_payload_blocking(file, master_password)).await
+}
+
+fn decrypt_vault_payload_blocking(
     file: serde_json::Value,
     mut master_password: String,
 ) -> Result<String, String> {
@@ -756,7 +884,13 @@ fn decrypt_vault_payload(
 }
 
 #[tauri::command]
-fn verify_backup_payload(
+async fn verify_backup_payload(raw: String, master_password: String) -> crypto_vault::BackupVerificationReport {
+    tauri::async_runtime::spawn_blocking(move || verify_backup_payload_blocking(raw, master_password))
+        .await
+        .unwrap_or_else(|_| crypto_vault::failed_backup_verification())
+}
+
+fn verify_backup_payload_blocking(
     raw: String,
     mut master_password: String,
 ) -> crypto_vault::BackupVerificationReport {
@@ -1433,6 +1567,37 @@ mod storage_tests {
         let backup_dir = base.join("backups");
         fs::create_dir_all(&backup_dir).unwrap();
         (base.join("beta.kpvault"), backup_dir)
+    }
+
+    #[test]
+    fn reencrypt_backups_moves_old_password_backups_to_new_password() {
+        let (_, backup_dir) = restore_dirs("reencrypt");
+        let plain = r#"{"version":1,"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","credentials":[],"settings":{}}"#;
+        let old_file = crypto_vault::encrypt_vault_v2_default(plain, "senha-antiga", None).unwrap();
+        let other_file = crypto_vault::encrypt_vault_v2_default(plain, "senha-mais-antiga", None).unwrap();
+        fs::write(backup_dir.join("beta-1.kpvault"), serde_json::to_vec(&old_file).unwrap()).unwrap();
+        fs::write(backup_dir.join("beta-2.kpvault"), serde_json::to_vec(&other_file).unwrap()).unwrap();
+        let before = fs::metadata(backup_dir.join("beta-1.kpvault")).unwrap().modified().unwrap();
+
+        let report = reencrypt_backups_in_dir(&backup_dir, "senha-antiga", "senha-nova");
+        assert_eq!((report.reencrypted, report.skipped), (1, 1));
+
+        let rewritten: serde_json::Value =
+            serde_json::from_slice(&fs::read(backup_dir.join("beta-1.kpvault")).unwrap()).unwrap();
+        assert!(crypto_vault::decrypt_vault_file(&rewritten, "senha-antiga").is_err());
+        assert!(crypto_vault::decrypt_vault_file(&rewritten, "senha-nova").is_ok());
+        let after = fs::metadata(backup_dir.join("beta-1.kpvault")).unwrap().modified().unwrap();
+        assert_eq!(before, after);
+        let _ = fs::remove_dir_all(backup_dir.parent().unwrap());
+    }
+
+    #[test]
+    fn save_validation_rejects_non_vault_payloads() {
+        assert!(validate_encrypted_payload("not json").is_err());
+        assert!(validate_encrypted_payload(r#"{"app":"KPassword"}"#).is_err());
+        let plain = r#"{"version":1,"createdAt":"a","updatedAt":"b","credentials":[],"settings":{}}"#;
+        let file = crypto_vault::encrypt_vault_v2_default(plain, "x", None).unwrap();
+        assert!(validate_encrypted_payload(&serde_json::to_string(&file).unwrap()).is_ok());
     }
 
     fn backups_em(dir: &Path) -> Vec<String> {
@@ -2452,7 +2617,11 @@ fn read_windows_clipboard_image_png_data_url(after_sequence: u32) -> Result<Stri
 }
 
 #[tauri::command]
-fn decode_qr_from_image_data_url(data_url: String) -> Result<String, String> {
+async fn decode_qr_from_image_data_url(data_url: String) -> Result<String, String> {
+    run_blocking(move || decode_qr_from_image_data_url_blocking(data_url)).await
+}
+
+fn decode_qr_from_image_data_url_blocking(data_url: String) -> Result<String, String> {
     let encoded = data_url
         .split_once(',')
         .map(|(_, payload)| payload)
@@ -2512,6 +2681,12 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             secrets_bridge::queue_request(app.handle(), &std::env::args().collect::<Vec<_>>());
+            // Cofres e backups antigos foram criados com 0644/0755.
+            if let Ok(data_dir) = app.path().app_data_dir() {
+                if storage_io::create_private_dir(&data_dir).is_ok() {
+                    storage_io::harden_existing_files(&data_dir, 2);
+                }
+            }
             #[cfg(target_os = "linux")]
             if !tauri::is_dev() {
                 // Corrige um autostart salvo por outro executavel (ex.: `tauri dev`).
@@ -2606,6 +2781,7 @@ pub fn run() {
             list_backup_files,
             read_backup_file,
             create_pre_argon2_backup,
+            reencrypt_backups,
             encrypt_vault_argon2id,
             decrypt_vault_payload,
             verify_backup_payload,
