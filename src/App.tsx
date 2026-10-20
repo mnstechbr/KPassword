@@ -7,24 +7,28 @@ import {
   useState,
   type ChangeEvent,
   type FormEvent,
-  type MouseEvent,
 } from "react";
 import { useDialogFocus } from "./useDialogFocus";
 import { useAppearance } from "./useAppearance";
+import { useVaultSession } from "./hooks/useVaultSession";
 import { UiIcon } from "./UiIcon";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { clearSecretClipboard, linuxTranslation, writeSecretToClipboard } from "./platform";
+import { clearSecretClipboard, guessPlatform, linuxTranslation, writeSecretToClipboard } from "./platform";
+import { withBackendReason } from "./backend-errors";
 import { validateApiKey } from "./api-key";
 import {
+  closeVaultSession,
   createEmptyVault,
-  decryptVault,
   encryptVault,
+  encryptVaultWithSession,
   needsCryptoMigration,
   parseEncryptedVault,
   validateEncryptedVaultBackup,
+  unlockVaultSession,
   validateMasterPassword,
   verifyEncryptedVaultBackup,
+  verifyVaultSessionPassword,
 } from "./crypto";
 import { generatePassword, type PasswordGeneratorMode } from "./password";
 import {
@@ -53,28 +57,25 @@ import {
   openBackupFolder,
   openVaultFolder,
   readActiveVaultName,
+  reencryptBackups,
   restoreVaultFile,
   saveVaultFile,
   unlockWithWindowsHello,
 } from "./vault-storage";
 import type {
   ActionHistoryEntry,
-  ActionHistoryType,
   BackupFile,
   BackupVerificationReport,
   CredentialCategory,
   CredentialRecord,
-  PasswordHistoryEntry,
   VaultAttachment,
   VaultFileInfo,
-  VaultItemType,
   WindowsHelloStatus,
   EncryptedVaultFile,
   PlainVault,
   StorageInfo,
 } from "./types";
 import {
-  LANGUAGES,
   getCategoryLabel,
   getDateLocale,
   getInitialLanguage,
@@ -83,1738 +84,121 @@ import {
   translateValidationIssue,
   type AppLanguage,
 } from "./i18n";
-
-const EMPTY_FORM: Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> = {
-  itemType: "credential",
-  title: "",
-  username: "",
-  password: "",
-  url: "",
-  category: "Trabalho",
-  tags: [],
-  notes: "",
-  favorite: false,
-  passwordChangedAt: "",
-  passwordExpiresInDays: 90,
-  passwordExpiryNoticeDays: 15,
-  passwordHistory: [],
-  attachments: [],
-  totpSecret: "",
-  totpIssuer: "",
-  cardholderName: "",
-  cardNumber: "",
-  cardExpiry: "",
-  cardCvv: "",
-  cardIssuer: "",
-  identityFullName: "",
-  identityDocument: "",
-  identityEmail: "",
-  identityPhone: "",
-  identityAddress: "",
-  licenseProduct: "",
-  licenseKey: "",
-  licenseOwner: "",
-  licenseExpiresAt: "",
-};
-
-const CATEGORIES: CredentialCategory[] = [
-  "Trabalho",
-  "Pessoal",
-  "Banco",
-  "E-mail",
-  "Sistema",
-  "Outro",
-];
-
-const CLIPBOARD_CLEAR_SECONDS = 60;
-const DEFAULT_VAULT_NAME = "vault";
-const TOTP_PERIOD_SECONDS = 30;
-const MAX_TOTP_QR_IMAGE_BYTES = 12 * 1024 * 1024;
-const MAX_TOTP_QR_IMAGE_PIXELS = 25_000_000;
-const MAX_TOTP_QR_IMAGE_SIDE = 10_000;
-const APP_VERSION = "1.7.1";
-const UPDATE_GITHUB_OWNER = "mnstechbr";
-const UPDATE_GITHUB_REPO = "KPassword";
-const PASSWORD_ROTATION_DAYS = 30;
-const ACTION_HISTORY_LIMIT = 200;
-const DEFAULT_WINDOWS_HELLO_STATUS: WindowsHelloStatus = {
-  available: false,
-  enabled: false,
-  state: "disabled",
-  reason: "",
-  vault_name: DEFAULT_VAULT_NAME,
-};
-
-type StartupStatus = {
-  enabled: boolean;
-  registry_key: string;
-  value_name: string;
-  command_line: string;
-  startup_argument: string;
-};
-
-const DEFAULT_STARTUP_STATUS: StartupStatus = {
-  enabled: false,
-  registry_key: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-  value_name: "KPassword",
-  command_line: "",
-  startup_argument: "--startup",
-};
-
-type Screen = "credentials" | "dashboard" | "trash" | "settings" | "backups" | "preferences";
-
-const ITEM_TYPES: VaultItemType[] = ["credential", "secure_note", "card", "identity", "license", "api_key"];
-
-
-const PASSWORD_EXPIRY_OPTIONS = [0, 30, 60, 90, 180, 365];
-const PASSWORD_NOTICE_OPTIONS = [7, 15, 30, 60];
-
-type PasswordExpiryStatus = "never" | "valid" | "soon" | "expired";
-
-type DiagnosticFilter =
-  | "all"
-  | "weak"
-  | "reused"
-  | "old"
-  | "expired"
-  | "expiring"
-  | "missingTotp"
-  | "incomplete";
-
-type DiagnosticIssue = Exclude<DiagnosticFilter, "all">;
-
-type QuickVaultFilter =
-  | "all"
-  | "favorites"
-  | "weak"
-  | "reused"
-  | "old"
-  | "expired"
-  | "expiring"
-  | "missingTotp"
-  | "incomplete"
-  | "withTags";
-
-type ActionHistoryFilter = "all" | "credentials" | "security" | "system";
-
-
-type TotpSetupMode = "choice" | "manual" | "preview" | "screenIntro";
-type TotpSetupSource = "image" | "manual" | "screen";
-
-type TotpPreview = {
-  secret: string;
-  issuer: string;
-  account: string;
-  label: string;
-  digits: number;
-  period: number;
-  algorithm: string;
-  source: TotpSetupSource;
-  currentCode: string;
-};
-
-const DIAGNOSTIC_QUICK_FILTERS: DiagnosticIssue[] = [
-  "weak",
-  "reused",
-  "old",
-  "expired",
-  "expiring",
-  "missingTotp",
-  "incomplete",
-];
-
-function isDiagnosticQuickFilter(filter: QuickVaultFilter): filter is DiagnosticIssue {
-  return DIAGNOSTIC_QUICK_FILTERS.includes(filter as DiagnosticIssue);
-}
-
-type AssistantActionKind = "addTotp" | "changePassword" | "reviewPassword" | "completeCredential";
-
-type AssistantAction = {
-  id: string;
-  credential: CredentialRecord;
-  issue: DiagnosticIssue;
-  priority: number;
-  tone: "danger" | "warning" | "neutral";
-  kind: AssistantActionKind;
-};
-
-type AssistantTagSuggestion = {
-  id: string;
-  credential: CredentialRecord;
-  tag: string;
-  priority: number;
-};
-
-const ASSISTANT_ISSUE_PRIORITY: Record<DiagnosticIssue, number> = {
-  reused: 120,
-  expired: 112,
-  weak: 104,
-  missingTotp: 92,
-  expiring: 76,
-  old: 68,
-  incomplete: 54,
-};
-
-function getAssistantIssueTone(issue: DiagnosticIssue): "danger" | "warning" | "neutral" {
-  if (issue === "reused" || issue === "expired") return "danger";
-  if (issue === "weak" || issue === "missingTotp" || issue === "expiring") return "warning";
-  return "neutral";
-}
-
-function getAssistantActionKind(issue: DiagnosticIssue): AssistantActionKind {
-  if (issue === "missingTotp") return "addTotp";
-  if (issue === "incomplete") return "completeCredential";
-  if (issue === "weak" || issue === "reused" || issue === "expired") return "changePassword";
-  return "reviewPassword";
-}
-
-function getCredentialImportanceScore(credential: CredentialRecord) {
-  const haystack = `${credential.title} ${credential.url} ${credential.category}`.toLowerCase();
-  let score = 0;
-
-  if (credential.favorite) score += 22;
-  if (["Banco", "E-mail", "Sistema"].includes(credential.category)) score += 16;
-  if (/bank|banco|nubank|itau|itaú|bradesco|santander|caixa|inter|finance|pay|paypal|wise|binance|mercado\s*pago/.test(haystack)) score += 18;
-  if (/mail|gmail|outlook|hotmail|proton|icloud|email|e-mail/.test(haystack)) score += 15;
-  if (/github|gitlab|vercel|cloudflare|aws|azure|google|microsoft|admin|root|sistema/.test(haystack)) score += 14;
-
-  return score;
-}
-
-function inferCredentialTag(credential: CredentialRecord) {
-  const haystack = `${credential.title} ${credential.url} ${credential.category}`.toLowerCase();
-
-  if (/bank|banco|nubank|itau|itaú|bradesco|santander|caixa|inter|finance|pay|paypal|wise|binance|mercado\s*pago/.test(haystack)) return "banco";
-  if (/mail|gmail|outlook|hotmail|proton|icloud|email|e-mail/.test(haystack)) return "email";
-  if (/github|gitlab|vercel|cloudflare|aws|azure|docker|npm|dev|deploy|código|codigo|code/.test(haystack)) return "desenvolvimento";
-  if (/amazon|mercado\s*livre|shop|loja|compra|compras|aliexpress|shopee|magazine|magalu/.test(haystack)) return "compras";
-  if (/netflix|spotify|disney|prime|hbo|max|stream|youtube|twitch/.test(haystack)) return "streaming";
-  if (/instagram|facebook|linkedin|twitter|x\.com|tiktok|social/.test(haystack)) return "social";
-  if (/slack|teams|zoom|work|trabalho|empresa|corp/.test(haystack)) return "trabalho";
-  if (credential.favorite) return "importante";
-
-  return "revisar";
-}
-
-const OLD_PASSWORD_DAYS = 180;
-
-type DiagnosticGuidance = {
-  explanation: string;
-  action: string;
-};
-
-const DIAGNOSTIC_GUIDANCE_KEYS: Partial<Record<DiagnosticIssue, DiagnosticGuidance>> = {
-  weak: {
-    explanation: "diagnostic.guidance.weak.explanation",
-    action: "diagnostic.guidance.weak.action",
-  },
-  reused: {
-    explanation: "diagnostic.guidance.reused.explanation",
-    action: "diagnostic.guidance.reused.action",
-  },
-  old: {
-    explanation: "diagnostic.guidance.old.explanation",
-    action: "diagnostic.guidance.old.action",
-  },
-  expired: {
-    explanation: "diagnostic.guidance.expired.explanation",
-    action: "diagnostic.guidance.expired.action",
-  },
-  expiring: {
-    explanation: "diagnostic.guidance.expiring.explanation",
-    action: "diagnostic.guidance.expiring.action",
-  },
-  missingTotp: {
-    explanation: "diagnostic.guidance.missingTotp.explanation",
-    action: "diagnostic.guidance.missingTotp.action",
-  },
-  incomplete: {
-    explanation: "diagnostic.guidance.incomplete.explanation",
-    action: "diagnostic.guidance.incomplete.action",
-  },
-};
-
-function getVaultIssueGuidance(
-  issue: DiagnosticIssue,
-  translateText: (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) => string,
-) {
-  const guidance = DIAGNOSTIC_GUIDANCE_KEYS[issue] ?? {
-    explanation: "diagnostic.guidance.generic.explanation",
-    action: "diagnostic.guidance.generic.action",
-  };
-  const values = issue === "old" ? { days: OLD_PASSWORD_DAYS } : undefined;
-
-  return {
-    explanation: translateText(guidance.explanation, values),
-    action: translateText(guidance.action, values),
-  };
-}
-
-type ConfirmDialog = {
-  title: string;
-  message: string;
-  confirmText?: string;
-  cancelText?: string;
-  tone?: "default" | "danger";
-  resolve: (confirmed: boolean) => void;
-};
-
-function createId() {
-  return crypto.randomUUID();
-}
-
-function sanitizeErrorForLog(error: unknown) {
-  if (error instanceof Error) {
-    return { name: error.name, message: error.message };
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  return String(error);
-}
-
-function secureLogError(context: string, error: unknown) {
-  console.error(`[KPassword] ${context}`, sanitizeErrorForLog(error));
-}
-
-function formatDate(value?: string | number, language: AppLanguage = "pt") {
-  if (!value) return "—";
-
-  return new Intl.DateTimeFormat(getDateLocale(language), {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-function formatActionHistoryTime(value: string, language: AppLanguage) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-
-  return new Intl.DateTimeFormat(getDateLocale(language), {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function getDateKey(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "unknown";
-
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function getActionHistoryDateLabel(
-  value: string,
-  language: AppLanguage,
-  translateText: (key: Parameters<typeof translate>[1], values?: Parameters<typeof translate>[2]) => string,
-) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-
-  const key = getDateKey(value);
-  if (key === getDateKey(today.toISOString())) return translateText("actionHistory.today");
-  if (key === getDateKey(yesterday.toISOString())) return translateText("actionHistory.yesterday");
-
-  return new Intl.DateTimeFormat(getDateLocale(language), { dateStyle: "medium" }).format(date);
-}
-
-function normalizeActionHistory(entries: PlainVault["actionHistory"]): ActionHistoryEntry[] {
-  if (!Array.isArray(entries)) return [];
-
-  return entries
-    .filter((entry): entry is ActionHistoryEntry =>
-      Boolean(
-        entry &&
-        typeof entry.id === "string" &&
-        typeof entry.type === "string" &&
-        typeof entry.createdAt === "string",
-      ),
-    )
-    .map((entry) => ({
-      id: entry.id,
-      type: entry.type,
-      targetName: typeof entry.targetName === "string" ? entry.targetName : undefined,
-      createdAt: entry.createdAt,
-    }))
-    .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())
-    .slice(0, ACTION_HISTORY_LIMIT);
-}
-
-function createActionHistoryEntry(type: ActionHistoryType, targetName?: string): ActionHistoryEntry {
-  return {
-    id: createId(),
-    type,
-    targetName: targetName?.trim() || undefined,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-function addActionHistoryEntries(
-  vault: PlainVault,
-  entries: ActionHistoryEntry | ActionHistoryEntry[] | null | undefined,
-): PlainVault {
-  const safeEntries = Array.isArray(entries) ? entries : entries ? [entries] : [];
-  if (safeEntries.length === 0) {
-    return {
-      ...vault,
-      actionHistory: normalizeActionHistory(vault.actionHistory),
-    };
-  }
-
-  return {
-    ...vault,
-    actionHistory: normalizeActionHistory([
-      ...safeEntries,
-      ...normalizeActionHistory(vault.actionHistory),
-    ]).slice(0, ACTION_HISTORY_LIMIT),
-  };
-}
-
-function getActionHistoryCategory(type: ActionHistoryType): ActionHistoryFilter {
-  if (
-    type === "credential_created" ||
-    type === "credential_updated" ||
-    type === "credential_moved_to_trash" ||
-    type === "credential_restored" ||
-    type === "credential_deleted_forever" ||
-    type === "trash_emptied" ||
-    type === "password_copied" ||
-    type === "username_copied" ||
-    type === "totp_updated" ||
-    type === "totp_removed" ||
-    type === "attachment_added" ||
-    type === "attachment_removed"
-  ) {
-    return "credentials";
-  }
-
-  if (
-    type === "master_password_changed" ||
-    type === "windows_hello_enabled" ||
-    type === "windows_hello_disabled" ||
-    type === "vault_unlocked" ||
-    type === "vault_unlocked_windows_hello"
-  ) {
-    return "security";
-  }
-
-  return "system";
-}
-
-function getFilteredActionHistory(entries: ActionHistoryEntry[], filter: ActionHistoryFilter) {
-  if (filter === "all") return entries;
-  return entries.filter((entry) => getActionHistoryCategory(entry.type) === filter);
-}
-
-function groupActionHistoryEntries(entries: ActionHistoryEntry[]) {
-  return entries.reduce<Array<{ key: string; createdAt: string; items: ActionHistoryEntry[] }>>((groups, entry) => {
-    const key = getDateKey(entry.createdAt);
-    const existing = groups.find((group) => group.key === key);
-
-    if (existing) {
-      existing.items.push(entry);
-      return groups;
-    }
-
-    groups.push({ key, createdAt: entry.createdAt, items: [entry] });
-    return groups;
-  }, []);
-}
-
-function getEmptyCredential(): Omit<CredentialRecord, "id" | "createdAt" | "updatedAt"> {
-  return { ...EMPTY_FORM, tags: [] };
-}
-
-function normalizeCredentialTags(input: unknown): string[] {
-  if (Array.isArray(input)) {
-    return Array.from(new Set(
-      input
-        .map((tag) => String(tag ?? "").trim())
-        .filter(Boolean),
-    )).slice(0, 12);
-  }
-
-  return Array.from(new Set(
-    String(input ?? "")
-      .split(/[;,\n]/)
-      .map((tag) => tag.trim())
-      .filter(Boolean),
-  )).slice(0, 12);
-}
-
-function formatTagsForInput(tags: unknown) {
-  return normalizeCredentialTags(tags).join(", ");
-}
-
-function getCredentialTags(credential: CredentialRecord) {
-  return normalizeCredentialTags(credential.tags);
-}
-
-function normalizeUrl(url: string) {
-  const trimmed = url.trim();
-
-  if (!trimmed) return "";
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `https://${trimmed}`;
-}
-
-async function openExternalUrl(url: string) {
-  const normalized = normalizeUrl(url);
-
-  if (!normalized) {
-    return false;
-  }
-
-  await invoke("open_external_url", { url: normalized });
-  return true;
-}
-
-function maskPassword(password: string) {
-  if (!password) return "—";
-  return "••••••••••••";
-}
-
-function getOrderedCredentials(credentials: CredentialRecord[]) {
-  return [...credentials].sort(
-    (first, second) => Number(second.favorite) - Number(first.favorite),
-  );
-}
-
-function getStoredValue<T extends string>(key: string, fallback: T): T {
-  try {
-    const value = localStorage.getItem(key);
-
-    if (!value) return fallback;
-
-    return value as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function getVaultDisplayName(vaultName: string, vaultFiles: VaultFileInfo[]) {
-  const found = vaultFiles.find((item) => item.name === vaultName);
-
-  if (found) return found.display_name;
-  if (vaultName === DEFAULT_VAULT_NAME) return "Principal";
-
-  return vaultName.replace(/[-_]+/g, " ");
-}
-
-function parseTotpCandidate(value: string, fallbackIssuer = "", source: TotpSetupSource = "manual"): Omit<TotpPreview, "currentCode"> {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    throw new Error("totp.error.empty");
-  }
-
-  if (/^otpauth:\/\//i.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-      const secret = normalizeTotpSecret(url.searchParams.get("secret") ?? "");
-      const rawLabel = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
-      const [labelIssuer, ...accountParts] = rawLabel.split(":");
-      const account = accountParts.join(":").trim();
-      const issuer = (url.searchParams.get("issuer") ?? labelIssuer ?? fallbackIssuer).trim();
-      const digits = Number(url.searchParams.get("digits") ?? 6);
-      const period = Number(url.searchParams.get("period") ?? TOTP_PERIOD_SECONDS);
-      const algorithm = (url.searchParams.get("algorithm") ?? "SHA1").replace(/[-_]/g, "").toUpperCase();
-
-      if (!secret) {
-        throw new Error("totp.error.noSecret");
-      }
-
-      return {
-        secret,
-        issuer,
-        account,
-        label: rawLabel,
-        digits,
-        period,
-        algorithm,
-        source,
-      };
-    } catch (error) {
-      if (error instanceof Error && error.message.startsWith("totp.error.")) {
-        throw error;
-      }
-      throw new Error("totp.error.invalidUrl");
-    }
-  }
-
-  const secret = normalizeTotpSecret(trimmed);
-
-  if (!secret) {
-    throw new Error("totp.error.noSecret");
-  }
-
-  return {
-    secret,
-    issuer: fallbackIssuer.trim(),
-    account: "",
-    label: fallbackIssuer.trim(),
-    digits: 6,
-    period: TOTP_PERIOD_SECONDS,
-    algorithm: "SHA1",
-    source,
-  };
-}
-
-function parseTotpInput(value: string, fallbackIssuer = "") {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return { secret: "", issuer: fallbackIssuer };
-  }
-
-  try {
-    const parsed = parseTotpCandidate(trimmed, fallbackIssuer, "manual");
-    return { secret: parsed.secret, issuer: parsed.issuer };
-  } catch {
-    return { secret: normalizeTotpSecret(trimmed), issuer: fallbackIssuer };
-  }
-}
-
-function normalizeTotpSecret(secret: string) {
-  return secret.toUpperCase().replace(/[^A-Z2-7]/g, "");
-}
-
-function isStandardTotp(candidate: Pick<TotpPreview, "digits" | "period" | "algorithm">) {
-  return candidate.digits === 6 && candidate.period === TOTP_PERIOD_SECONDS && candidate.algorithm === "SHA1";
-}
-
-function decodeBase32(value: string) {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const normalized = normalizeTotpSecret(value);
-  let bits = "";
-
-  for (const character of normalized) {
-    const index = alphabet.indexOf(character);
-    if (index === -1) continue;
-    bits += index.toString(2).padStart(5, "0");
-  }
-
-  const bytes: number[] = [];
-
-  for (let index = 0; index + 8 <= bits.length; index += 8) {
-    bytes.push(Number.parseInt(bits.slice(index, index + 8), 2));
-  }
-
-  return new Uint8Array(bytes);
-}
-
-function counterToBytes(counter: number) {
-  const bytes = new Uint8Array(8);
-  let value = BigInt(counter);
-
-  for (let index = 7; index >= 0; index -= 1) {
-    bytes[index] = Number(value & 0xffn);
-    value >>= 8n;
-  }
-
-  return bytes;
-}
-
-async function generateTotp(secret: string, timestamp = Date.now()) {
-  const keyBytes = decodeBase32(secret);
-
-  if (keyBytes.length === 0) {
-    throw new Error("Invalid TOTP secret.");
-  }
-
-  const counter = Math.floor(timestamp / 1000 / TOTP_PERIOD_SECONDS);
-  const key = await crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"],
-  );
-  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, counterToBytes(counter)));
-  const offset = signature[signature.length - 1] & 0x0f;
-  const binary =
-    ((signature[offset] & 0x7f) << 24) |
-    ((signature[offset + 1] & 0xff) << 16) |
-    ((signature[offset + 2] & 0xff) << 8) |
-    (signature[offset + 3] & 0xff);
-
-  return String(binary % 1_000_000).padStart(6, "0");
-}
-
-function getTotpRemainingSeconds(timestamp = Date.now()) {
-  const elapsed = Math.floor(timestamp / 1000) % TOTP_PERIOD_SECONDS;
-  return TOTP_PERIOD_SECONDS - elapsed;
-}
-
-function AppLogo({
-  size = "md",
-  className = "",
-}: {
-  size?: "sm" | "md" | "lg";
-  className?: string;
-}) {
-  const logoClasses = ["appLogo", size, className].filter(Boolean).join(" ");
-
-  return (
-    <span className={logoClasses} aria-hidden="true">
-      <img
-        src="/app-icon.png"
-        alt=""
-        draggable={false}
-        onError={(event) => {
-          event.currentTarget.style.display = "none";
-          event.currentTarget.nextElementSibling?.removeAttribute("hidden");
-        }}
-      />
-      <span hidden>KP</span>
-    </span>
-  );
-}
-
-const localizedLanguageNames: Record<AppLanguage, Record<AppLanguage, string>> = {
-  pt: {
-    pt: "Português",
-    en: "Inglês",
-    es: "Espanhol",
-    tr: "Turco",
-  },
-  en: {
-    pt: "Portuguese",
-    en: "English",
-    es: "Spanish",
-    tr: "Turkish",
-  },
-  es: {
-    pt: "Portugués",
-    en: "Inglés",
-    es: "Español",
-    tr: "Turco",
-  },
-  tr: {
-    pt: "Portekizce",
-    en: "İngilizce",
-    es: "İspanyolca",
-    tr: "Türkçe",
-  },
-};
-
-function getLanguageOptionLabel(code: AppLanguage, currentLanguage: AppLanguage) {
-  return localizedLanguageNames[currentLanguage]?.[code] ?? localizedLanguageNames.pt[code];
-}
-
-function LanguageSelector({
-  language,
-  onChange,
-  label,
-  compact = false,
-}: {
-  language: AppLanguage;
-  onChange: (language: AppLanguage) => void;
-  label: string;
-  compact?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const selectedLanguage = LANGUAGES.find((item) => item.code === language) ?? LANGUAGES[0];
-  const selectedLabel = getLanguageOptionLabel(selectedLanguage.code, language);
-  const selectorClasses = ["languageSelect", compact ? "compact" : "full", "customLanguageSelect"]
-    .filter(Boolean)
-    .join(" ");
-
-  function focusOption(index: number) {
-    const normalizedIndex = (index + LANGUAGES.length) % LANGUAGES.length;
-    optionRefs.current[normalizedIndex]?.focus();
-  }
-
-  function openOptions() {
-    setOpen(true);
-    window.setTimeout(() => {
-      const selectedIndex = Math.max(
-        0,
-        LANGUAGES.findIndex((item) => item.code === language),
-      );
-      focusOption(selectedIndex);
-    }, 0);
-  }
-
-  return (
-    <div
-      className={selectorClasses}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setOpen(false);
-        }
-      }}
-    >
-      <span className="srOnly">{label}</span>
-      <button
-        ref={buttonRef}
-        type="button"
-        className={open ? "languageSelectButton open" : "languageSelectButton"}
-        aria-label={`${label}: ${selectedLabel}`}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        title={`${label}: ${selectedLabel}`}
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            openOptions();
-          }
-
-          if (event.key === "Escape") {
-            setOpen(false);
-          }
-        }}
-      >
-        <svg className="languageGlobeIcon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
-          <path d="M3.6 9h16.8M3.6 15h16.8M12 3c2.15 2.35 3.25 5.35 3.25 9S14.15 18.65 12 21c-2.15-2.35-3.25-5.35-3.25-9S9.85 5.35 12 3Z" />
-        </svg>
-        <span className="srOnly">{selectedLabel}</span>
-      </button>
-
-      {open && (
-        <div className="languageOptions" role="listbox" aria-label={label}>
-          {LANGUAGES.map((item, index) => {
-            const active = item.code === language;
-            return (
-              <button
-                key={item.code}
-                ref={(element) => {
-                  optionRefs.current[index] = element;
-                }}
-                type="button"
-                role="option"
-                aria-selected={active}
-                className={active ? "languageOption active" : "languageOption"}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  onChange(item.code);
-                  setOpen(false);
-                  buttonRef.current?.focus();
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowDown") {
-                    event.preventDefault();
-                    focusOption(index + 1);
-                  }
-
-                  if (event.key === "ArrowUp") {
-                    event.preventDefault();
-                    focusOption(index - 1);
-                  }
-
-                  if (event.key === "Home") {
-                    event.preventDefault();
-                    focusOption(0);
-                  }
-
-                  if (event.key === "End") {
-                    event.preventDefault();
-                    focusOption(LANGUAGES.length - 1);
-                  }
-
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    setOpen(false);
-                    buttonRef.current?.focus();
-                  }
-                }}
-              >
-                <span className="languageOptionCode">{item.shortLabel}</span>
-                <span className="languageOptionLabel">{getLanguageOptionLabel(item.code, language)}</span>
-                {active && <span className="languageOptionCheck" aria-hidden="true">✓</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-function getPinUnlockLabel(language: AppLanguage) {
-  const labels: Record<AppLanguage, string> = {
-    pt: "Acessar com Windows Hello",
-    en: "Unlock with Windows Hello",
-    es: "Acceder con Windows Hello",
-    tr: "Windows Hello ile ac",
-  };
-
-  return labels[language];
-}
-
-function stopAction(event: MouseEvent) {
-  event.stopPropagation();
-}
-
-function getItemType(credential: CredentialRecord): VaultItemType {
-  return credential.itemType ?? "credential";
-}
-
-function isCredentialItem(credential: CredentialRecord) {
-  return getItemType(credential) === "credential";
-}
-
-function getItemTypeIcon(itemType: VaultItemType) {
-  const icons = { credential: "key", secure_note: "note", card: "card", identity: "identity", license: "license", api_key: "key" } as const;
-  return <UiIcon name={icons[itemType]} />;
-}
-
-function getItemTypeLabel(itemType: VaultItemType, language: AppLanguage) {
-  return translate(language, `itemType.${itemType}`);
-}
-
-function getItemSubtitle(item: CredentialRecord, language: AppLanguage) {
-  const itemType = getItemType(item);
-
-  if (itemType === "credential") {
-    return item.username || translate(language, "credential.noUser");
-  }
-
-  if (itemType === "api_key") return item.apiProvider || item.apiIdentifier || "API Key";
-
-  if (itemType === "secure_note") {
-    return item.notes ? translate(language, "item.secureNoteWithContent") : translate(language, "item.secureNoteEmpty");
-  }
-
-  if (itemType === "card") {
-    const lastDigits = (item.cardNumber ?? "").replace(/\D/g, "").slice(-4);
-    return lastDigits ? translate(language, "item.cardEnding", { digits: lastDigits }) : item.cardIssuer || translate(language, "item.card");
-  }
-
-  if (itemType === "identity") {
-    return item.identityEmail || item.identityPhone || item.identityDocument || translate(language, "item.identity");
-  }
-
-  return item.licenseProduct || item.licenseOwner || translate(language, "item.license");
-}
-
-function getItemPrimarySecret(item: CredentialRecord) {
-  const itemType = getItemType(item);
-
-  if (itemType === "credential" || itemType === "api_key") return item.password;
-  if (itemType === "card") return item.cardNumber ?? "";
-  if (itemType === "license") return item.licenseKey ?? "";
-
-  return "";
-}
-
-function maskGenericSecret(value?: string) {
-  if (!value) return "—";
-  const normalized = value.replace(/\s+/g, "");
-
-  if (normalized.length <= 4) return "••••";
-  return `•••• ${normalized.slice(-4)}`;
-}
-
-function getAttachments(credential?: Partial<CredentialRecord> | null): VaultAttachment[] {
-  return Array.isArray(credential?.attachments) ? credential.attachments : [];
-}
-
-function formatBytes(sizeBytes: number) {
-  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return "0 KB";
-
-  if (sizeBytes < 1024 * 1024) {
-    return `${(sizeBytes / 1024).toFixed(1)} KB`;
-  }
-
-  return `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function readFileAsText(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(reader.error ?? new Error("Erro ao ler arquivo."));
-    reader.readAsText(file, "utf-8");
-  });
-}
-
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(reader.error ?? new Error("Erro ao ler arquivo."));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function dataUrlToImageFile(dataUrl: string, filename: string) {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  return new File([blob], filename, { type: blob.type || "image/png" });
-}
-
-async function decodeQrFromDataUrlBestEffort(dataUrl: string) {
-  try {
-    const imageFile = await dataUrlToImageFile(dataUrl, "kpassword-screen-qr.png");
-    return await decodeQrFromImageFile(imageFile);
-  } catch {
-    return await invoke<string>("decode_qr_from_image_data_url", { dataUrl });
-  }
-}
-
-function downloadTextFile(filename: string, content: string, mimeType = "application/json;charset=utf-8") {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function downloadDataUrl(filename: string, dataUrl: string) {
-  const anchor = document.createElement("a");
-
-  anchor.href = dataUrl;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-}
-
-function safeExportFilename(value: string) {
-  const clean = value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9._-]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
-
-  return clean || "kpassword";
-}
-
-function escapeCsvValue(value: unknown) {
-  const text = String(value ?? "");
-
-  if (/[",\r\n;]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-
-  return text;
-}
-
-function buildCsv(items: CredentialRecord[]) {
-  const headers = [
-    "type",
-    "title",
-    "category",
-    "tags",
-    "favorite",
-    "username",
-    "password",
-    "url",
-    "notes",
-    "totpIssuer",
-    "totpSecret",
-    "cardholderName",
-    "cardNumber",
-    "cardExpiry",
-    "cardCvv",
-    "cardIssuer",
-    "identityFullName",
-    "identityDocument",
-    "identityEmail",
-    "identityPhone",
-    "identityAddress",
-    "licenseProduct",
-    "licenseKey",
-    "licenseOwner",
-    "licenseExpiresAt",
-    "apiProvider",
-    "apiIdentifier",
-    "passwordChangedAt",
-    "passwordExpiresInDays",
-    "passwordExpiryNoticeDays",
-    "createdAt",
-    "updatedAt",
-  ];
-
-  const rows = items.map((item) =>
-    headers.map((header) => escapeCsvValue(header === "type" ? getItemType(item) : header === "tags" ? getCredentialTags(item).join("; ") : (item as unknown as Record<string, unknown>)[header])).join(","),
-  );
-
-  return [headers.join(","), ...rows].join("\r\n");
-}
-
-function normalizeCsvHeader(header: string) {
-  return header
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
-}
-
-type ParsedCsvRow = {
-  lineNumber: number;
-  values: Record<string, string>;
-};
-
-type ParsedCsvDocument = {
-  headers: string[];
-  rows: ParsedCsvRow[];
-};
-
-type CsvImportFieldKey =
-  | "type"
-  | "title"
-  | "category"
-  | "tags"
-  | "favorite"
-  | "username"
-  | "password"
-  | "url"
-  | "notes"
-  | "totpIssuer"
-  | "totpSecret";
-
-type CsvImportMapping = Record<CsvImportFieldKey, string>;
-
-type CsvImportPreview = ParsedCsvDocument & {
-  filename: string;
-  mapping: CsvImportMapping;
-};
-
-type CsvImportPreviewItem = {
-  id: string;
-  lineNumber: number;
-  credential: CredentialRecord;
-  errors: string[];
-  warnings: string[];
-  duplicateTitle?: string;
-};
-
-type CsvImportAnalysis = {
-  items: CsvImportPreviewItem[];
-  validItems: CsvImportPreviewItem[];
-  importableItems: CsvImportPreviewItem[];
-  totalRows: number;
-  validCount: number;
-  invalidCount: number;
-  duplicateCount: number;
-};
-
-const CSV_IMPORT_FIELD_ALIASES: Record<CsvImportFieldKey, string[]> = {
-  type: ["type", "tipo", "itemtype", "item_type", "kind"],
-  title: ["title", "name", "nome", "titulo", "título", "site", "servico", "serviço"],
-  category: ["category", "categoria", "folder", "pasta", "grupo"],
-  tags: ["tags", "tag", "etiquetas", "marcadores", "labels", "rotulos", "rótulos"],
-  favorite: ["favorite", "favorito", "starred", "favorita"],
-  username: ["username", "user", "login", "email", "e-mail", "usuario", "usuário"],
-  password: ["password", "senha", "pass", "secret"],
-  url: ["url", "site", "website", "link", "uri"],
-  notes: ["notes", "nota", "notas", "observacoes", "observações", "content", "conteudo", "conteúdo", "comments"],
-  totpIssuer: ["totpissuer", "totp_issuer", "issuer", "emissor"],
-  totpSecret: ["totpsecret", "totp_secret", "otp", "2fa", "mfa", "segredo_totp", "otpauth"],
-};
-
-const CSV_IMPORT_FIELDS: Array<{ key: CsvImportFieldKey; labelKey: string }> = [
-  { key: "title", labelKey: "import.field.title" },
-  { key: "username", labelKey: "import.field.username" },
-  { key: "password", labelKey: "import.field.password" },
-  { key: "url", labelKey: "import.field.url" },
-  { key: "notes", labelKey: "import.field.notes" },
-  { key: "category", labelKey: "import.field.category" },
-  { key: "tags", labelKey: "import.field.tags" },
-  { key: "type", labelKey: "import.field.type" },
-  { key: "favorite", labelKey: "import.field.favorite" },
-  { key: "totpIssuer", labelKey: "import.field.totpIssuer" },
-  { key: "totpSecret", labelKey: "import.field.totpSecret" },
-];
-
-function getEmptyCsvImportMapping(): CsvImportMapping {
-  return {
-    type: "",
-    title: "",
-    category: "",
-    tags: "",
-    favorite: "",
-    username: "",
-    password: "",
-    url: "",
-    notes: "",
-    totpIssuer: "",
-    totpSecret: "",
-  };
-}
-
-function parseCsvRecords(text: string) {
-  const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const records: Array<{ lineNumber: number; values: string[] }> = [];
-  let values: string[] = [];
-  let current = "";
-  let quoted = false;
-  let lineNumber = 1;
-  let recordLineNumber = 1;
-  let hasContent = false;
-
-  function pushRecord() {
-    const nextValues = [...values, current.trim()];
-    const isBlank = nextValues.every((value) => value.trim().length === 0);
-
-    if (!isBlank || hasContent) {
-      records.push({ lineNumber: recordLineNumber, values: nextValues });
-    }
-
-    values = [];
-    current = "";
-    hasContent = false;
-    recordLineNumber = lineNumber + 1;
-  }
-
-  for (let index = 0; index < normalized.length; index += 1) {
-    const character = normalized[index];
-
-    if (character === '"') {
-      if (quoted && normalized[index + 1] === '"') {
-        current += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-      hasContent = true;
-      continue;
-    }
-
-    if ((character === "," || character === ";") && !quoted) {
-      values.push(current.trim());
-      current = "";
-      hasContent = true;
-      continue;
-    }
-
-    if (character === "\n" && !quoted) {
-      pushRecord();
-      lineNumber += 1;
-      continue;
-    }
-
-    if (character === "\n") {
-      lineNumber += 1;
-    }
-
-    current += character;
-    if (character.trim().length > 0) {
-      hasContent = true;
-    }
-  }
-
-  if (quoted) {
-    values.push(current.trim());
-    records.push({ lineNumber: recordLineNumber, values });
-    return records;
-  }
-
-  if (current.length > 0 || values.length > 0 || hasContent) {
-    pushRecord();
-  }
-
-  return records;
-}
-
-function parseCsvDocument(text: string): ParsedCsvDocument {
-  const records = parseCsvRecords(text);
-
-  if (records.length < 2) {
-    return { headers: [], rows: [] };
-  }
-
-  const headers = records[0].values
-    .map((header) => normalizeCsvHeader(header))
-    .filter(Boolean);
-
-  if (headers.length === 0) {
-    return { headers: [], rows: [] };
-  }
-
-  const rows = records.slice(1).map(({ values, lineNumber }) => {
-    const row: Record<string, string> = {};
-
-    headers.forEach((header, index) => {
-      row[header] = values[index] ?? "";
-    });
-
-    return { lineNumber, values: row };
-  });
-
-  return { headers, rows };
-}
-
-
-function detectCsvImportMapping(headers: string[]): CsvImportMapping {
-  const mapping = getEmptyCsvImportMapping();
-
-  for (const field of CSV_IMPORT_FIELDS) {
-    const aliases = CSV_IMPORT_FIELD_ALIASES[field.key].map(normalizeCsvHeader);
-    mapping[field.key] = headers.find((header) => aliases.includes(header)) ?? "";
-  }
-
-  return mapping;
-}
-
-function getCsvValue(row: Record<string, string>, aliases: string[], mappingHeader = "") {
-  if (mappingHeader) {
-    const mappedValue = row[normalizeCsvHeader(mappingHeader)];
-    if (mappedValue) return mappedValue;
-  }
-
-  for (const alias of aliases) {
-    const value = row[normalizeCsvHeader(alias)];
-
-    if (value) return value;
-  }
-
-  return "";
-}
-
-function getMappedCsvValue(row: Record<string, string>, field: CsvImportFieldKey, mapping: CsvImportMapping) {
-  return getCsvValue(row, CSV_IMPORT_FIELD_ALIASES[field], mapping[field]);
-}
-
-function normalizeImportedItemType(value: string): VaultItemType {
-  const normalized = value.trim().toLowerCase();
-
-  if (["secure_note", "secure note", "note", "nota", "nota segura"].includes(normalized)) return "secure_note";
-  if (["card", "cartao", "cartão", "tarjeta"].includes(normalized)) return "card";
-  if (["identity", "identidade", "identidad", "kimlik"].includes(normalized)) return "identity";
-  if (["license", "licenca", "licença", "licencia", "lisans"].includes(normalized)) return "license";
-  if (["api_key", "api key"].includes(normalized)) return "api_key";
-
-  return "credential";
-}
-
-function normalizeImportedCategory(value: string): CredentialCategory {
-  const normalized = value.trim().toLowerCase();
-
-  if (["pessoal", "personal"].includes(normalized)) return "Pessoal";
-  if (["banco", "bank", "banco/bank"].includes(normalized)) return "Banco";
-  if (["e-mail", "email", "mail"].includes(normalized)) return "E-mail";
-  if (["sistema", "system", "sistema/system"].includes(normalized)) return "Sistema";
-  if (["outro", "other", "otro", "diğer"].includes(normalized)) return "Outro";
-
-  return "Trabalho";
-}
-
-function parseImportedTotpFields(row: Record<string, string>, mapping: CsvImportMapping, fallbackIssuer: string) {
-  const rawSecret = getMappedCsvValue(row, "totpSecret", mapping);
-  const rawIssuer = getMappedCsvValue(row, "totpIssuer", mapping) || fallbackIssuer;
-
-  if (!rawSecret.trim()) {
-    return { secret: "", issuer: rawIssuer };
-  }
-
-  try {
-    const parsed = parseTotpCandidate(rawSecret, rawIssuer, "manual");
-
-    if (!isStandardTotp(parsed)) {
-      return { secret: "", issuer: parsed.issuer || rawIssuer };
-    }
-
-    return { secret: parsed.secret, issuer: parsed.issuer || rawIssuer };
-  } catch {
-    if (/^otpauth:\/\//i.test(rawSecret.trim())) {
-      return { secret: "", issuer: rawIssuer };
-    }
-
-    return { secret: normalizeTotpSecret(rawSecret), issuer: rawIssuer };
-  }
-}
-
-function importedTotpLooksUnsupported(row: Record<string, string>, mapping: CsvImportMapping) {
-  const rawSecret = getMappedCsvValue(row, "totpSecret", mapping);
-
-  if (!/^otpauth:\/\//i.test(rawSecret.trim())) return false;
-
-  try {
-    const parsed = parseTotpCandidate(rawSecret, getMappedCsvValue(row, "totpIssuer", mapping), "manual");
-    return !isStandardTotp(parsed);
-  } catch {
-    return true;
-  }
-}
-
-function rowToImportedCredential(row: Record<string, string>, now: string, mapping = getEmptyCsvImportMapping()): CredentialRecord {
-  const itemType = normalizeImportedItemType(getMappedCsvValue(row, "type", mapping));
-  const title =
-    getMappedCsvValue(row, "title", mapping) ||
-    getMappedCsvValue(row, "url", mapping) ||
-    getMappedCsvValue(row, "username", mapping) ||
-    "Item importado";
-  const importedTotp = itemType === "credential"
-    ? parseImportedTotpFields(row, mapping, title)
-    : { secret: "", issuer: "" };
-
-  return {
-    id: createId(),
-    itemType,
-    title: title.trim(),
-    category: normalizeImportedCategory(getMappedCsvValue(row, "category", mapping)),
-    tags: normalizeCredentialTags(getMappedCsvValue(row, "tags", mapping)),
-    favorite: ["true", "1", "sim", "yes"].includes(getMappedCsvValue(row, "favorite", mapping).toLowerCase()),
-    username: itemType === "credential" ? getMappedCsvValue(row, "username", mapping) : "",
-    password: itemType === "credential" || itemType === "api_key" ? getMappedCsvValue(row, "password", mapping) : "",
-    apiProvider: itemType === "api_key" ? getCsvValue(row, ["apiprovider", "provider"]) : "",
-    apiIdentifier: itemType === "api_key" ? getCsvValue(row, ["apiidentifier", "identifier"]) : "",
-    apiApplications: [],
-    url: itemType === "credential" ? normalizeUrl(getMappedCsvValue(row, "url", mapping)) : "",
-    notes: getMappedCsvValue(row, "notes", mapping),
-    passwordChangedAt: getCsvValue(row, ["passwordchangedat", "password_changed_at", "alterada_em"]) || now,
-    passwordExpiresInDays: Number(getCsvValue(row, ["passwordexpiresindays", "password_expires_in_days", "validade_dias"])) || 0,
-    passwordExpiryNoticeDays: Number(getCsvValue(row, ["passwordexpirynoticedays", "password_expiry_notice_days", "aviso_dias"])) || 15,
-    passwordHistory: [],
-    attachments: [],
-    totpIssuer: importedTotp.issuer,
-    totpSecret: importedTotp.secret,
-    cardholderName: itemType === "card" ? getCsvValue(row, ["cardholdername", "card_holder", "nome_cartao"]) : "",
-    cardNumber: itemType === "card" ? getCsvValue(row, ["cardnumber", "card_number", "numero_cartao", "número_cartão"]) : "",
-    cardExpiry: itemType === "card" ? getCsvValue(row, ["cardexpiry", "card_expiry", "validade_cartao"]) : "",
-    cardCvv: itemType === "card" ? getCsvValue(row, ["cardcvv", "card_cvv", "cvv"]) : "",
-    cardIssuer: itemType === "card" ? getCsvValue(row, ["cardissuer", "card_issuer", "banco_cartao", "emissor"]) : "",
-    identityFullName: itemType === "identity" ? getCsvValue(row, ["identityfullname", "identity_full_name", "nome_completo"]) : "",
-    identityDocument: itemType === "identity" ? getCsvValue(row, ["identitydocument", "identity_document", "documento"]) : "",
-    identityEmail: itemType === "identity" ? getCsvValue(row, ["identityemail", "identity_email"]) : "",
-    identityPhone: itemType === "identity" ? getCsvValue(row, ["identityphone", "identity_phone", "telefone"]) : "",
-    identityAddress: itemType === "identity" ? getCsvValue(row, ["identityaddress", "identity_address", "endereco", "endereço"]) : "",
-    licenseProduct: itemType === "license" ? getCsvValue(row, ["licenseproduct", "license_product", "produto"]) : "",
-    licenseKey: itemType === "license" ? getCsvValue(row, ["licensekey", "license_key", "chave", "serial"]) : "",
-    licenseOwner: itemType === "license" ? getCsvValue(row, ["licenseowner", "license_owner", "proprietario", "proprietário"]) : "",
-    licenseExpiresAt: itemType === "license" ? getCsvValue(row, ["licenseexpiresat", "license_expires_at", "expira_em"]) : "",
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-function normalizeDuplicateValue(value: string) {
-  return value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, "");
-}
-
-function hasImportableCredentialContent(credential: CredentialRecord) {
-  return Boolean(
-    credential.title.trim() !== "Item importado" ||
-      credential.username.trim() ||
-      credential.password.trim() ||
-      credential.url.trim() ||
-      credential.notes.trim() ||
-      credential.totpSecret?.trim(),
-  );
-}
-
-function findDuplicateCredential(candidate: CredentialRecord, existingCredentials: CredentialRecord[]) {
-  const candidateUrl = normalizeDuplicateValue(candidate.url);
-  const candidateUser = normalizeDuplicateValue(candidate.username);
-  const candidateTitle = normalizeDuplicateValue(candidate.title);
-
-  return existingCredentials.find((existing) => {
-    const existingUrl = normalizeDuplicateValue(existing.url);
-    const existingUser = normalizeDuplicateValue(existing.username);
-    const existingTitle = normalizeDuplicateValue(existing.title);
-
-    if (candidate.itemType !== (existing.itemType ?? "credential")) return false;
-    if (candidateUrl && existingUrl && candidateUser && existingUser) {
-      return candidateUrl === existingUrl && candidateUser === existingUser;
-    }
-    if (candidateTitle && existingTitle && candidateUser && existingUser) {
-      return candidateTitle === existingTitle && candidateUser === existingUser;
-    }
-    if (candidateUrl && existingUrl && candidateTitle && existingTitle) {
-      return candidateUrl === existingUrl && candidateTitle === existingTitle;
-    }
-
-    return false;
-  });
-}
-
-function analyzeCsvImport(preview: CsvImportPreview | null, vault: PlainVault | null, includeDuplicates: boolean): CsvImportAnalysis {
-  if (!preview || !vault) {
-    return {
-      items: [],
-      validItems: [],
-      importableItems: [],
-      totalRows: 0,
-      validCount: 0,
-      invalidCount: 0,
-      duplicateCount: 0,
-    };
-  }
-
-  const now = new Date().toISOString();
-  const activeCredentials = getActiveCredentials(vault.credentials);
-  const items = preview.rows.map((row) => {
-    const credential = rowToImportedCredential(row.values, now, preview.mapping);
-    const errors: string[] = [];
-    const warnings: string[] = [];
-    const duplicate = findDuplicateCredential(credential, activeCredentials);
-
-    if (!hasImportableCredentialContent(credential)) {
-      errors.push("import.validation.emptyRow");
-    }
-
-    if (credential.itemType === "credential" && !credential.password.trim()) {
-      warnings.push("import.validation.missingPassword");
-    }
-
-    if (credential.itemType === "credential" && importedTotpLooksUnsupported(row.values, preview.mapping)) {
-      warnings.push("import.validation.totpSkipped");
-    }
-
-    if (duplicate) {
-      warnings.push("import.validation.duplicate");
-    }
-
-    return {
-      id: `${row.lineNumber}-${credential.id}`,
-      lineNumber: row.lineNumber,
-      credential,
-      errors,
-      warnings,
-      duplicateTitle: duplicate?.title,
-    };
-  });
-  const validItems = items.filter((item) => item.errors.length === 0);
-  const importableItems = validItems.filter((item) => includeDuplicates || !item.duplicateTitle);
-
-  return {
-    items,
-    validItems,
-    importableItems,
-    totalRows: items.length,
-    validCount: validItems.length,
-    invalidCount: items.length - validItems.length,
-    duplicateCount: items.filter((item) => Boolean(item.duplicateTitle)).length,
-  };
-}
-
-function getPasswordHistory(credential: CredentialRecord): PasswordHistoryEntry[] {
-  return credential.passwordHistory ?? [];
-}
-
-function daysBetween(startIso: string | undefined, end = new Date()) {
-  if (!startIso) return 0;
-
-  const start = new Date(startIso).getTime();
-
-  if (Number.isNaN(start)) return 0;
-
-  return Math.floor((end.getTime() - start) / (24 * 60 * 60 * 1000));
-}
-
-function getActiveCredentials(credentials: CredentialRecord[]) {
-  return credentials.filter((credential) => !credential.deletedAt);
-}
-
-function getDeletedCredentials(credentials: CredentialRecord[]) {
-  return credentials.filter((credential) => Boolean(credential.deletedAt));
-}
-
-function getCredentialPasswordChangedAt(credential: CredentialRecord) {
-  return credential.passwordChangedAt ?? credential.updatedAt ?? credential.createdAt;
-}
-
-function getPasswordExpiryInfo(credential: CredentialRecord) {
-  if (!isCredentialItem(credential)) {
-    return {
-      status: "never" as PasswordExpiryStatus,
-      daysLeft: null as number | null,
-    };
-  }
-
-  const expiresInDays = Number(credential.passwordExpiresInDays ?? 0);
-  const noticeDays = Number(credential.passwordExpiryNoticeDays ?? 15);
-
-  if (!expiresInDays || expiresInDays <= 0) {
-    return {
-      status: "never" as PasswordExpiryStatus,
-      daysLeft: null as number | null,
-    };
-  }
-
-  const changedAt = new Date(getCredentialPasswordChangedAt(credential)).getTime();
-
-  if (Number.isNaN(changedAt)) {
-    return {
-      status: "never" as PasswordExpiryStatus,
-      daysLeft: null as number | null,
-    };
-  }
-
-  const expiresAt = changedAt + expiresInDays * 24 * 60 * 60 * 1000;
-  const daysLeft = Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
-
-  if (daysLeft < 0) {
-    return {
-      status: "expired" as PasswordExpiryStatus,
-      daysLeft,
-    };
-  }
-
-  if (daysLeft <= noticeDays) {
-    return {
-      status: "soon" as PasswordExpiryStatus,
-      daysLeft,
-    };
-  }
-
-  return {
-    status: "valid" as PasswordExpiryStatus,
-    daysLeft,
-  };
-}
-
-function getExpiryBadgeClass(status: PasswordExpiryStatus) {
-  if (status === "expired") return "expiryBadge expired";
-  if (status === "soon") return "expiryBadge soon";
-  if (status === "valid") return "expiryBadge valid";
-  return "expiryBadge never";
-}
-
-function getCredentialDiagnosticIssues(
-  credential: CredentialRecord,
-  passwordCounts: Map<string, number>,
-  // Resultado da analise assincrona de forca. `null` significa "ainda nao
-  // analisada": nesse caso a credencial nao e marcada como fraca, para nao
-  // inventar um veredito antes de o worker responder.
-  strength: PasswordStrength | null,
-): DiagnosticIssue[] {
-  if (!isCredentialItem(credential)) return [];
-
-  const issues: DiagnosticIssue[] = [];
-  const normalizedPassword = credential.password.trim();
-  const expiryInfo = getPasswordExpiryInfo(credential);
-
-  if (!normalizedPassword || isWeakStrength(strength)) {
-    issues.push("weak");
-  }
-
-  if (normalizedPassword && (passwordCounts.get(normalizedPassword) ?? 0) > 1) {
-    issues.push("reused");
-  }
-
-  if (expiryInfo.status === "expired") {
-    issues.push("expired");
-  } else if (expiryInfo.status === "soon") {
-    issues.push("expiring");
-  }
-
-  if (daysBetween(getCredentialPasswordChangedAt(credential)) >= OLD_PASSWORD_DAYS) {
-    issues.push("old");
-  }
-
-  if (!credential.totpSecret?.trim()) {
-    issues.push("missingTotp");
-  }
-
-  if (!credential.url.trim() || !credential.username.trim()) {
-    issues.push("incomplete");
-  }
-
-  return issues;
-}
-
-function getVaultHealthTone(score: number) {
-  if (score >= 85) return "safe";
-  if (score >= 70) return "good";
-  if (score >= 50) return "warning";
-  return "danger";
-}
-
-function getVaultHealthScore(issueCounts: Record<DiagnosticIssue, number>) {
-  const penalties =
-    issueCounts.expired * 12 +
-    issueCounts.reused * 10 +
-    issueCounts.weak * 8 +
-    issueCounts.expiring * 5 +
-    issueCounts.old * 4 +
-    issueCounts.missingTotp * 3 +
-    issueCounts.incomplete * 2;
-
-  return Math.max(0, Math.min(100, 100 - penalties));
-}
-
-function normalizeVault(vault: PlainVault): PlainVault {
-  const now = new Date().toISOString();
-
-  return {
-    ...vault,
-    credentials: (vault.credentials ?? []).map((credential) => {
-      const itemType = credential.itemType ?? "credential";
-
-      return {
-        ...credential,
-        itemType,
-        username: credential.username ?? "",
-        password: credential.password ?? "",
-        url: credential.url ?? "",
-        notes: credential.notes ?? "",
-        favorite: credential.favorite ?? false,
-        passwordChangedAt:
-          itemType === "credential"
-            ? credential.passwordChangedAt ?? credential.updatedAt ?? credential.createdAt ?? now
-            : credential.passwordChangedAt,
-        passwordExpiresInDays: itemType === "credential" ? credential.passwordExpiresInDays ?? 0 : credential.passwordExpiresInDays ?? 0,
-        passwordExpiryNoticeDays: itemType === "credential" ? credential.passwordExpiryNoticeDays ?? 15 : credential.passwordExpiryNoticeDays ?? 15,
-        passwordHistory: Array.isArray(credential.passwordHistory) ? credential.passwordHistory : [],
-        attachments: Array.isArray(credential.attachments) ? credential.attachments : [],
-        totpSecret: credential.totpSecret ?? "",
-        totpIssuer: credential.totpIssuer ?? "",
-        cardholderName: credential.cardholderName ?? "",
-        cardNumber: credential.cardNumber ?? "",
-        cardExpiry: credential.cardExpiry ?? "",
-        cardCvv: credential.cardCvv ?? "",
-        cardIssuer: credential.cardIssuer ?? "",
-        identityFullName: credential.identityFullName ?? "",
-        identityDocument: credential.identityDocument ?? "",
-        identityEmail: credential.identityEmail ?? "",
-        identityPhone: credential.identityPhone ?? "",
-        identityAddress: credential.identityAddress ?? "",
-        licenseProduct: credential.licenseProduct ?? "",
-        licenseKey: credential.licenseKey ?? "",
-        licenseOwner: credential.licenseOwner ?? "",
-        licenseExpiresAt: credential.licenseExpiresAt ?? "",
-      };
-    }),
-    actionHistory: normalizeActionHistory(vault.actionHistory),
-    settings: {
-      autoLockMinutes: vault.settings?.autoLockMinutes ?? 10,
-      backupIntervalHours: vault.settings?.backupIntervalHours ?? 4,
-      clipboardClearSeconds: vault.settings?.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS,
-      masterPasswordChangedAt:
-        vault.settings?.masterPasswordChangedAt ?? vault.createdAt ?? now,
-      lastPasswordRotationReminderAt: vault.settings?.lastPasswordRotationReminderAt,
-      lockOnMinimize: vault.settings?.lockOnMinimize ?? true,
-      lockOnClose: vault.settings?.lockOnClose ?? true,
-      lockOnInactive: vault.settings?.lockOnInactive ?? true,
-      notifyOnTray: vault.settings?.notifyOnTray ?? true,
-      soundOnTray: vault.settings?.soundOnTray ?? true,
-      secretsBridgeEnabled: vault.settings?.secretsBridgeEnabled ?? false,
-    },
-  };
-}
+import {
+  CLIPBOARD_CLEAR_SECONDS,
+  DEFAULT_VAULT_NAME,
+  UPDATE_GITHUB_OWNER,
+  UPDATE_GITHUB_REPO,
+  PASSWORD_ROTATION_DAYS,
+  type StartupStatus,
+  DEFAULT_STARTUP_STATUS,
+} from "./constants";
+import type { Screen, ConfirmDialog } from "./app-types";
+import { DEFAULT_WINDOWS_HELLO_STATUS, getPinUnlockLabel } from "./features/windows-hello";
+import {
+  MAX_TOTP_QR_IMAGE_BYTES,
+  MAX_TOTP_QR_IMAGE_PIXELS,
+  MAX_TOTP_QR_IMAGE_SIDE,
+  type TotpSetupMode,
+  type TotpSetupSource,
+  type TotpPreview,
+  parseTotpCandidate,
+  parseTotpInput,
+  isStandardTotp,
+  generateTotp,
+  getTotpRemainingSeconds,
+  decodeQrFromDataUrlBestEffort,
+} from "./features/totp";
+import {
+  type ActionHistoryFilter,
+  formatActionHistoryTime,
+  getActionHistoryDateLabel,
+  normalizeActionHistory,
+  createActionHistoryEntry,
+  addActionHistoryEntries,
+  getActionHistoryCategory,
+  getFilteredActionHistory,
+  groupActionHistoryEntries,
+} from "./features/action-history";
+import {
+  type DiagnosticFilter,
+  type DiagnosticIssue,
+  type QuickVaultFilter,
+  isDiagnosticQuickFilter,
+  type AssistantAction,
+  type AssistantTagSuggestion,
+  ASSISTANT_ISSUE_PRIORITY,
+  getAssistantIssueTone,
+  getAssistantActionKind,
+  getCredentialImportanceScore,
+  inferCredentialTag,
+  OLD_PASSWORD_DAYS,
+  type DiagnosticGuidance,
+  getVaultIssueGuidance,
+  getCredentialDiagnosticIssues,
+  getVaultHealthTone,
+  getVaultHealthScore,
+} from "./features/diagnostics";
+import {
+  CATEGORIES,
+  ITEM_TYPES,
+  PASSWORD_EXPIRY_OPTIONS,
+  PASSWORD_NOTICE_OPTIONS,
+  getEmptyCredential,
+  normalizeCredentialTags,
+  formatTagsForInput,
+  getCredentialTags,
+  maskPassword,
+  getOrderedCredentials,
+  getItemType,
+  isCredentialItem,
+  getItemTypeLabel,
+  getItemSubtitle,
+  getItemPrimarySecret,
+  maskGenericSecret,
+  getAttachments,
+  getPasswordHistory,
+  daysBetween,
+  getActiveCredentials,
+  getDeletedCredentials,
+  getCredentialPasswordChangedAt,
+  getPasswordExpiryInfo,
+  getExpiryBadgeClass,
+} from "./features/credentials";
+import { getVaultDisplayName, normalizeVault } from "./features/vault";
+import {
+  buildCsv,
+  type CsvImportFieldKey,
+  type CsvImportPreview,
+  CSV_IMPORT_FIELDS,
+  parseCsvDocument,
+  detectCsvImportMapping,
+  analyzeCsvImport,
+} from "./features/csv";
+import { secureLogError } from "./lib/log";
+import { createId } from "./lib/id";
+import { formatDate, formatBytes } from "./lib/format";
+import { normalizeUrl, openExternalUrl } from "./lib/url";
+import { getStoredValue } from "./lib/storage";
+import {
+  readFileAsText,
+  readFileAsDataUrl,
+  downloadTextFile,
+  downloadDataUrl,
+  safeExportFilename,
+} from "./lib/files";
+import { stopAction } from "./lib/dom";
+import { AppLogo } from "./components/AppLogo";
+import { LanguageSelector } from "./components/LanguageSelector";
+import { getItemTypeIcon } from "./components/item-type-icon";
+
+// Fica aqui: tools/version-check.mjs lê a versão deste arquivo.
+const APP_VERSION = "1.8.0";
 
 export default function App() {
   useDialogFocus();
-  const [platform, setPlatform] = useState("unknown");
+  // Palpite síncrono evita renderizar a interface do Windows antes de o backend responder.
+  const [platform, setPlatform] = useState(guessPlatform);
   const isLinux = platform === "linux";
   const [bridgeGeneration, setBridgeGeneration] = useState<number | null>(null);
   const [bridgeBusy, setBridgeBusy] = useState(false);
@@ -1822,12 +206,6 @@ export default function App() {
   const [bridgeHours, setBridgeHours] = useState(48);
   type BridgePermission = { keyId: string; identity: string; application: string; entryScript: string | null; project: string; operation: string; model: string; callsThisMinute: number; outputTokensThisHour: number; limits: { callsPerMinute: number; outputTokensPerHour: number } };
   const [bridgeStatus, setBridgeStatus] = useState<{ active: boolean; remainingSeconds: number; grants: BridgePermission[] }>({active:false,remainingSeconds:0,grants:[]});
-  useEffect(() => {
-    if (!isLinux) return;
-    const refresh = () => { void invoke<typeof bridgeStatus>("bridge_status").then(status => { setBridgeStatus(status); if (!status.active) setBridgeGeneration(null); }).catch(() => {}); };
-    refresh(); const timer = window.setInterval(refresh, 2000);
-    return () => window.clearInterval(timer);
-  }, [isLinux]);
 
   useEffect(() => {
     void invoke<string>("platform_name").then((name) => {
@@ -1847,13 +225,27 @@ export default function App() {
   useLayoutEffect(() => {
     contentRef.current?.scrollTo({ top: 0 });
   }, [screen, preferencesSection, backupsSection, securitySection]);
-  const [vault, setVault] = useState<PlainVault | null>(null);
-  const [encryptedVault, setEncryptedVault] = useState<EncryptedVaultFile | null>(null);
-  const [masterPassword, setMasterPassword] = useState("");
   const [unlockPassword, setUnlockPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [setupPassword, setSetupPassword] = useState("");
   const [mode, setMode] = useState<"loading" | "setup" | "locked" | "unlocked">("loading");
+  const bridgeStatusJsonRef = useRef("");
+  const vaultUnlockedForBridge = mode === "unlocked";
+  useEffect(() => {
+    // O status só aparece com o cofre aberto; janela oculta ou cofre bloqueado não consultam.
+    if (!isLinux || !vaultUnlockedForBridge) return;
+    const refresh = () => {
+      if (document.hidden) return;
+      void invoke<typeof bridgeStatus>("bridge_status").then(status => {
+        const json = JSON.stringify(status);
+        if (json !== bridgeStatusJsonRef.current) { bridgeStatusJsonRef.current = json; setBridgeStatus(status); }
+        if (!status.active) setBridgeGeneration(null);
+      }).catch(() => {});
+    };
+    refresh(); const timer = window.setInterval(refresh, 2000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [isLinux, vaultUnlockedForBridge]);
   const [busy, setBusy] = useState(false);
   const [unlockGateOpen, setUnlockGateOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -1968,6 +360,25 @@ export default function App() {
     [appLanguage, isLinux],
   );
 
+  const {
+    vault,
+    setVault,
+    vaultRef,
+    encryptedVault,
+    setEncryptedVault,
+    persistVault,
+    persistVaultWithHistory,
+    recordActionHistoryOnly,
+  } = useVaultSession({ activeVaultName, appLanguage, t, setStorageInfo, setBackups, setMessage });
+
+  useEffect(() => {
+    void invoke("set_tray_labels", {
+      open: t("tray.open"),
+      revokeBridge: t("tray.revokeBridge"),
+      quit: t("tray.quit"),
+    }).catch((error) => secureLogError("traduzir menu da bandeja", error));
+  }, [t]);
+
   const csvImportAnalysis = useMemo(
     () => analyzeCsvImport(csvImportPreview, vault, csvImportIncludeDuplicates),
     [csvImportPreview, csvImportIncludeDuplicates, vault],
@@ -2069,7 +480,7 @@ export default function App() {
     } catch (error) {
       secureLogError("alterar inicialização com Windows", error);
       // O backend explica quando recusa (ex.: build de desenvolvimento).
-      setMessage(typeof error === "string" && error ? error : t("settings.startupError"));
+      setMessage(withBackendReason(t("settings.startupError"), error, appLanguage));
     } finally {
       setStartupBusy(false);
     }
@@ -2239,14 +650,14 @@ export default function App() {
 
         setEncryptedVault(parseEncryptedVault(raw));
         setVault(null);
-        setMasterPassword("");
+        closeVaultSession();
         setUnlockPassword("");
         setMode("locked");
         await refreshStorageInfo(activeVaultName);
       } catch {
         setEncryptedVault(null);
         setVault(null);
-        setMasterPassword("");
+        closeVaultSession();
         setUnlockPassword("");
         setMessage(t("errors.loadVault"));
         setMode("locked");
@@ -2257,10 +668,11 @@ export default function App() {
   const lockVault = useCallback((revokeBridge = true) => {
     if (revokeBridge) { void invoke("bridge_close").catch(() => {}); setBridgeGeneration(null); }
     clearSecretClipboard();
+    vaultRef.current = null;
     setBridgeAudit([]);
     teardownStrengthEngine();
     setVault(null);
-    setMasterPassword("");
+    closeVaultSession();
     setUnlockPassword("");
     setSetupPassword("");
     setConfirmPassword("");
@@ -2357,69 +769,14 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [busy, lockVault, mode, requestTrayProtection, vault?.settings.lockOnMinimize, windowsHelloBusy]);
 
-  const persistVault = useCallback(
-    async (nextVault: PlainVault, passwordOverride?: string, forceBackup = false) => {
-      const password = passwordOverride ?? masterPassword;
-
-      if (!password) {
-        throw new Error(t("errors.masterPasswordUnavailable"));
-      }
-
-      const file = await encryptVault(nextVault, password, encryptedVault);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, forceBackup, isLinux ? password : undefined);
-
-      setEncryptedVault(file);
-      setVault({
-        ...nextVault,
-        updatedAt: file.updatedAt,
-      });
-      setStorageInfo(info);
-      setBackups(info.backups);
-
-      return file;
-    },
-    [activeVaultName, encryptedVault, masterPassword],
-  );
-
-  const persistVaultWithHistory = useCallback(
-    async (
-      nextVault: PlainVault,
-      historyEntry?: ActionHistoryEntry | ActionHistoryEntry[],
-      passwordOverride?: string,
-      forceBackup = false,
-    ) => persistVault(addActionHistoryEntries(nextVault, historyEntry), passwordOverride, forceBackup),
-    [persistVault],
-  );
-
-  const recordActionHistoryOnly = useCallback(
-    async (type: ActionHistoryType, targetName?: string) => {
-      if (!vault) return;
-
-      try {
-        const now = new Date().toISOString();
-        await persistVaultWithHistory(
-          {
-            ...vault,
-            updatedAt: now,
-          },
-          createActionHistoryEntry(type, targetName),
-        );
-      } catch (error) {
-        secureLogError("registrar histórico de ações", error);
-      }
-    },
-    [persistVaultWithHistory, vault],
-  );
-
   async function migrateLegacyVaultIfNeeded(
     file: EncryptedVaultFile,
     plainVault: PlainVault,
-    password: string,
   ) {
     if (!needsCryptoMigration(file)) return;
 
     await createPreArgon2Backup(JSON.stringify(file, null, 2), activeVaultName);
-    const migratedFile = await encryptVault(plainVault, password, null);
+    const migratedFile = await encryptVaultWithSession(plainVault, activeVaultName, null);
     const info = await saveVaultFile(JSON.stringify(migratedFile, null, 2), activeVaultName, false);
 
     setEncryptedVault(migratedFile);
@@ -2432,7 +789,7 @@ export default function App() {
     }
 
     const interval = window.setInterval(() => {
-      void persistVault(vault).catch((error) => {
+      void persistVault((current) => current).catch((error) => {
         secureLogError("criar backup automático", error);
       });
     }, vault.settings.backupIntervalHours * 60 * 60 * 1000);
@@ -2476,11 +833,17 @@ export default function App() {
         createActionHistoryEntry("vault_created"),
       );
       const file = await encryptVault(newVault, setupPassword);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false);
+      await unlockVaultSession(activeVaultName, file, setupPassword);
+      let info;
+      try {
+        info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false);
+      } catch (error) {
+        closeVaultSession();
+        throw error;
+      }
 
       setEncryptedVault(file);
       setVault(newVault);
-      setMasterPassword(setupPassword);
       setSetupPassword("");
       setConfirmPassword("");
       setStorageInfo(info);
@@ -2492,7 +855,7 @@ export default function App() {
       setMessage("");
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("errors.createVault"));
+      setMessage(withBackendReason(t("errors.createVault"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -2511,8 +874,8 @@ export default function App() {
     setBusy(true);
 
     try {
-      const plainVault = normalizeVault(await decryptVault(encryptedVault, unlockPassword));
-      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault, unlockPassword);
+      const plainVault = normalizeVault(await unlockVaultSession(activeVaultName, encryptedVault, unlockPassword));
+      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault);
 
       let unlockedVault = plainVault;
 
@@ -2521,8 +884,8 @@ export default function App() {
           plainVault,
           createActionHistoryEntry("vault_unlocked"),
         );
-        const historyFile = await encryptVault(vaultWithHistory, unlockPassword, encryptedVault);
-        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, isLinux ? unlockPassword : undefined);
+        const historyFile = await encryptVaultWithSession(vaultWithHistory, activeVaultName, encryptedVault);
+        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, plainVault.settings?.backupIntervalHours);
 
         setEncryptedVault(historyFile);
         setStorageInfo(historyInfo);
@@ -2533,7 +896,6 @@ export default function App() {
       }
 
       setVault(unlockedVault);
-      setMasterPassword(unlockPassword);
       setUnlockGateOpen(true);
       await new Promise((resolve) => window.setTimeout(resolve, 340));
       setUnlockGateOpen(false);
@@ -2601,7 +963,7 @@ export default function App() {
       // oferecido, e o usuário segue pela senha mestra.
       let plainVault: PlainVault;
       try {
-        plainVault = normalizeVault(await decryptVault(encryptedVault, password));
+        plainVault = normalizeVault(await unlockVaultSession(activeVaultName, encryptedVault, password));
       } catch (staleError) {
         secureLogError("segredo do Windows Hello não abre o cofre atual", staleError);
         try {
@@ -2613,7 +975,7 @@ export default function App() {
         setMessage(t("windowsHello.staleRecord"));
         return;
       }
-      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault, password);
+      await migrateLegacyVaultIfNeeded(encryptedVault, plainVault);
 
       let unlockedVault = plainVault;
 
@@ -2622,8 +984,8 @@ export default function App() {
           plainVault,
           createActionHistoryEntry("vault_unlocked_windows_hello"),
         );
-        const historyFile = await encryptVault(vaultWithHistory, password, encryptedVault);
-        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false);
+        const historyFile = await encryptVaultWithSession(vaultWithHistory, activeVaultName, encryptedVault);
+        const historyInfo = await saveVaultFile(JSON.stringify(historyFile, null, 2), activeVaultName, false, plainVault.settings?.backupIntervalHours);
 
         setEncryptedVault(historyFile);
         setStorageInfo(historyInfo);
@@ -2634,7 +996,6 @@ export default function App() {
       }
 
       setVault(unlockedVault);
-      setMasterPassword(password);
       setUnlockGateOpen(true);
       await new Promise((resolve) => window.setTimeout(resolve, 340));
       setUnlockGateOpen(false);
@@ -2650,7 +1011,7 @@ export default function App() {
     } catch (error) {
       secureLogError("operação do app", error);
       setUnlockGateOpen(false);
-      setMessage(t("windowsHello.unlockError"));
+      setMessage(withBackendReason(t("windowsHello.unlockError"), error, appLanguage));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
       await releaseWindowsHelloPromptFocus();
@@ -2662,7 +1023,7 @@ export default function App() {
   async function handleEnableWindowsHello() {
     setMessage("");
 
-    if (!masterPassword) {
+    if (mode !== "unlocked") {
       setMessage(t("errors.masterPasswordUnavailable"));
       return;
     }
@@ -2687,13 +1048,13 @@ export default function App() {
 
     try {
       await prepareWindowsHelloPrompt();
-      const status = await enableWindowsHello(activeVaultName, masterPassword, t("windowsHello.promptEnable"));
+      const status = await enableWindowsHello(activeVaultName, t("windowsHello.promptEnable"));
       setWindowsHelloStatus(status);
       await recordActionHistoryOnly("windows_hello_enabled");
       setMessage(t("windowsHello.enabledSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("windowsHello.enableError"));
+      setMessage(withBackendReason(t("windowsHello.enableError"), error, appLanguage));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
       await releaseWindowsHelloPromptFocus();
@@ -2725,7 +1086,7 @@ export default function App() {
       setMessage(t("windowsHello.disabledSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("windowsHello.disableError"));
+      setMessage(withBackendReason(t("windowsHello.disableError"), error, appLanguage));
       await refreshWindowsHelloStatus(activeVaultName);
     } finally {
       setWindowsHelloBusy(false);
@@ -2749,7 +1110,7 @@ export default function App() {
 
     setVault(null);
     setEncryptedVault(null);
-    setMasterPassword("");
+    closeVaultSession();
     setUnlockPassword("");
     setSetupPassword("");
     setConfirmPassword("");
@@ -2794,8 +1155,8 @@ export default function App() {
       setActiveVaultName(next);
       if (next === target) { setEncryptedVault(null); setMode("setup"); await refreshStorageInfo(next); }
       setMessage(t("vault.deleted", { path: backup }));
-    } catch {
-      setDeleteVaultPassword(""); setDeleteVaultError(t("vault.deleteFailed"));
+    } catch (error) {
+      setDeleteVaultPassword(""); setDeleteVaultError(withBackendReason(t("vault.deleteFailed"), error, appLanguage));
     } finally { setBusy(false); }
   }
 
@@ -2862,7 +1223,7 @@ export default function App() {
     setNewVaultName("");
     setVault(null);
     setEncryptedVault(null);
-    setMasterPassword("");
+    closeVaultSession();
     setUnlockPassword("");
     setSetupPassword("");
     setConfirmPassword("");
@@ -2964,7 +1325,9 @@ export default function App() {
     setBusy(true);
 
     try {
-      await decryptVault(encryptedVault, currentMasterPassword);
+      if (!(await verifyVaultSessionPassword(currentMasterPassword))) {
+        throw new Error(t("errors.changeMaster"));
+      }
 
       const now = new Date().toISOString();
       const nextVault = addActionHistoryEntries(
@@ -3001,11 +1364,24 @@ export default function App() {
       }
 
       const file = await encryptVault(nextVault, newMasterPassword, null);
-      const info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName);
+      // A sessão passa para a senha nova antes de gravar; se a gravação falhar,
+      // ela volta para a senha atual, que continua sendo a do arquivo.
+      await unlockVaultSession(activeVaultName, file, newMasterPassword);
+      let info;
+      try {
+        info = await saveVaultFile(JSON.stringify(file, null, 2), activeVaultName, false, nextVault.settings.backupIntervalHours);
+      } catch (error) {
+        await unlockVaultSession(activeVaultName, encryptedVault, currentMasterPassword);
+        throw error;
+      }
+      // Backups da senha anterior deixam de abrir com ela.
+      const backupReport = await reencryptBackups(activeVaultName, currentMasterPassword, newMasterPassword).catch((error) => {
+        secureLogError("recifrar backups após troca de senha", error);
+        return null;
+      });
 
       setEncryptedVault(file);
       setVault({ ...nextVault, updatedAt: file.updatedAt });
-      setMasterPassword(newMasterPassword);
       setCurrentMasterPassword("");
       setNewMasterPassword("");
       setNewMasterConfirm("");
@@ -3017,7 +1393,7 @@ export default function App() {
       // deixa o desbloqueio rápido desativado.
       if (shouldReenableHello) {
         try {
-          const status = await enableWindowsHello(activeVaultName, newMasterPassword, t("windowsHello.promptEnable"));
+          const status = await enableWindowsHello(activeVaultName, t("windowsHello.promptEnable"));
           setWindowsHelloStatus(status);
         } catch (helloError) {
           secureLogError("reativar Windows Hello após troca de senha", helloError);
@@ -3027,7 +1403,11 @@ export default function App() {
         }
       }
 
-      setMessage(t("success.masterPasswordChanged"));
+      setMessage(
+        backupReport
+          ? `${t("success.masterPasswordChanged")} ${t("backups.reencrypted", { count: backupReport.reencrypted })}`
+          : t("success.masterPasswordChanged"),
+      );
     } catch {
       setMessage(t("errors.changeMaster"));
     } finally {
@@ -3035,8 +1415,9 @@ export default function App() {
     }
   }
 
-  async function restoreBackupFromText(raw: string, password: string) {
-    if (!password) {
+  /** `password` null usa a senha da sessão aberta (restaurar com a senha atual). */
+  async function restoreBackupFromText(raw: string, password: string | null) {
+    if (password === "") {
       setMessage(t("errors.backupPasswordRequired"));
       return;
     }
@@ -3078,15 +1459,15 @@ export default function App() {
         outcome = await restoreVaultFile(raw, liveVaultName, targetVaultName);
       } catch (error) {
         secureLogError("restaurar backup", error);
-        setMessage(t("errors.restoreAborted"));
+        setMessage(withBackendReason(t("errors.restoreAborted"), error, appLanguage));
         return;
       }
 
       const info = outcome.storage;
 
       setEncryptedVault(parsed);
+      if (password !== null) await unlockVaultSession(liveVaultName, parsed, password);
       setVault(restoredVault);
-      setMasterPassword(password);
       setRestorePassword("");
       setRestorePopupOpen(false);
       setStorageInfo(info);
@@ -3101,12 +1482,12 @@ export default function App() {
             })
           : t("success.backupRestored"),
       );
-    } catch {
-      setMessage(t("errors.restoreBackup"));
+    } catch (error) {
+      setMessage(withBackendReason(t("errors.restoreBackup"), error, appLanguage));
     }
   }
 
-  async function handleBackupFileInput(file: File | undefined | null, password: string) {
+  async function handleBackupFileInput(file: File | undefined | null, password: string | null) {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".kpvault")) {
@@ -3117,8 +1498,8 @@ export default function App() {
     try {
       const raw = await file.text();
       await restoreBackupFromText(raw, password);
-    } catch {
-      setMessage(t("errors.restoreBackup"));
+    } catch (error) {
+      setMessage(withBackendReason(t("errors.restoreBackup"), error, appLanguage));
     }
   }
 
@@ -3246,8 +1627,8 @@ export default function App() {
     try {
       await persistVault(nextVault);
       setMessage(t("success.settingsUpdated"));
-    } catch {
-      setMessage(t("errors.saveSettings"));
+    } catch (error) {
+      setMessage(withBackendReason(t("errors.saveSettings"), error, appLanguage));
     }
   }
 
@@ -3275,7 +1656,7 @@ export default function App() {
       setMessage(t("actionHistory.clearSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("actionHistory.clearError"));
+      setMessage(withBackendReason(t("actionHistory.clearError"), error, appLanguage));
     }
   }
 
@@ -3592,7 +1973,7 @@ export default function App() {
     } catch (error) {
       await restoreTotpWindowAfterWindowsSnip();
       secureLogError("recortar QR da tela", error);
-      setTotpSetupError(t("totp.easy.errorScreenQrNotFound"));
+      setTotpSetupError(withBackendReason(t("totp.easy.errorScreenQrNotFound"), error, appLanguage));
       setTotpPreview(null);
       setTotpSetupMode("screenIntro");
     } finally {
@@ -3647,7 +2028,7 @@ export default function App() {
       return true;
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("totp.easy.saveError"));
+      setMessage(withBackendReason(t("totp.easy.saveError"), error, appLanguage));
       return false;
     } finally {
       setBusy(false);
@@ -3701,7 +2082,7 @@ export default function App() {
       setMessage(t("totp.easy.removeSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("totp.easy.removeError"));
+      setMessage(withBackendReason(t("totp.easy.removeError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -3734,7 +2115,7 @@ export default function App() {
       await openExternalUrl(credential.url);
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("assistant.openSiteError"));
+      setMessage(withBackendReason(t("assistant.openSiteError"), error, appLanguage));
     }
   }
 
@@ -3796,7 +2177,7 @@ export default function App() {
       setMessage(t("assistant.tags.applied", { count: suggestions.length }));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("assistant.tags.error"));
+      setMessage(withBackendReason(t("assistant.tags.error"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -3823,7 +2204,7 @@ export default function App() {
   async function activateBridgeSession() {
     if (!isLinux || !vault?.settings.secretsBridgeEnabled || mode !== "unlocked" || bridgeBusy) return;
     setBridgeBusy(true);
-    try { setBridgeGeneration(await invoke<number>("bridge_open", { vaultName: activeVaultName, masterPassword, durationHours: bridgeHours })); }
+    try { setBridgeGeneration(await invoke<number>("bridge_open", { vaultName: activeVaultName, durationHours: bridgeHours })); }
     catch { setMessage(t("bridge.denied")); }
     finally { setBridgeBusy(false); }
   }
@@ -3985,7 +2366,7 @@ export default function App() {
       setMessage(editingId ? t("success.credentialUpdated") : t("success.credentialCreated"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("errors.saveCredential"));
+      setMessage(withBackendReason(t("errors.saveCredential"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4035,7 +2416,7 @@ export default function App() {
       setMessage(t("trash.moved"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("errors.deleteCredential"));
+      setMessage(withBackendReason(t("errors.deleteCredential"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4070,7 +2451,7 @@ export default function App() {
       setMessage(t("trash.restored"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("trash.restoreError"));
+      setMessage(withBackendReason(t("trash.restoreError"), error, appLanguage));
     }
   }
 
@@ -4102,7 +2483,7 @@ export default function App() {
       setMessage(t("trash.deletedForever"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("trash.deleteForeverError"));
+      setMessage(withBackendReason(t("trash.deleteForeverError"), error, appLanguage));
     }
   }
 
@@ -4136,7 +2517,7 @@ export default function App() {
       setMessage(t("trash.emptySuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("trash.emptyError"));
+      setMessage(withBackendReason(t("trash.emptyError"), error, appLanguage));
     }
   }
 
@@ -4192,7 +2573,7 @@ export default function App() {
       setMessage(t("history.restored"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("history.restoreError"));
+      setMessage(withBackendReason(t("history.restoreError"), error, appLanguage));
     }
   }
 
@@ -4233,7 +2614,7 @@ export default function App() {
       setMessage(t("history.cleared"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("history.clearError"));
+      setMessage(withBackendReason(t("history.clearError"), error, appLanguage));
     }
   }
 
@@ -4355,7 +2736,7 @@ export default function App() {
       setMessage(t("attachments.added"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("attachments.addError"));
+      setMessage(withBackendReason(t("attachments.addError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4400,12 +2781,12 @@ export default function App() {
       setMessage(t("attachments.removed"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("attachments.removeError"));
+      setMessage(withBackendReason(t("attachments.removeError"), error, appLanguage));
     }
   }
 
   async function handleExportEncryptedJson() {
-    if (!vault || !masterPassword) return;
+    if (!vault) return;
 
     const confirmed = await askConfirmation({
       title: t("export.encryptedTitle"),
@@ -4419,7 +2800,7 @@ export default function App() {
     setBusy(true);
 
     try {
-      const file = await encryptVault(vault, masterPassword, encryptedVault);
+      const file = await encryptVaultWithSession(vault, activeVaultName, encryptedVault);
       const date = new Date().toISOString().slice(0, 10);
       downloadTextFile(
         `kpassword-export-criptografado-${date}.json`,
@@ -4430,7 +2811,7 @@ export default function App() {
       setMessage(t("export.encryptedSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("export.encryptedError"));
+      setMessage(withBackendReason(t("export.encryptedError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4457,7 +2838,7 @@ export default function App() {
       return;
     }
 
-    if (exportPassword !== masterPassword) {
+    if (!(await verifyVaultSessionPassword(exportPassword))) {
       setMessage(t("export.passwordError"));
       return;
     }
@@ -4474,7 +2855,7 @@ export default function App() {
       setMessage(t("export.csvSuccess"));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("export.csvError"));
+      setMessage(withBackendReason(t("export.csvError"), error, appLanguage));
     }
   }
 
@@ -4503,7 +2884,7 @@ export default function App() {
     } catch (error) {
       secureLogError("operação do app", error);
       setCsvImportPreview(null);
-      setMessage(t("import.csvError"));
+      setMessage(withBackendReason(t("import.csvError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4566,7 +2947,7 @@ export default function App() {
       setMessage(t("import.csvSuccess", { count: importedCredentials.length }));
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("import.csvError"));
+      setMessage(withBackendReason(t("import.csvError"), error, appLanguage));
     } finally {
       setBusy(false);
     }
@@ -4583,7 +2964,7 @@ export default function App() {
       await openVaultFolder(activeVaultName);
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("folders.openVaultError"));
+      setMessage(withBackendReason(t("folders.openVaultError"), error, appLanguage));
     }
   }
 
@@ -4592,7 +2973,7 @@ export default function App() {
       await openBackupFolder(activeVaultName);
     } catch (error) {
       secureLogError("operação do app", error);
-      setMessage(t("folders.openBackupError"));
+      setMessage(withBackendReason(t("folders.openBackupError"), error, appLanguage));
     }
   }
 
@@ -6045,7 +4426,7 @@ export default function App() {
                   <button
                     onClick={() => void openExternalUrl(detailCredential.url).catch((error) => {
                       secureLogError("operação do app", error);
-                      setMessage(t("credential.openSiteError"));
+                      setMessage(withBackendReason(t("credential.openSiteError"), error, appLanguage));
                     })}
                   >
                     {t("credential.openSite")}
@@ -7160,7 +5541,7 @@ export default function App() {
                   }).then((confirmed) => {
                     if (!confirmed) return;
 
-                    void persistVault(vault, undefined, true)
+                    void persistVault(vault, true)
                       .then(() => refreshStorageInfo())
                       .then(() => setMessage("Backup criptografado atualizado."))
                       .catch(() => setMessage("Erro ao criar backup."));
@@ -7265,7 +5646,7 @@ export default function App() {
                   type="file"
                   accept=".kpvault,application/json"
                   onChange={(event) => {
-                    void handleBackupFileInput(event.target.files?.[0], masterPassword);
+                    void handleBackupFileInput(event.target.files?.[0], null);
                     event.currentTarget.value = "";
                   }}
                 />

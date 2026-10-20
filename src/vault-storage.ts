@@ -24,8 +24,18 @@ export async function loadVaultFile(vaultName = "vault") {
   return invoke<string | null>("load_vault_file", { vaultName });
 }
 
-export async function saveVaultFile(payload: string, vaultName = "vault", forceBackup = false, historyPassword?: string) {
-  return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup, historyPassword });
+export async function saveVaultFile(
+  payload: string,
+  vaultName = "vault",
+  forceBackup = false,
+  backupIntervalHours?: number,
+) {
+  return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup, backupIntervalHours });
+}
+
+/** Após trocar a senha mestra, recifra com a senha nova os backups que abriam com a anterior. */
+export async function reencryptBackups(vaultName: string, oldPassword: string, newPassword: string) {
+  return invoke<{ reencrypted: number; skipped: number }>("reencrypt_backups", { vaultName, oldPassword, newPassword });
 }
 
 /** Chave onde a identidade do cofre ativo e persistida (perfil do WebView2). */
@@ -107,9 +117,9 @@ export async function getWindowsHelloStatus(vaultName = "vault") {
   );
 }
 
-export async function enableWindowsHello(vaultName = "vault", masterPassword: string, reason: string) {
+export async function enableWindowsHello(vaultName = "vault", reason: string) {
   return withCommandTimeout(
-    invoke<WindowsHelloStatus>("enable_windows_hello", { vaultName, masterPassword, reason }),
+    invoke<WindowsHelloStatus>("enable_windows_hello", { vaultName, reason }),
     WINDOWS_HELLO_ACTION_TIMEOUT_MS,
     "Windows Hello enable",
   );
