@@ -24,8 +24,19 @@ export async function loadVaultFile(vaultName = "vault") {
   return invoke<string | null>("load_vault_file", { vaultName });
 }
 
-export async function saveVaultFile(payload: string, vaultName = "vault", forceBackup = false, historyPassword?: string) {
-  return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup, historyPassword });
+export async function saveVaultFile(
+  payload: string,
+  vaultName = "vault",
+  forceBackup = false,
+  historyPassword?: string,
+  backupIntervalHours?: number,
+) {
+  return invoke<StorageInfo>("save_vault_file", { payload, vaultName, forceBackup, historyPassword, backupIntervalHours });
+}
+
+/** Após trocar a senha mestra, recifra com a senha nova os backups que abriam com a anterior. */
+export async function reencryptBackups(vaultName: string, oldPassword: string, newPassword: string) {
+  return invoke<{ reencrypted: number; skipped: number }>("reencrypt_backups", { vaultName, oldPassword, newPassword });
 }
 
 /** Chave onde a identidade do cofre ativo e persistida (perfil do WebView2). */

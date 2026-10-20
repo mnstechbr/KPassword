@@ -199,6 +199,17 @@ fn aad_v2(file: &EncryptedVaultFileV2) -> Vec<u8> {
     .into_bytes()
 }
 
+/// Estrutura de um arquivo cifrado do KPassword (v1 ou v2), sem decifrar.
+pub fn is_encrypted_vault_file(file: &Value) -> bool {
+    match crypto_version(file) {
+        CRYPTO_VERSION_ARGON2ID => serde_json::from_value::<EncryptedVaultFileV2>(file.clone())
+            .is_ok_and(|v2| v2.app == APP_NAME && !v2.payload.is_empty()),
+        CRYPTO_VERSION_LEGACY => serde_json::from_value::<LegacyEncryptedVaultFile>(file.clone())
+            .is_ok_and(|legacy| legacy.app == APP_NAME && !legacy.payload.is_empty()),
+        _ => false,
+    }
+}
+
 fn extract_string(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(Value::as_str).map(str::to_string)
 }
@@ -403,7 +414,7 @@ pub fn decrypt_vault_file(file: &Value, master_password: &str) -> Result<String,
     }
 }
 
-fn failed_backup_verification() -> BackupVerificationReport {
+pub fn failed_backup_verification() -> BackupVerificationReport {
     BackupVerificationReport {
         ok: false,
         message: BACKUP_VERIFY_FAILURE_MESSAGE.to_string(),

@@ -4167,6 +4167,7 @@ const vaultRemovalTranslations: Record<AppLanguage, Record<string, string>> = {
 
 const redesignTranslations: Record<AppLanguage, Record<string, string>> = {
   "pt": {
+    "backups.reencrypted": "{count} backup(s) foram recifrados com a nova senha.",
     "ui.preferences.appearance": "Aparência e idioma",
     "ui.preferences.application": "Aplicativo e cofre",
     "ui.preferences.maintenance": "Manutenção e ajuda",
@@ -4189,6 +4190,7 @@ const redesignTranslations: Record<AppLanguage, Record<string, string>> = {
     "nav.securityBackup": "Segurança"
   },
   "en": {
+    "backups.reencrypted": "{count} backup(s) were re-encrypted with the new password.",
     "ui.preferences.appearance": "Appearance & language",
     "ui.preferences.application": "Application & vault",
     "ui.preferences.maintenance": "Maintenance & help",
@@ -4211,6 +4213,7 @@ const redesignTranslations: Record<AppLanguage, Record<string, string>> = {
     "nav.securityBackup": "Security"
   },
   "es": {
+    "backups.reencrypted": "{count} copia(s) de seguridad se volvieron a cifrar con la nueva contraseña.",
     "ui.preferences.appearance": "Apariencia e idioma",
     "ui.preferences.application": "Aplicación y caja fuerte",
     "ui.preferences.maintenance": "Mantenimiento y ayuda",
@@ -4233,6 +4236,7 @@ const redesignTranslations: Record<AppLanguage, Record<string, string>> = {
     "nav.securityBackup": "Seguridad"
   },
   "tr": {
+    "backups.reencrypted": "{count} yedek yeni parolayla yeniden şifrelendi.",
     "ui.preferences.appearance": "Görünüm ve dil",
     "ui.preferences.application": "Uygulama ve kasa",
     "ui.preferences.maintenance": "Bakım ve yardım",
