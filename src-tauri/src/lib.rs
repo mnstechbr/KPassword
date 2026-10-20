@@ -219,6 +219,21 @@ fn sanitize_vault_name(vault_name: Option<String>) -> Result<String, String> {
         return Err("Nome de cofre inválido.".to_string());
     }
 
+    // Nomes de dispositivo do Windows nao podem ser arquivos (CON.kpvault abre o console).
+    const RESERVED: [&str; 4] = ["con", "prn", "aux", "nul"];
+    let lower = trimmed.to_ascii_lowercase();
+    let is_port = (lower.starts_with("com") || lower.starts_with("lpt"))
+        && lower.len() == 4
+        && matches!(lower.as_bytes()[3], b'1'..=b'9');
+    if RESERVED.contains(&lower.as_str()) || is_port {
+        return Err("Nome de cofre reservado pelo sistema.".to_string());
+    }
+
+    // No Windows "Vault" e "vault" sao o mesmo arquivo, mas as pastas de backup
+    // seriam diferentes; o nome canonico e minusculo, como o frontend ja usa.
+    #[cfg(windows)]
+    return Ok(lower);
+    #[cfg(not(windows))]
     Ok(trimmed.to_string())
 }
 
@@ -1844,9 +1859,19 @@ fn startup_command_line() -> Result<String, String> {
     Ok(format!("\"{}\" --startup", exe.to_string_lossy()))
 }
 
+/// reg.exe e um programa de console: sem esta flag, cada chamada pisca uma janela.
+#[cfg(windows)]
+fn reg_command() -> Command {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let mut command = Command::new("reg");
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
+}
+
 #[cfg(windows)]
 fn run_reg_command(args: &[&str]) -> Result<(), String> {
-    let status = Command::new("reg")
+    let status = reg_command()
         .args(args)
         .status()
         .map_err(|error| format!("Não foi possível executar reg.exe: {error}"))?;
@@ -1860,7 +1885,7 @@ fn run_reg_command(args: &[&str]) -> Result<(), String> {
 
 #[cfg(windows)]
 fn is_startup_enabled_impl() -> bool {
-    Command::new("reg")
+    reg_command()
         .args(["query", STARTUP_REGISTRY_KEY, "/v", STARTUP_VALUE_NAME])
         .output()
         .map(|output| output.status.success())
@@ -2818,3 +2843,53 @@ pub fn run() {
         });
 }
 
+
+#[cfg(test)]
+mod vault_name_tests {
+    use super::sanitize_vault_name;
+
+    #[test]
+    fn rejects_windows_device_names() {
+        for name in ["con", "CON", "nul", "aux", "prn", "com1", "LPT9"] {
+            assert!(sanitize_vault_name(Some(name.into())).is_err(), "{name}");
+        }
+        for name in ["console", "com0", "com10", "lpt", "vault", "trabalho_2"] {
+            assert!(sanitize_vault_name(Some(name.into())).is_ok(), "{name}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod acl_tests {
+    /// Cada comando registrado no handler precisa estar no manifesto do
+    /// build.rs, senao o ACL do Tauri recusa a chamada em tempo de execucao.
+    #[test]
+    fn handler_commands_match_the_app_manifest_and_capabilities() {
+        let lib = include_str!("lib.rs");
+        let start = lib.find("tauri::generate_handler![").unwrap();
+        let end = start + lib[start..].find("];").unwrap();
+        let mut handler: Vec<&str> = lib[start..end]
+            .lines()
+            .skip(1)
+            .map(|line| line.trim().trim_end_matches(','))
+            .filter(|line| !line.is_empty())
+            .map(|line| line.rsplit("::").next().unwrap())
+            .collect();
+        let build = include_str!("../build.rs");
+        let mut manifest: Vec<&str> = build
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix('"')?.strip_suffix("\","))
+            .collect();
+        handler.sort();
+        manifest.sort();
+        assert_eq!(handler, manifest);
+
+        let main = include_str!("../capabilities/default.json");
+        let approval = include_str!("../capabilities/bridge-approval.json");
+        for command in ["save_vault_file", "clipboard_write_secret", "bridge_open"] {
+            assert!(main.contains(&format!("\"allow-{}\"", command.replace('_', "-"))), "{command}");
+            assert!(!approval.contains(&format!("\"allow-{}\"", command.replace('_', "-"))), "{command}");
+        }
+        assert_eq!(approval.matches("\"allow-").count(), 2);
+    }
+}
