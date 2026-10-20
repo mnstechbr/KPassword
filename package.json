@@ -11,9 +11,9 @@
     "test": "vitest run",
     "lint": "eslint .",
     "version:check": "node ./tools/version-check.mjs",
-    "release:hash": "powershell -ExecutionPolicy Bypass -File ./tools/generate-release-checksums.ps1",
-    "release:validate": "powershell -ExecutionPolicy Bypass -File ./tools/validate-release-assets.ps1",
-    "security:audit": "powershell -ExecutionPolicy Bypass -File ./tools/security-audit.ps1"
+    "release:hash": "node ./tools/generate-release-checksums.mjs",
+    "release:validate": "node ./tools/validate-release-assets.mjs",
+    "security:audit": "node ./tools/security-audit.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
