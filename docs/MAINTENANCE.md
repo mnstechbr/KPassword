@@ -16,9 +16,13 @@ Scripts essenciais:
 ```text
 tools/fix-updater-v030-build.ps1
 tools/fix-updater-v030-build.cjs
-tools/generate-release-checksums.ps1
-tools/validate-release-assets.ps1
+tools/generate-release-checksums.mjs   (npm run release:hash)
+tools/validate-release-assets.mjs      (npm run release:validate)
+tools/security-audit.mjs               (npm run security:audit)
+tools/version-check.mjs                (npm run version:check)
 ```
+
+Os scripts `.mjs` usam somente Node e funcionam no Windows e no Fedora.
 
 Scripts auxiliares:
 
@@ -27,11 +31,9 @@ tools/audit-project.ps1
 tools/release-version.ps1
 ```
 
-Scripts antigos de hotfix devem ficar arquivados em:
-
-```text
-tools/archive/
-```
+Scripts de patch avulsos não ficam no repositório: depois de aplicados, são
+removidos e continuam no histórico do git. A lista completa está em
+`tools/README.md`.
 
 ## CSS
 
