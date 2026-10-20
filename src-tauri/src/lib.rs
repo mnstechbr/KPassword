@@ -39,7 +39,7 @@ async fn linux_capture_qr() -> Result<String, String> {
     #[cfg(target_os = "linux")]
     { return linux_platform::capture_qr().await; }
     #[cfg(not(target_os = "linux"))]
-    { Err("Portal Linux indisponível.".into()) }
+    { Err("error.capture.portalUnavailable".into()) }
 }
 use tauri::{
     image::Image,
@@ -156,7 +156,7 @@ fn vault_and_hello_paths(
     let data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
+        .map_err(|error| format!("error.storage.appDataDir: {error}"))?;
 
     let vault_path = data_dir.join(vault_filename(&safe_vault_name));
     let record_path = data_dir
@@ -209,14 +209,14 @@ fn sanitize_vault_name(vault_name: Option<String>) -> Result<String, String> {
     }
 
     if trimmed.len() > 48 {
-        return Err("Nome do cofre muito longo.".to_string());
+        return Err("error.vault.nameTooLong".to_string());
     }
 
     if !trimmed
         .chars()
         .all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_')
     {
-        return Err("Nome de cofre inválido.".to_string());
+        return Err("error.vault.invalidName".to_string());
     }
 
     // Nomes de dispositivo do Windows nao podem ser arquivos (CON.kpvault abre o console).
@@ -226,7 +226,7 @@ fn sanitize_vault_name(vault_name: Option<String>) -> Result<String, String> {
         && lower.len() == 4
         && matches!(lower.as_bytes()[3], b'1'..=b'9');
     if RESERVED.contains(&lower.as_str()) || is_port {
-        return Err("Nome de cofre reservado pelo sistema.".to_string());
+        return Err("error.vault.reservedName".to_string());
     }
 
     // No Windows "Vault" e "vault" sao o mesmo arquivo, mas as pastas de backup
@@ -253,10 +253,10 @@ fn storage_paths(
     let data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
+        .map_err(|error| format!("error.storage.appDataDir: {error}"))?;
 
     storage_io::create_private_dir(&data_dir)
-        .map_err(|error| format!("Erro ao criar pasta do cofre: {error}"))?;
+        .map_err(|error| format!("error.storage.createVaultDir: {error}"))?;
 
     let backup_dir = if safe_vault_name == "vault" {
         data_dir.join("backups")
@@ -266,7 +266,7 @@ fn storage_paths(
 
     storage_io::create_private_dir(&data_dir.join("backups"))
         .and_then(|_| storage_io::create_private_dir(&backup_dir))
-        .map_err(|error| format!("Erro ao criar pasta de backups: {error}"))?;
+        .map_err(|error| format!("error.storage.createBackupDir: {error}"))?;
 
     Ok((
         data_dir.join(vault_filename(&safe_vault_name)),
@@ -283,7 +283,7 @@ fn get_backups_from_dir(backup_dir: &Path) -> Result<Vec<BackupFile>, String> {
     }
 
     let entries = fs::read_dir(backup_dir)
-        .map_err(|error| format!("Erro ao ler pasta de backups: {error}"))?;
+        .map_err(|error| format!("error.backup.listDir: {error}"))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -340,7 +340,7 @@ fn create_labeled_backup(
     let backup_path = backup_dir.join(backup_name);
 
     storage_io::write_atomic_private(&backup_path, payload.as_bytes())
-        .map_err(|error| format!("Erro ao criar backup criptografado: {error}"))?;
+        .map_err(|error| format!("error.backup.create: {error}"))?;
 
     Ok(backup_path)
 }
@@ -367,11 +367,11 @@ fn prune_automatic_backups(backup_dir: &Path, safe_vault_name: &str) {
 /// Recusa gravar como cofre algo que nao seja um arquivo cifrado do KPassword.
 fn validate_encrypted_payload(payload: &str) -> Result<(), String> {
     let value: serde_json::Value = serde_json::from_str(payload)
-        .map_err(|_| "Conteúdo do cofre inválido; nada foi gravado.".to_string())?;
+        .map_err(|_| "error.vault.invalidContentNotSaved".to_string())?;
     if crypto_vault::is_encrypted_vault_file(&value) {
         Ok(())
     } else {
-        Err("Conteúdo do cofre inválido; nada foi gravado.".to_string())
+        Err("error.vault.invalidContentNotSaved".to_string())
     }
 }
 
@@ -401,27 +401,27 @@ fn perform_safe_restore(
 ) -> Result<Option<String>, String> {
     let safety_backup = if vault_path.exists() {
         let current = fs::read(vault_path).map_err(|error| {
-            format!("Restauracao abortada: nao foi possivel ler o cofre atual para backup: {error}")
+            format!("error.restore.readCurrent: {error}")
         })?;
 
         let current_text = String::from_utf8(current.clone()).map_err(|_| {
-            "Restauracao abortada: o cofre atual nao e UTF-8 valido; nada foi sobrescrito."
+            "error.restore.currentNotUtf8"
                 .to_string()
         })?;
 
         let backup_path =
             create_labeled_backup(backup_dir, safe_vault_name, Some("pre-restore"), &current_text)
-                .map_err(|error| format!("Restauracao abortada: {error}"))?;
+                .map_err(|error| format!("error.restore.aborted: {error}"))?;
 
         // FAIL-CLOSED: so prossegue se o backup existir e conferir byte a byte.
         let written = fs::read(&backup_path).map_err(|error| {
-            format!("Restauracao abortada: backup de seguranca nao pode ser lido de volta: {error}")
+            format!("error.restore.safetyBackupUnreadable: {error}")
         })?;
 
         if written != current {
             let _ = fs::remove_file(&backup_path);
             return Err(
-                "Restauracao abortada: backup de seguranca nao confere byte a byte com o cofre atual."
+                "error.restore.safetyBackupMismatch"
                     .to_string(),
             );
         }
@@ -440,7 +440,7 @@ fn perform_safe_restore(
 
     // Escrita atomica e duravel, mesmo padrao de save_vault_file.
     storage_io::write_atomic_private(vault_path, payload.as_bytes())
-        .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))?;
+        .map_err(|error| format!("error.storage.writeVault: {error}"))?;
 
     Ok(safety_backup)
 }
@@ -454,7 +454,7 @@ fn perform_safe_restore(
 fn restore_target_matches(expected: Option<&str>, resolved: &str) -> Result<(), String> {
     match expected {
         Some(expected) if expected != resolved => Err(format!(
-            "Restauracao abortada: o cofre alvo mudou durante a confirmacao (confirmado: {expected}, atual: {resolved}). Refaca a operacao."
+            "error.restore.targetChanged: {expected} → {resolved}"
         )),
         _ => Ok(()),
     }
@@ -483,14 +483,14 @@ fn show_main_window(app: &AppHandle) {
 
 fn open_folder(path: PathBuf) -> Result<(), String> {
     fs::create_dir_all(&path)
-        .map_err(|error| format!("Erro ao preparar pasta para abrir: {error}"))?;
+        .map_err(|error| format!("error.platform.prepareFolder: {error}"))?;
 
     #[cfg(target_os = "windows")]
     {
         Command::new("explorer")
             .arg(path)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir pasta no Explorer: {error}"))?;
+            .map_err(|error| format!("error.platform.openFolder: {error}"))?;
         return Ok(());
     }
 
@@ -499,7 +499,7 @@ fn open_folder(path: PathBuf) -> Result<(), String> {
         Command::new("open")
             .arg(path)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir pasta no Finder: {error}"))?;
+            .map_err(|error| format!("error.platform.openFolder: {error}"))?;
         return Ok(());
     }
 
@@ -508,12 +508,12 @@ fn open_folder(path: PathBuf) -> Result<(), String> {
         Command::new("xdg-open")
             .arg(path)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir pasta: {error}"))?;
+            .map_err(|error| format!("error.platform.openFolder: {error}"))?;
         return Ok(());
     }
 
     #[allow(unreachable_code)]
-    Err("Abrir pasta não é suportado nesta plataforma.".to_string())
+    Err("error.platform.openFolderUnsupported".to_string())
 }
 
 fn is_safe_external_url(url: &str) -> bool {
@@ -535,7 +535,7 @@ fn open_external_url(url: String) -> Result<(), String> {
             .arg("url.dll,FileProtocolHandler")
             .arg(trimmed)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir site no navegador: {error}"))?;
+            .map_err(|error| format!("error.platform.openUrl: {error}"))?;
         return Ok(());
     }
 
@@ -544,7 +544,7 @@ fn open_external_url(url: String) -> Result<(), String> {
         Command::new("open")
             .arg(trimmed)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir site no navegador: {error}"))?;
+            .map_err(|error| format!("error.platform.openUrl: {error}"))?;
         return Ok(());
     }
 
@@ -553,12 +553,12 @@ fn open_external_url(url: String) -> Result<(), String> {
         Command::new("xdg-open")
             .arg(trimmed)
             .spawn()
-            .map_err(|error| format!("Erro ao abrir site no navegador: {error}"))?;
+            .map_err(|error| format!("error.platform.openUrl: {error}"))?;
         return Ok(());
     }
 
     #[allow(unreachable_code)]
-    Err("Abrir site não é suportado nesta plataforma.".to_string())
+    Err("error.platform.openUrlUnsupported".to_string())
 }
 
 #[tauri::command]
@@ -566,7 +566,7 @@ fn open_vault_folder(app: AppHandle, vault_name: Option<String>) -> Result<(), S
     let (vault_path, _, _) = storage_paths(&app, vault_name)?;
     let folder = vault_path
         .parent()
-        .ok_or_else(|| "Erro ao localizar pasta do cofre.".to_string())?
+        .ok_or_else(|| "error.storage.vaultDir".to_string())?
         .to_path_buf();
 
     open_folder(folder)
@@ -588,7 +588,7 @@ fn load_vault_file(app: AppHandle, vault_name: Option<String>) -> Result<Option<
 
     fs::read_to_string(vault_path)
         .map(Some)
-        .map_err(|error| format!("Erro ao carregar o cofre local criptografado: {error}"))
+        .map_err(|error| format!("error.storage.readVault: {error}"))
 }
 
 /// Roda trabalho pesado (Argon2, disco, QR) fora da thread principal, para a
@@ -598,7 +598,7 @@ async fn run_blocking<T: Send + 'static>(
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(work)
         .await
-        .map_err(|_| "Operação interrompida.".to_string())?
+        .map_err(|_| "error.task.interrupted".to_string())?
 }
 
 #[tauri::command]
@@ -625,11 +625,11 @@ fn save_vault_file_blocking(
     backup_interval_hours: Option<u64>,
 ) -> Result<StorageInfo, String> {
     validate_encrypted_payload(&payload)?;
-    let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "Armazenamento indisponível.")?;
+    let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "error.storage.unavailable")?;
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(app, vault_name)?;
     secrets_bridge::save_with_history_check(app, &safe_vault_name, &payload, history_password, || {
         storage_io::write_atomic_private(&vault_path, payload.as_bytes())
-            .map_err(|error| format!("Erro ao atualizar arquivo do cofre: {error}"))
+            .map_err(|error| format!("error.storage.writeVault: {error}"))
     })?;
 
     let force_backup_requested = force_backup.unwrap_or(false);
@@ -640,7 +640,7 @@ fn save_vault_file_blocking(
         if let Err(error) = create_backup(&backup_dir, &safe_vault_name, &payload) {
             // O cofre ja foi gravado: devolver erro deixaria a tela diferente do disco.
             if force_backup_requested {
-                warning = Some(format!("Cofre salvo, mas não foi possível criar o backup solicitado: {error}"));
+                warning = Some(format!("error.backup.savedWithoutBackup: {error}"));
             } else {
                 eprintln!("Aviso: cofre salvo, mas backup automático falhou.");
             }
@@ -670,7 +670,7 @@ fn restore_vault_file_blocking(
     expected_vault_name: Option<String>,
 ) -> Result<RestoreOutcome, String> {
     validate_encrypted_payload(&payload)?;
-    let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "Armazenamento indisponível.")?;
+    let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "error.storage.unavailable")?;
     secrets_bridge::close(&app);
     let (vault_path, backup_dir, safe_vault_name) = storage_paths(&app, vault_name)?;
 
@@ -701,10 +701,10 @@ async fn delete_vault_file(app: AppHandle, vault_name: String, expected_vault_na
 
 fn delete_vault_file_blocking(app: AppHandle, vault_name: String, expected_vault_name: String, master_password: String) -> Result<String, String> {
     let password = zeroize::Zeroizing::new(master_password);
-    let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "Armazenamento indisponível.")?;
+    let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "error.storage.unavailable")?;
     let (path, backups, safe_name) = storage_paths(&app, Some(vault_name))?;
     if safe_name != sanitize_vault_name(Some(expected_vault_name))? {
-        return Err("Cofre selecionado mudou; exclusão cancelada.".into());
+        return Err("error.delete.selectionChanged".into());
     }
     let (_, hello, _) = vault_and_hello_paths(&app, Some(safe_name))?;
     secrets_bridge::close(&app);
@@ -716,14 +716,14 @@ fn list_vault_files(app: AppHandle) -> Result<Vec<VaultFileInfo>, String> {
     let data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
+        .map_err(|error| format!("error.storage.appDataDir: {error}"))?;
 
     storage_io::create_private_dir(&data_dir)
-        .map_err(|error| format!("Erro ao criar pasta do cofre: {error}"))?;
+        .map_err(|error| format!("error.storage.createVaultDir: {error}"))?;
 
     let mut vaults = Vec::new();
     let entries = fs::read_dir(&data_dir)
-        .map_err(|error| format!("Erro ao listar cofres locais: {error}"))?;
+        .map_err(|error| format!("error.storage.listVaults: {error}"))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -784,14 +784,14 @@ fn read_backup_file(
     vault_name: Option<String>,
 ) -> Result<String, String> {
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
-        return Err("Nome de backup inválido.".to_string());
+        return Err("error.backup.invalidName".to_string());
     }
 
     let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
     let backup_path = backup_dir.join(filename);
 
     fs::read_to_string(backup_path)
-        .map_err(|error| format!("Erro ao ler backup criptografado: {error}"))
+        .map_err(|error| format!("error.backup.read: {error}"))
 }
 
 #[derive(Serialize)]
@@ -814,7 +814,7 @@ async fn reencrypt_backups(
     let old_password = zeroize::Zeroizing::new(old_password);
     let new_password = zeroize::Zeroizing::new(new_password);
     run_blocking(move || {
-        let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "Armazenamento indisponível.")?;
+        let _storage = storage_io::STORAGE_LOCK.lock().map_err(|_| "error.storage.unavailable")?;
         let (_, backup_dir, _) = storage_paths(&app, vault_name)?;
         Ok(reencrypt_backups_in_dir(&backup_dir, &old_password, &new_password))
     })
@@ -877,7 +877,7 @@ fn encrypt_vault_argon2id_blocking(
     )
     .and_then(|encrypted| {
         serde_json::to_value(encrypted)
-            .map_err(|_| "Erro ao preparar cofre criptografado.".to_string())
+            .map_err(|_| "error.vault.serialize".to_string())
     });
 
     master_password.zeroize();
@@ -1115,10 +1115,10 @@ mod windows_hello_native {
         let data_dir = app
             .path()
             .app_data_dir()
-            .map_err(|error| format!("Erro ao localizar pasta local do app: {error}"))?;
+            .map_err(|error| format!("error.storage.appDataDir: {error}"))?;
         let dir = data_dir.join("windows_hello");
         fs::create_dir_all(&dir)
-            .map_err(|error| format!("Erro ao criar pasta do Windows Hello: {error}"))?;
+            .map_err(|error| format!("error.windowsHello.createDir: {error}"))?;
         Ok(dir)
     }
 
@@ -1165,9 +1165,9 @@ mod windows_hello_native {
 
     fn check_availability() -> Result<UserConsentVerifierAvailability, String> {
         UserConsentVerifier::CheckAvailabilityAsync()
-            .map_err(|error| format!("Erro ao consultar Windows Hello: {error}"))?
+            .map_err(|error| format!("error.windowsHello.query: {error}"))?
             .get()
-            .map_err(|error| format!("Erro ao consultar Windows Hello: {error}"))
+            .map_err(|error| format!("error.windowsHello.query: {error}"))
     }
 
     fn verify_user(reason: &str) -> Result<(), String> {
@@ -1177,19 +1177,19 @@ mod windows_hello_native {
 
         if availability != UserConsentVerifierAvailability::Available {
             return Err(format!(
-                "Windows Hello indisponível: {}",
+                "error.windowsHello.unavailable: {}",
                 availability_reason(availability)
             ));
         }
 
         let result = UserConsentVerifier::RequestVerificationAsync(&HSTRING::from(reason))
-            .map_err(|error| format!("Erro ao abrir Windows Hello: {error}"))?
+            .map_err(|error| format!("error.windowsHello.open: {error}"))?
             .get()
-            .map_err(|error| format!("Erro ao validar Windows Hello: {error}"))?;
+            .map_err(|error| format!("error.windowsHello.verify: {error}"))?;
 
         if result != UserConsentVerificationResult::Verified {
             return Err(format!(
-                "Windows Hello não validado: {}",
+                "error.windowsHello.notVerified: {}",
                 verification_reason(result)
             ));
         }
@@ -1231,7 +1231,7 @@ mod windows_hello_native {
         if ok == 0 {
             secret_bytes.zeroize();
             entropy_bytes.zeroize();
-            return Err("Erro ao proteger segredo com DPAPI.".to_string());
+            return Err("error.windowsHello.protect".to_string());
         }
 
         let protected =
@@ -1280,7 +1280,7 @@ mod windows_hello_native {
         if ok == 0 {
             protected_bytes.zeroize();
             entropy_bytes.zeroize();
-            return Err("Erro ao desbloquear segredo protegido pelo dispositivo.".to_string());
+            return Err("error.windowsHello.unprotect".to_string());
         }
 
         let unprotected =
@@ -1298,7 +1298,7 @@ mod windows_hello_native {
             Err(error) => {
                 let mut bytes = error.into_bytes();
                 bytes.zeroize();
-                Err("Segredo local inválido.".to_string())
+                Err("error.windowsHello.invalidSecret".to_string())
             }
         }
     }
@@ -1336,7 +1336,7 @@ mod windows_hello_native {
         reason: String,
     ) -> Result<WindowsHelloStatus, String> {
         if master_password.is_empty() {
-            return Err("Senha mestra indisponível.".to_string());
+            return Err("error.vault.passwordUnavailable".to_string());
         }
 
         let (path, safe_vault_name) = match token_path(&app, vault_name.clone()) {
@@ -1361,7 +1361,7 @@ mod windows_hello_native {
         };
         master_password.zeroize();
         fs::write(path, protected).map_err(|error| {
-            format!("Erro ao salvar credencial local do Windows Hello: {error}")
+            format!("error.windowsHello.saveCredential: {error}")
         })?;
 
         status(app, vault_name)
@@ -1375,7 +1375,7 @@ mod windows_hello_native {
 
         if path.exists() {
             fs::remove_file(path)
-                .map_err(|error| format!("Erro ao remover Windows Hello deste cofre: {error}"))?;
+                .map_err(|error| format!("error.windowsHello.remove: {error}"))?;
         }
 
         status(app, vault_name)
@@ -1389,13 +1389,13 @@ mod windows_hello_native {
         let (path, safe_vault_name) = token_path(&app, vault_name)?;
 
         if !path.exists() {
-            return Err("Windows Hello não está ativado para este cofre.".to_string());
+            return Err("error.windowsHello.notEnabled".to_string());
         }
 
         verify_user(&reason)?;
 
         let protected = fs::read(path)
-            .map_err(|error| format!("Erro ao ler credencial local do Windows Hello: {error}"))?;
+            .map_err(|error| format!("error.windowsHello.readCredential: {error}"))?;
 
         unprotect_secret(&protected, &safe_vault_name)
     }
@@ -1409,7 +1409,7 @@ where
 {
     tauri::async_runtime::spawn_blocking(task)
         .await
-        .map_err(|error| format!("Falha ao executar Windows Hello ({operation}): {error}"))?
+        .map_err(|error| format!("error.windowsHello.operation: {operation}: {error}"))?
 }
 
 #[tauri::command]
@@ -1457,7 +1457,7 @@ fn discard_orphan_windows_hello(
 
     let (_, record_path, _) = vault_and_hello_paths(&app, vault_name)?;
     fs::remove_file(&record_path)
-        .map_err(|error| format!("Erro ao remover registro Windows Hello orfao: {error}"))?;
+        .map_err(|error| format!("error.windowsHello.removeOrphan: {error}"))?;
     Ok(true)
 }
 
@@ -1476,7 +1476,7 @@ fn quarantine_windows_hello(app: AppHandle, vault_name: Option<String>) -> Resul
 
     let quarantined = record_path.with_extension(format!("kphello.invalid-{}", now_epoch_millis()));
     fs::rename(&record_path, &quarantined)
-        .map_err(|error| format!("Erro ao isolar registro Windows Hello invalido: {error}"))?;
+        .map_err(|error| format!("error.windowsHello.quarantine: {error}"))?;
     Ok(true)
 }
 
@@ -1559,7 +1559,7 @@ async fn unlock_with_windows_hello(
         let _ = app;
         let _ = vault_name;
         let _ = reason;
-        Err("Windows Hello disponível apenas no Windows.".to_string())
+        Err("error.windowsHello.windowsOnly".to_string())
     }
 }
 
@@ -1666,7 +1666,7 @@ mod storage_tests {
         let resultado = perform_safe_restore(&vault_path, &backup_dir, "beta", "CONTEUDO-A1");
 
         assert!(resultado.is_err(), "deveria abortar");
-        assert!(resultado.unwrap_err().contains("Restauracao abortada"));
+        assert!(resultado.unwrap_err().starts_with("error.restore."));
         assert_eq!(
             fs::read_to_string(&vault_path).unwrap(),
             "CONTEUDO-BETA-ANTIGO",
@@ -1697,7 +1697,7 @@ mod storage_tests {
         assert!(restore_target_matches(None, "beta").is_ok());
 
         let erro = restore_target_matches(Some("beta"), "alpha").unwrap_err();
-        assert!(erro.contains("Restauracao abortada"));
+        assert!(erro.starts_with("error.restore."));
         assert!(erro.contains("beta") && erro.contains("alpha"));
     }
 
@@ -1855,7 +1855,7 @@ const STARTUP_VALUE_NAME: &str = "KPassword";
 #[cfg(windows)]
 fn startup_command_line() -> Result<String, String> {
     let exe = std::env::current_exe()
-        .map_err(|error| format!("Não foi possível localizar o executável do KPassword: {error}"))?;
+        .map_err(|error| format!("error.startup.executable: {error}"))?;
     Ok(format!("\"{}\" --startup", exe.to_string_lossy()))
 }
 
@@ -1874,7 +1874,7 @@ fn run_reg_command(args: &[&str]) -> Result<(), String> {
     let status = reg_command()
         .args(args)
         .status()
-        .map_err(|error| format!("Não foi possível executar reg.exe: {error}"))?;
+        .map_err(|error| format!("error.startup.registry: {error}"))?;
 
     if status.success() {
         Ok(())
@@ -1921,7 +1921,7 @@ fn set_startup_enabled_impl(enabled: bool) -> Result<(), String> {
 
 #[cfg(all(not(windows), not(target_os = "linux")))]
 fn set_startup_enabled_impl(_enabled: bool) -> Result<(), String> {
-    Err("Inicialização com Windows disponível apenas no Windows.".to_string())
+    Err("error.startup.windowsOnly".to_string())
 }
 
 #[tauri::command]
@@ -1982,12 +1982,44 @@ fn set_startup_enabled(enabled: bool) -> Result<bool, String> {
     // permitido, para o usuario conseguir limpar um registro antigo.
     if enabled && tauri::is_dev() {
         return Err(
-            "Ative a inicialização com o sistema pelo KPassword instalado. A versão de desenvolvimento depende do servidor do Vite e não abre no login."
+            "error.startup.devBuild"
                 .to_string(),
         );
     }
     set_startup_enabled_impl(enabled)?;
     Ok(is_startup_enabled_impl())
+}
+
+/// Itens da bandeja cujo texto acompanha o idioma escolhido no app.
+struct TrayMenuItems {
+    open: MenuItem<tauri::Wry>,
+    revoke_bridge: Option<MenuItem<tauri::Wry>>,
+    quit: MenuItem<tauri::Wry>,
+}
+
+#[derive(Default)]
+struct TrayMenu(std::sync::Mutex<Option<TrayMenuItems>>);
+
+fn tray_label(text: &str) -> String {
+    text.chars().filter(|c| !c.is_control()).take(80).collect()
+}
+
+#[tauri::command]
+fn set_tray_labels(
+    state: tauri::State<'_, TrayMenu>,
+    open: String,
+    revoke_bridge: String,
+    quit: String,
+) -> Result<(), String> {
+    let items = state.0.lock().map_err(|_| "error.task.interrupted")?;
+    let Some(items) = items.as_ref() else { return Ok(()) };
+    let mut result = items.open.set_text(tray_label(&open));
+    if let Some(item) = &items.revoke_bridge {
+        result = result.and(item.set_text(tray_label(&revoke_bridge)));
+    }
+    result
+        .and(items.quit.set_text(tray_label(&quit)))
+        .map_err(|_| "error.tray.update".to_string())
 }
 
 #[tauri::command]
@@ -2074,13 +2106,13 @@ fn decode_qr_with_quircs(gray_image: &image::GrayImage) -> Option<String> {
 
 fn validate_qr_image_dimensions(width: u32, height: u32) -> Result<(), String> {
     if width == 0 || height == 0 {
-        return Err("Imagem inválida ou corrompida.".to_string());
+        return Err("error.qr.invalidImage".to_string());
     }
 
     let pixels = u64::from(width) * u64::from(height);
 
     if width > MAX_QR_IMAGE_SIDE || height > MAX_QR_IMAGE_SIDE || pixels > MAX_QR_IMAGE_PIXELS {
-        return Err("Imagem muito grande. Use um print menor do QR Code.".to_string());
+        return Err("error.qr.imageTooLarge".to_string());
     }
 
     Ok(())
@@ -2089,11 +2121,11 @@ fn validate_qr_image_dimensions(width: u32, height: u32) -> Result<(), String> {
 fn read_qr_image_dimensions(image_bytes: &[u8]) -> Result<(u32, u32), String> {
     let reader = image::ImageReader::new(Cursor::new(image_bytes))
         .with_guessed_format()
-        .map_err(|_| "Imagem inválida ou corrompida.".to_string())?;
+        .map_err(|_| "error.qr.invalidImage".to_string())?;
 
     reader
         .into_dimensions()
-        .map_err(|_| "Não foi possível abrir a imagem do QR Code.".to_string())
+        .map_err(|_| "error.qr.openImage".to_string())
 }
 
 fn threshold_qr_image(gray_image: &image::GrayImage, threshold: u8) -> image::GrayImage {
@@ -2244,7 +2276,7 @@ fn decode_qr_from_dynamic_image(decoded_image: &image::DynamicImage) -> Result<S
         }
     }
 
-    Err("Não foi possível ler um QR Code nessa imagem.".to_string())
+    Err("error.qr.notFound".to_string())
 }
 
 fn encode_qr_capture_as_png_data_url(image: &image::DynamicImage) -> Result<String, String> {
@@ -2253,7 +2285,7 @@ fn encode_qr_capture_as_png_data_url(image: &image::DynamicImage) -> Result<Stri
     let mut cursor = Cursor::new(Vec::new());
     image
         .write_to(&mut cursor, image::ImageFormat::Png)
-        .map_err(|_| "Não foi possível preparar a captura da tela.".to_string())?;
+        .map_err(|_| "error.capture.prepare".to_string())?;
     let bytes = cursor.into_inner();
 
     if bytes.len() > MAX_QR_IMAGE_BYTES.saturating_mul(2) {
@@ -2530,7 +2562,7 @@ mod windows_screen_snip_native {
 
         let sent = unsafe { SendInput(1, &input as *const Input, mem::size_of::<Input>() as i32) };
         if sent == 0 {
-            return Err("Não foi possível acionar o atalho de recorte do Windows.".to_string());
+            return Err("error.capture.snipShortcut".to_string());
         }
 
         Ok(())
@@ -2565,11 +2597,11 @@ mod windows_screen_snip_native {
     pub fn read_clipboard_image_png_data_url(after_sequence: u32) -> Result<String, String> {
         let current_sequence = clipboard_sequence_number();
         if after_sequence != 0 && current_sequence == after_sequence {
-            return Err("Aguardando um novo recorte no clipboard.".to_string());
+            return Err("error.capture.waitingForSnip".to_string());
         }
 
         let image = read_clipboard_image()
-            .ok_or_else(|| "Nenhuma imagem recortada foi encontrada no clipboard.".to_string())?;
+            .ok_or_else(|| "error.capture.noImage".to_string())?;
 
         encode_qr_capture_as_png_data_url(&image)
     }
@@ -2654,17 +2686,17 @@ fn decode_qr_from_image_data_url_blocking(data_url: String) -> Result<String, St
 
     let image_bytes = general_purpose::STANDARD
         .decode(encoded.as_bytes())
-        .map_err(|_| "Imagem inválida ou corrompida.".to_string())?;
+        .map_err(|_| "error.qr.invalidImage".to_string())?;
 
     if image_bytes.len() > MAX_QR_IMAGE_BYTES {
-        return Err("Imagem muito grande. Use um print menor do QR Code.".to_string());
+        return Err("error.qr.imageTooLarge".to_string());
     }
 
     let (width, height) = read_qr_image_dimensions(&image_bytes)?;
     validate_qr_image_dimensions(width, height)?;
 
     let decoded_image = image::load_from_memory(&image_bytes)
-        .map_err(|_| "Não foi possível abrir a imagem do QR Code.".to_string())?;
+        .map_err(|_| "error.qr.openImage".to_string())?;
 
     decode_qr_from_dynamic_image(&decoded_image)
 }
@@ -2697,6 +2729,7 @@ pub fn run() {
         .manage(secrets_bridge::broker::BrokerState::default())
         .manage(UniversalBridgeState::default())
         .manage(secure_clipboard::SecureClipboard::default())
+        .manage(TrayMenu::default())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -2730,6 +2763,14 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&open_item, &separator, &bridge_stop, &bridge_separator, &quit_item])?;
             #[cfg(not(target_os = "linux"))]
             let menu = Menu::with_items(app, &[&open_item, &separator, &quit_item])?;
+            *app.state::<TrayMenu>().0.lock().map_err(|_| "error.task.interrupted")? = Some(TrayMenuItems {
+                open: open_item.clone(),
+                #[cfg(target_os = "linux")]
+                revoke_bridge: Some(bridge_stop.clone()),
+                #[cfg(not(target_os = "linux"))]
+                revoke_bridge: None,
+                quit: quit_item.clone(),
+            });
 
             TrayIconBuilder::new()
                 .tooltip("KPassword")
@@ -2794,6 +2835,7 @@ pub fn run() {
             secure_clipboard::clipboard_clear_secret,
             linux_capture_qr,
             hide_to_tray,
+            set_tray_labels,
             is_startup_enabled,
             get_startup_status,
             set_startup_enabled,
@@ -2828,7 +2870,7 @@ pub fn run() {
             move |invoke: tauri::ipc::Invoke<tauri::Wry>| {
                 if invoke.message.webview().label() == "bridge-approval"
                     && !["bridge_take_access_request", "bridge_answer_access_request"].contains(&invoke.message.command()) {
-                    invoke.resolver.reject("Comando indisponível nesta janela."); return true;
+                    invoke.resolver.reject("error.ipc.commandNotAllowed"); return true;
                 }
                 handler(invoke)
             }
