@@ -241,8 +241,8 @@ textarea { min-height: 100px; }
 .quickFilterDropdown { flex: 0 0 auto; }
 .credentialRows { display: grid; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .credentialRow {
-  display: grid; grid-template-columns: 24px 28px minmax(160px, 1fr) minmax(90px, .5fr) minmax(100px, .45fr) minmax(120px, .5fr) auto;
-  grid-template-areas: "order star main secret type health actions";
+  display: grid; grid-template-columns: var(--row-columns);
+  grid-template-areas: var(--row-areas);
   gap: 12px; align-items: center; min-width: 0; min-height: 80px;
   padding: 16px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
   background: transparent; color: var(--text); box-shadow: none;
@@ -254,7 +254,6 @@ textarea { min-height: 100px; }
 .credentialRow .reorderControls { grid-area: order; }
 .credentialRow .rowStar { grid-area: star; }
 .credentialRow .rowMain { grid-area: main; }
-.credentialRow .rowPassword { grid-area: secret; }
 .credentialRow .rowCategory { grid-area: type; }
 .credentialRow .rowHealth { grid-area: health; }
 .credentialRow .rowActions { grid-area: actions; }
@@ -443,6 +442,7 @@ textarea { min-height: 100px; }
 .confirmCard p, .restoreDialog p, .credentialModal p { color: var(--muted); }
 .confirmIcon { background: var(--selection); color: var(--accent); border-radius: 10px; box-shadow: none; }
 .confirmIcon.danger { background: var(--danger-bg); color: var(--danger); }
+.confirmIcon.warning { background: var(--warning-bg); color: var(--warning); }
 :where(.message, .updateStatus, .diagnosticFilterBanner, .tagFilterBanner) {
   padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px;
   margin: 0; background: var(--surface-raised); color: var(--text); font-size: .95rem;
@@ -612,20 +612,6 @@ textarea { min-height: 100px; }
     min-width: 0; padding: 0; overflow: visible; background: none; backdrop-filter: none;
   }
   .credentialWorkspace.hasDetail .detailPopup { width: 100%; max-height: calc(100dvh - 136px); box-shadow: none; }
-  .hasDetail .credentialRow {
-    grid-template-columns: 24px 28px minmax(0, 1fr) auto;
-    grid-template-areas: "order star main actions" ". . type type" ". . secret health";
-    gap: 8px 10px; padding: 16px;
-  }
-  .hasDetail .rowActions { flex-direction: column; gap: 6px; }
-}
-@media (max-width: 1199px) {
-  .credentialRow {
-    grid-template-columns: 24px 28px minmax(0, 1fr) auto;
-    grid-template-areas: "order star main actions" ". . secret type" ". . health health";
-    gap: 8px 10px;
-  }
-  .rowHealth { justify-content: flex-start; }
 }
 @media (max-width: 1100px) {
   .settingsGrid, .preferencesGrid { grid-template-columns: 1fr; }
@@ -681,9 +667,6 @@ textarea { min-height: 100px; }
   .optionButton { flex-direction: row; flex-wrap: wrap; align-items: center; min-height: 72px; }
   .optionButton small { flex-basis: 100%; }
   .cardTitleRow { flex-wrap: wrap; }
-  .credentialRow { grid-template-columns: 20px 24px minmax(0, 1fr); grid-template-areas: "order star main" ". . type" ". . secret" ". . health" ". . actions"; padding: 12px; }
-  .rowActions { justify-content: flex-start; }
-  .rowActions button { flex: 0 1 auto; width: auto; }
   .detailGrid { grid-template-columns: 1fr; }
   .detailHeader, .detailBody { padding: 16px; }
   .detailActions { padding: 12px 16px; }
@@ -729,7 +712,6 @@ textarea { min-height: 100px; }
 .rowActions button { width: 36px; height: 36px; min-height: 36px; flex: 0 0 36px; padding: 7px; }
 .rowActionLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .rowActions button[data-copied="true"] { color: var(--success); background: var(--success-bg); }
-.hasDetail .rowActions { flex-direction: row; flex-wrap: nowrap; }
 .credentialRow .rowMain strong, .credentialRow .rowMain small { margin: 0; }
 .tagFilterBar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0; border: 0; background: none; margin: 12px 0; box-shadow: none; }
 .tagFilterBar > span { color: var(--muted); letter-spacing: 0; font-size: .8rem; }
@@ -747,9 +729,6 @@ textarea { min-height: 100px; }
 .authThemeButton .uiIcon { width: 16px; height: 16px; }
 .authPanelLabel { text-transform: none; letter-spacing: 0; }
 .authForm label { text-align: left; }
-@media (min-width: 1200px) {
-  .hasDetail .credentialRow { grid-template-areas: "order star main actions" ". . type health" ". . secret secret"; }
-}
 @media (max-width: 400px) { .authThemeButton > span:last-child { display: inline; } }
 /* Neutralize old theme text-fill and label decoration across all components. */
 * { -webkit-text-fill-color: currentColor; }
@@ -774,9 +753,101 @@ label { background: none; border: 0; border-radius: 0; }
 /* File import labels are controls, rather than decorative form labels. */
 .fileImportButton { display: inline-flex; align-items: center; justify-content: center; padding: 9px 14px; min-height: 40px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--text); cursor: pointer; }
 .credentialTags.compact { margin-top: 2px; }
-@media (min-width: 1000px) and (max-width: 1199px) {
-  .credentialWorkspace:not(.hasDetail) .credentialRow {
-    grid-template-columns: 24px 28px minmax(0, 1fr) minmax(120px, .5fr) auto;
-    grid-template-areas: "order star main secret actions" ". . health type actions";
-  }
+
+
+/* Vault list rows. Fixed tracks keep every column aligned whatever the item
+   type, the number of actions or the length of a warning; the pane width
+   (not the window) picks the layout, so the detail panel never breaks it. */
+.vaultListPane { container: vault-list / inline-size; }
+.credentialRows {
+  --row-columns: 24px 28px minmax(0, 1.6fr) 150px minmax(0, 1fr) 124px;
+  --row-areas: "order star main type health actions";
 }
+@container vault-list (max-width: 980px) {
+  .credentialRows {
+    --row-columns: 24px 28px 140px minmax(0, 1fr) 124px;
+    --row-areas: "order star main main actions" "order star type health actions";
+  }
+  .credentialRow { row-gap: 8px; }
+}
+@container vault-list (max-width: 640px) {
+  .credentialRows { --row-columns: 24px 28px 128px minmax(0, 1fr) 124px; }
+  .strengthMeterLabel { display: none; }
+}
+@container vault-list (max-width: 460px) {
+  .credentialRows {
+    --row-columns: 20px 24px 116px minmax(0, 1fr);
+    --row-areas: "order star main main" ". . type health" ". . actions actions";
+  }
+  .credentialRow { padding: 12px; column-gap: 8px; }
+}
+.credentialRow .rowMain strong, .credentialRow .rowMain small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+.credentialRow .rowCategory { max-width: 100%; min-width: 0; white-space: nowrap; }
+.credentialRow .rowCategory > span { overflow: hidden; text-overflow: ellipsis; }
+:root .credentialRow .rowHealth {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 10px;
+  min-width: 0; overflow: hidden; white-space: nowrap;
+}
+:root .credentialRow .rowHealth > .rowCategoryText { overflow: hidden; text-overflow: ellipsis; }
+.strengthMeter { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; color: var(--muted); font-size: .8rem; }
+.strengthMeterTrack { position: relative; width: 44px; height: 5px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.strengthMeterTrack > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: currentColor; }
+:root .credentialRow .strengthMeter .strengthMeterLabel { color: var(--muted); -webkit-text-fill-color: currentColor; }
+:root .credentialRow .strengthMeter.tone-danger .strengthMeterTrack { color: var(--danger); }
+:root .credentialRow .strengthMeter.tone-warning .strengthMeterTrack { color: var(--warning); }
+:root .credentialRow .strengthMeter.tone-success .strengthMeterTrack { color: var(--success); }
+:root .credentialRow .rowHealth .rowStatusChip {
+  display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex: 0 1 auto;
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface-raised); color: var(--muted); -webkit-text-fill-color: currentColor;
+  font-size: .75rem; font-weight: 600; line-height: 1.5;
+}
+:root .credentialRow .rowHealth .rowStatusChip span { color: inherit; -webkit-text-fill-color: currentColor; }
+:root .credentialRow .rowHealth .rowStatusChip.tone-danger { color: var(--danger); background: var(--danger-bg); border-color: transparent; }
+:root .credentialRow .rowHealth .rowStatusChip.tone-warning { color: var(--warning); background: var(--warning-bg); border-color: transparent; }
+.rowStatusText { overflow: hidden; text-overflow: ellipsis; }
+.rowStatusExtra { flex: 0 0 auto; opacity: .8; }
+:root .credentialRow .rowActions {
+  display: grid; grid-template-columns: repeat(3, 36px); gap: 8px; justify-content: end; flex-wrap: nowrap;
+}
+.credentialRow .rowActionUser { grid-column: 1; }
+.credentialRow .rowActionSecret { grid-column: 2; }
+.credentialRow .rowActionEdit { grid-column: 3; }
+
+/* Copy feedback: the icon turns into a check, and a bar drains for as long as
+   the secret stays on the clipboard (the backend clears it at the same time). */
+@keyframes copy-pop { 0% { transform: scale(.3) rotate(-25deg); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes clipboard-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(6px); } }
+.rowActions button, .detailActions button, .totpBoxActions button, .historyActions button { position: relative; overflow: hidden; }
+:root .credentialRow .rowActions button[data-copied="true"],
+:root .detailActions button[data-copied="true"],
+:root .totpBoxActions button[data-copied="true"],
+:root .historyActions button[data-copied="true"] {
+  color: var(--success); -webkit-text-fill-color: currentColor;
+  background: var(--success-bg); border-color: var(--success);
+}
+button[data-copied="true"] > .uiIcon { animation: copy-pop 360ms cubic-bezier(.2, .9, .3, 1.3); }
+button[data-copied="true"]::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  background: var(--success); transform-origin: left center;
+  animation: clipboard-drain var(--clipboard-clear, 30s) linear forwards;
+}
+.detailActions button .uiIcon, .totpBoxActions button .uiIcon { width: 18px; height: 18px; flex-basis: 18px; }
+.copyToastRegion {
+  position: fixed; left: 50%; bottom: 24px; z-index: 1200; transform: translateX(-50%);
+  width: max-content; max-width: calc(100vw - 32px); pointer-events: none;
+}
+.copyToast {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px 12px;
+  border: 1px solid var(--success); border-radius: 10px; background: var(--surface-raised);
+  color: var(--text); box-shadow: var(--shadow);
+  animation: toast-in 180ms ease-out, toast-out 260ms ease-in 2.5s forwards;
+}
+.copyToast > .uiIcon { color: var(--success); }
+.copyToast > span { display: grid; gap: 1px; min-width: 0; }
+.copyToast strong { font-size: .9rem; }
+.copyToast small { font-size: .78rem; }
+.copyToast.failed { border-color: var(--danger); animation: toast-in 180ms ease-out; }
+.copyToast.failed > .uiIcon { color: var(--danger); }

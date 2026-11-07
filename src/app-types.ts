@@ -5,6 +5,6 @@ export type ConfirmDialog = {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  tone?: "default" | "danger";
+  tone?: "default" | "danger" | "warning";
   resolve: (confirmed: boolean) => void;
 };

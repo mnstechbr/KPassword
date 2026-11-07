@@ -70,6 +70,7 @@ import type {
   CredentialRecord,
   VaultAttachment,
   VaultFileInfo,
+  VaultItemType,
   WindowsHelloStatus,
   EncryptedVaultFile,
   PlainVault,
@@ -129,6 +130,9 @@ import {
   type AssistantTagSuggestion,
   ASSISTANT_ISSUE_PRIORITY,
   getAssistantIssueTone,
+  getRowStatusTone,
+  getStrengthTone,
+  ROW_STATUS_PRIORITY,
   getAssistantActionKind,
   getCredentialImportanceScore,
   inferCredentialTag,
@@ -156,6 +160,7 @@ import {
   getItemSubtitle,
   getItemPrimarySecret,
   maskGenericSecret,
+  maskCardNumber,
   getAttachments,
   getPasswordHistory,
   daysBetween,
@@ -329,7 +334,10 @@ export default function App() {
   const strengthEngineRef = useRef<StrengthEngine | null>(null);
   const lastActivityRef = useRef(Date.now());
   const clipboardCleanupRef = useRef<number | null>(null);
+  const copyToastTimerRef = useRef<number | null>(null);
+  const [copyToast, setCopyToast] = useState<{ id: number; text: string; seconds: number; failed?: boolean } | null>(null);
   const quickFilterMenuRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const totpImageInputRef = useRef<HTMLInputElement | null>(null);
 
   // O motor (e o worker) so nascem quando ha algo para analisar. Nada de
@@ -511,6 +519,27 @@ export default function App() {
       cancelled = true;
     };
   }, [totpPreview?.secret, totpTick]);
+  // Ctrl+F ou "/" levam à busca do cofre, como em navegadores e outros gerenciadores.
+  useEffect(() => {
+    if (mode !== "unlocked") return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = !!target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+      const wantsSearch =
+        ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "f") ||
+        (event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey);
+      if (!wantsSearch || document.querySelector("[aria-modal='true']")) return;
+      event.preventDefault();
+      setScreen("credentials");
+      window.requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      });
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mode]);
+
   useEffect(() => {
     if (!quickFilterMenuOpen) return;
 
@@ -1282,6 +1311,7 @@ export default function App() {
       message: t("expiry.reminderMessage", { expired: expired.length, soon: soon.length }),
       confirmText: t("expiry.openDashboard"),
       cancelText: t("dialog.remindLater"),
+      tone: "warning",
     });
 
     if (confirmed) {
@@ -1658,6 +1688,29 @@ export default function App() {
       secureLogError("operação do app", error);
       setMessage(withBackendReason(t("actionHistory.clearError"), error, appLanguage));
     }
+  }
+
+  function getCopySecretLabel(itemType: VaultItemType) {
+    return t(itemType === "credential" ? "credential.copyPassword" : "item.copySecret");
+  }
+
+  function getSecretCopiedLabel(itemType: VaultItemType) {
+    return t(itemType === "credential" ? "credential.passwordCopied" : "item.secretCopied");
+  }
+
+  /** Um único aviso por linha (o mais grave), com os demais no título. */
+  function getRowStatus(credential: CredentialRecord) {
+    const issues = getDiagnosticIssuesFor(credential);
+    const visible = ROW_STATUS_PRIORITY.filter((issue) => issues.includes(issue));
+    if (visible.length === 0) return null;
+    const labelFor = (issue: DiagnosticIssue) => (issue === "expiring" ? getExpiryLabel(credential) : t(`diagnostic.row.${issue}`));
+    const [main, ...rest] = visible;
+    return {
+      label: labelFor(main),
+      className: `tone-${getRowStatusTone(main)}`,
+      extra: rest.length,
+      title: visible.map(labelFor).join(" · "),
+    };
   }
 
   function getExpiryLabel(credential: CredentialRecord) {
@@ -2668,7 +2721,16 @@ export default function App() {
     });
   }
 
-  async function copySecure(value: string, label: string, historyEntry?: ActionHistoryEntry) {
+  function showCopyToast(text: string, seconds: number, failed = false) {
+    if (copyToastTimerRef.current) window.clearTimeout(copyToastTimerRef.current);
+    setCopyToast({ id: Date.now(), text, seconds, failed });
+    copyToastTimerRef.current = window.setTimeout(() => {
+      copyToastTimerRef.current = null;
+      setCopyToast(null);
+    }, failed ? 5000 : 2800);
+  }
+
+  async function copySecure(value: string, label: string, historyEntry?: ActionHistoryEntry, toastText?: string) {
     if (!value) return;
 
     if (clipboardCleanupRef.current) {
@@ -2678,8 +2740,19 @@ export default function App() {
 
     // O backend marca o conteúdo como sensível e limpa no prazo, só se ainda for o nosso.
     const clearSeconds = vault?.settings.clipboardClearSeconds ?? CLIPBOARD_CLEAR_SECONDS;
-    await writeSecretToClipboard(value, clearSeconds);
-    setCopiedField(label);
+    try {
+      await writeSecretToClipboard(value, clearSeconds);
+    } catch (error) {
+      setCopiedField("");
+      showCopyToast(withBackendReason(t("error.clipboard.write"), error, appLanguage), 0, true);
+      return;
+    }
+    // A barra de contagem do botão acompanha o prazo de limpeza do clipboard.
+    document.documentElement.style.setProperty("--clipboard-clear", `${clearSeconds}s`);
+    // Zera antes para a animação recomeçar quando o mesmo botão é usado de novo.
+    setCopiedField("");
+    window.requestAnimationFrame(() => setCopiedField(label));
+    if (toastText) showCopyToast(toastText, clearSeconds);
 
     if (historyEntry && vault) {
       void recordActionHistoryOnly(historyEntry.type, historyEntry.targetName);
@@ -3066,7 +3139,6 @@ export default function App() {
         credential.category,
         credential.notes,
         getCredentialTags(credential).join(" "),
-        credential.password,
         credential.totpIssuer,
         credential.apiProvider,
         credential.apiIdentifier,
@@ -3397,8 +3469,8 @@ export default function App() {
   const confirmDialogElement = confirmDialog ? (
     <div className="confirmOverlay" onMouseDown={() => closeConfirmDialog(false)}>
       <section className="confirmCard" onMouseDown={(event) => event.stopPropagation()}>
-        <div className={confirmDialog.tone === "danger" ? "confirmIcon danger" : "confirmIcon"}>
-          {confirmDialog.tone === "danger" ? "!" : "✓"}
+        <div className={`confirmIcon${confirmDialog.tone && confirmDialog.tone !== "default" ? ` ${confirmDialog.tone}` : ""}`}>
+          {confirmDialog.tone === "danger" || confirmDialog.tone === "warning" ? "!" : "✓"}
         </div>
         <div>
           <h2>{confirmDialog.title}</h2>
@@ -4157,13 +4229,16 @@ export default function App() {
                           type="button"
                           className="secondaryButton"
                           disabled={!detailTotpCode}
+                          data-copied={copiedField === `totp-${detailCredential.id}`}
                           onClick={() => void copySecure(
                             detailTotpCode,
                             `totp-${detailCredential.id}`,
                             createActionHistoryEntry("password_copied", detailCredential.title),
+                            t("totp.copied"),
                           )}
                         >
-                          {copiedField === `totp-${detailCredential.id}` ? t("credential.copied") : t("totp.copy")}
+                          <UiIcon name={copiedField === `totp-${detailCredential.id}` ? "check" : "copy"} />
+                          {copiedField === `totp-${detailCredential.id}` ? t("totp.copied") : t("totp.copy")}
                         </button>
                         <button type="button" className="secondaryButton" onClick={() => openCredentialTotpSetup(detailCredential)}>
                           {t("totp.easy.change")}
@@ -4214,7 +4289,7 @@ export default function App() {
                   </div>
                   <div>
                     <span>{t("card.number")}</span>
-                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardNumber || "—" : maskGenericSecret(detailCredential.cardNumber)}</strong>
+                    <strong>{visiblePasswords[`card-${detailCredential.id}`] ? detailCredential.cardNumber || "—" : maskCardNumber(detailCredential.cardNumber)}</strong>
                   </div>
                   <div>
                     <span>{t("card.expiry")}</span>
@@ -4369,8 +4444,12 @@ export default function App() {
                           >
                             {visibleHistoryPasswords[entry.id] ? t("credential.hidePassword") : t("credential.showPassword")}
                           </button>
-                          <button type="button" onClick={() => void copySecure(entry.password, `history-${entry.id}`)}>
-                            {copiedField === `history-${entry.id}` ? t("credential.copiedFemale") : t("credential.copyPassword")}
+                          <button
+                            type="button"
+                            data-copied={copiedField === `history-${entry.id}`}
+                            onClick={() => void copySecure(entry.password, `history-${entry.id}`, undefined, t("credential.passwordCopied"))}
+                          >
+                            {copiedField === `history-${entry.id}` ? t("credential.passwordCopied") : t("credential.copyPassword")}
                           </button>
                           <button type="button" onClick={() => void handleRestorePasswordFromHistory(detailCredential.id, entry.id)}>
                             {t("history.restore")}
@@ -4387,22 +4466,34 @@ export default function App() {
               </div>
               <div className="detailActions">
                 {itemType === "credential" && detailCredential.username && (
-                  <button onClick={() => void copySecure(
-                    detailCredential.username,
-                    `user-${detailCredential.id}`,
-                    createActionHistoryEntry("username_copied", detailCredential.title),
-                  )}>
+                  <button
+                    type="button"
+                    data-copied={copiedField === `user-${detailCredential.id}`}
+                    onClick={() => void copySecure(
+                      detailCredential.username,
+                      `user-${detailCredential.id}`,
+                      createActionHistoryEntry("username_copied", detailCredential.title),
+                      t("credential.userCopied"),
+                    )}
+                  >
+                    <UiIcon name={copiedField === `user-${detailCredential.id}` ? "check" : "copyUser"} />
                     {copiedField === `user-${detailCredential.id}` ? t("credential.userCopied") : t("credential.copyUser")}
                   </button>
                 )}
 
                 {primarySecret && (
-                  <button onClick={() => void copySecure(
-                    primarySecret,
-                    `secret-${detailCredential.id}`,
-                    createActionHistoryEntry("password_copied", detailCredential.title),
-                  )}>
-                    {copiedField === `secret-${detailCredential.id}` ? t("credential.copiedFemale") : t(itemType === "credential" ? "credential.copyPassword" : "item.copySecret")}
+                  <button
+                    type="button"
+                    data-copied={copiedField === `secret-${detailCredential.id}`}
+                    onClick={() => void copySecure(
+                      primarySecret,
+                      `secret-${detailCredential.id}`,
+                      createActionHistoryEntry("password_copied", detailCredential.title),
+                      getSecretCopiedLabel(itemType),
+                    )}
+                  >
+                    <UiIcon name={copiedField === `secret-${detailCredential.id}` ? "check" : "copySecret"} />
+                    {copiedField === `secret-${detailCredential.id}` ? getSecretCopiedLabel(itemType) : getCopySecretLabel(itemType)}
                   </button>
                 )}
 
@@ -4776,15 +4867,38 @@ export default function App() {
 
         {message && <div className="message success">{message}</div>}
 
+        <div className="copyToastRegion" role="status" aria-live="polite">
+          {copyToast && (
+            <div key={copyToast.id} className={`copyToast${copyToast.failed ? " failed" : ""}`}>
+              <UiIcon name={copyToast.failed ? "close" : "check"} />
+              <span>
+                <strong>{copyToast.text}</strong>
+                {!copyToast.failed && copyToast.seconds > 0 && (
+                  <small>{t("clipboard.clearsIn", { seconds: copyToast.seconds })}</small>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+
         {screen === "credentials" && (
           <section className={`credentialWorkspace${detailCredential ? " hasDetail" : ""}`}>
             <div className="vaultListPane">
             <div className="toolbar vaultSearchToolbar">
               <input
+                ref={searchInputRef}
                 aria-label={t("search.placeholder")}
+                aria-keyshortcuts="Control+F /"
+                title={t("search.shortcut")}
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && search) {
+                    event.preventDefault();
+                    setSearch("");
+                  }
+                }}
                 placeholder={t("search.placeholder")}
               />
 
@@ -4961,44 +5075,49 @@ export default function App() {
                       )}
                     </span>
 
-                    <span className="rowPassword">
-                      {isCredentialItem(credential) ? maskPassword(credential.password) : maskGenericSecret(primarySecret)}
-                    </span>
-
                     <span className="rowCategory">
-                      {getItemTypeIcon(itemType)} {getItemTypeLabel(itemType, appLanguage)}
+                      {getItemTypeIcon(itemType)} <span>{getItemTypeLabel(itemType, appLanguage)}</span>
                     </span>
 
                     <span className="rowHealth">
                       {isCredentialItem(credential) ? (
                         <>
-                          <span>
-                            {credentialStrength
-                              ? `${translatePasswordLabel(credentialStrength.label, appLanguage)} · ${credentialStrength.score}%`
-                              : "—"}
-                          </span>
-                          <span className={getExpiryBadgeClass(getPasswordExpiryInfo(credential).status)}>
-                            {getExpiryLabel(credential)}
-                          </span>
-                          {getDiagnosticIssuesFor(credential).slice(0, 2).map((issue) => (
-                            <span key={issue} className={`diagnosticMiniBadge issue-${issue}`}>
-                              {getDiagnosticLabel(issue)}
+                          {credentialStrength ? (
+                            <span
+                              className={`strengthMeter tone-${getStrengthTone(credentialStrength.score)}`}
+                              title={`${t("detail.strength")}: ${translatePasswordLabel(credentialStrength.label, appLanguage)} · ${credentialStrength.score}%`}
+                            >
+                              <span className="strengthMeterTrack" aria-hidden="true">
+                                <span style={{ width: `${Math.max(6, credentialStrength.score)}%` }} />
+                              </span>
+                              <span className="strengthMeterLabel">{translatePasswordLabel(credentialStrength.label, appLanguage)}</span>
                             </span>
-                          ))}
+                          ) : (
+                            <span className="strengthMeter pending">—</span>
+                          )}
+                          {(() => {
+                            const status = getRowStatus(credential);
+                            if (!status) return null;
+                            return (
+                              <span className={`rowStatusChip ${status.className}`} title={status.title}>
+                                <span className="rowStatusText">{status.label}</span>
+                                {status.extra > 0 && <span className="rowStatusExtra">+{status.extra}</span>}
+                              </span>
+                            );
+                          })()}
                         </>
                       ) : (
-                        <>
-                          <span>{getCategoryLabel(credential.category, appLanguage)}</span>
-                          <span className="expiryBadge never">{t("item.encrypted")}</span>
-                        </>
+                        <span className="rowCategoryText">{getCategoryLabel(credential.category, appLanguage)}</span>
                       )}
                     </span>
 
                     <span className="rowActions">
                       {isCredentialItem(credential) && credential.username && (
                         <button
-                          type="button" data-copied={copiedField === `user-${credential.id}`}
-                          title={t("credential.copyUser")}
+                          type="button"
+                          className="rowActionUser"
+                          data-copied={copiedField === `user-${credential.id}`}
+                          title={copiedField === `user-${credential.id}` ? t("credential.userCopied") : t("credential.copyUser")}
                           aria-label={t("credential.copyUser")}
                           onClick={(event) => {
                             stopAction(event);
@@ -5006,42 +5125,49 @@ export default function App() {
                               credential.username,
                               `user-${credential.id}`,
                               createActionHistoryEntry("username_copied", credential.title),
+                              t("credential.userCopied"),
                             );
                           }}
                         >
-                          <UiIcon name="copy" /><span className="rowActionLabel">{copiedField === `user-${credential.id}` ? t("credential.copied") : t("credential.copyUser")}</span>
+                          <UiIcon name={copiedField === `user-${credential.id}` ? "check" : "copyUser"} />
+                          <span className="rowActionLabel">{copiedField === `user-${credential.id}` ? t("credential.userCopied") : t("credential.copyUser")}</span>
                         </button>
                       )}
 
                       {primarySecret && (
                         <button
-                          type="button" data-copied={copiedField === `secret-${credential.id}`}
-                          title={t(isCredentialItem(credential) ? "credential.copyPassword" : "item.copySecret")}
-                          aria-label={t(isCredentialItem(credential) ? "credential.copyPassword" : "item.copySecret")}
+                          type="button"
+                          className="rowActionSecret"
+                          data-copied={copiedField === `secret-${credential.id}`}
+                          title={copiedField === `secret-${credential.id}` ? getSecretCopiedLabel(itemType) : getCopySecretLabel(itemType)}
+                          aria-label={getCopySecretLabel(itemType)}
                           onClick={(event) => {
                             stopAction(event);
                             void copySecure(
                               primarySecret,
                               `secret-${credential.id}`,
                               createActionHistoryEntry("password_copied", credential.title),
+                              getSecretCopiedLabel(itemType),
                             );
                           }}
                         >
-                          <UiIcon name="copy" /><span className="rowActionLabel">{copiedField === `secret-${credential.id}` ? t("credential.copiedFemale") : t(isCredentialItem(credential) ? "credential.copyPassword" : "item.copySecret")}</span>
+                          <UiIcon name={copiedField === `secret-${credential.id}` ? "check" : "copySecret"} />
+                          <span className="rowActionLabel">{copiedField === `secret-${credential.id}` ? getSecretCopiedLabel(itemType) : getCopySecretLabel(itemType)}</span>
                         </button>
                       )}
 
                       <button
                         type="button"
-                          title={t("credential.edit")}
-                          aria-label={t("credential.edit")}
+                        className="rowActionEdit"
+                        title={t("credential.edit")}
+                        aria-label={t("credential.edit")}
                         onClick={(event) => {
                           stopAction(event);
                           openEditCredentialForm(credential);
                         }}
                       >
-                          <UiIcon name="edit" /><span className="rowActionLabel">{t("credential.edit")}</span>
-                        </button>
+                        <UiIcon name="edit" /><span className="rowActionLabel">{t("credential.edit")}</span>
+                      </button>
                     </span>
                   </article>
                 );
