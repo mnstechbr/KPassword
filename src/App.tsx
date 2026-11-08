@@ -705,6 +705,24 @@ export default function App() {
     setUnlockPassword("");
     setSetupPassword("");
     setConfirmPassword("");
+    // Senhas digitadas em formulários (troca de senha, exportação, exclusão,
+    // verificação de backup) e códigos 2FA não sobrevivem ao bloqueio.
+    setCurrentMasterPassword("");
+    setNewMasterPassword("");
+    setNewMasterConfirm("");
+    setRestorePassword("");
+    setBackupVerifyPassword("");
+    setExportPassword("");
+    setDeleteVaultPassword("");
+    setDetailTotpCode("");
+    setTotpManualValue("");
+    setSearch("");
+    if (clipboardCleanupRef.current) {
+      window.clearTimeout(clipboardCleanupRef.current);
+      clipboardCleanupRef.current = null;
+    }
+    setCopiedField("");
+    setCopyToast(null);
     setVisiblePasswords({});
     setVisibleHistoryPasswords({});
     setDetailCredentialId(null);

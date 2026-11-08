@@ -43,14 +43,27 @@ export function downloadTextFile(filename: string, content: string, mimeType = "
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/**
+ * Salva um anexo sempre como bytes opacos (application/octet-stream). Um anexo
+ * HTML ou SVG nunca é aberto ou interpretado dentro da janela do app, mesmo se o
+ * WebView decidir navegar em vez de baixar.
+ */
 export function downloadDataUrl(filename: string, dataUrl: string) {
+  const match = /^data:[^,]*?(;base64)?,(.*)$/s.exec(dataUrl);
+  if (!match) return;
+  const [, base64, payload] = match;
+  const bytes = base64
+    ? Uint8Array.from(atob(payload), (character) => character.charCodeAt(0))
+    : new TextEncoder().encode(decodeURIComponent(payload));
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
   const anchor = document.createElement("a");
 
-  anchor.href = dataUrl;
+  anchor.href = url;
   anchor.download = filename;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function safeExportFilename(value: string) {
