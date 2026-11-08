@@ -135,12 +135,17 @@ export function getItemPrimarySecret(item: CredentialRecord) {
   return "";
 }
 
+/** Máscara de tamanho fixo: não revela comprimento nem caracteres do segredo. */
 export function maskGenericSecret(value?: string) {
   if (!value) return "—";
-  const normalized = value.replace(/\s+/g, "");
+  return "••••••••••••";
+}
 
-  if (normalized.length <= 4) return "••••";
-  return `•••• ${normalized.slice(-4)}`;
+/** Número de cartão: só os 4 últimos dígitos, como no extrato do banco. */
+export function maskCardNumber(value?: string) {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (!digits) return "—";
+  return digits.length > 8 ? `•••• ${digits.slice(-4)}` : "••••••••••••";
 }
 
 export function getAttachments(credential?: Partial<CredentialRecord> | null): VaultAttachment[] {

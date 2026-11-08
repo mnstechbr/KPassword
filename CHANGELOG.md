@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.9.0
+
+- Lista do cofre com colunas fixas: tipo, saúde e ações ficam alinhados em qualquer largura, com ou sem o painel de detalhes.
+- Sem prévia de senha na lista; máscaras não revelam mais tamanho nem os últimos caracteres (só o cartão mostra o final).
+- Ícones diferentes para copiar usuário e senha, ✓ animado, barra até o clipboard ser limpo e aviso "Senha copiada".
+- Saúde da senha em barra e um único aviso por linha (o mais grave, com +N); "Sem TOTP" fica nos filtros e no Assistente.
+- Busca não procura mais dentro das senhas; Ctrl+F ou / focam a busca e Esc limpa.
+- Bloquear apaga senhas digitadas em formulários e o código 2FA visível; anexos são salvos como bytes, nunca abertos no app.
+- Chave Argon2id abaixo da política atual não é reaproveitada: a próxima gravação reforça. rustls, tokio e zbus atualizados (RustSec).
+- Detalhes em [notas da release](docs/releases/v1.9.0.md).
+
 ## v1.8.0
 
 - Senhas copiadas ficam fora do histórico do clipboard (Win+V, Klipper) e são limpas ao bloquear e ao sair.

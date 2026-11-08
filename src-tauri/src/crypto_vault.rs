@@ -104,6 +104,13 @@ pub fn default_argon2id_params() -> Argon2idParams {
     }
 }
 
+/// O cofre so reaproveita a chave da sessao se o custo do Argon2id for pelo
+/// menos o da politica atual; do contrario a proxima gravacao reforca.
+fn meets_default_strength(params: Argon2idParams) -> bool {
+    let default = default_argon2id_params();
+    params.memory_kib >= default.memory_kib && params.time_cost >= default.time_cost
+}
+
 pub fn crypto_version(file: &Value) -> u8 {
     file.get("cryptoVersion")
         .and_then(Value::as_u64)
@@ -440,7 +447,12 @@ pub fn unlock_vault_file(
         CRYPTO_VERSION_ARGON2ID => {
             let v2: EncryptedVaultFileV2 = serde_json::from_value(file.clone())
                 .map_err(|_| GENERIC_CRYPTO_ERROR.to_string())?;
-            decrypt_v2(v2, master_password).map(|(plaintext, key)| (plaintext, Some(key)))
+            // Parametros abaixo do padrao (arquivo antigo ou adulterado) nao
+            // sao herdados: a primeira gravacao gera sal e chave novos.
+            decrypt_v2(v2, master_password).map(|(plaintext, key)| {
+                let reusable = meets_default_strength(key.params);
+                (plaintext, reusable.then_some(key))
+            })
         }
         CRYPTO_VERSION_LEGACY => {
             let legacy: LegacyEncryptedVaultFile = serde_json::from_value(file.clone())
@@ -636,6 +648,21 @@ mod tests {
         let value = serde_json::to_value(encrypted).unwrap();
         let decrypted = decrypt_vault_file(&value, "correct horse").unwrap();
         assert_eq!(decrypted, sample_plaintext());
+    }
+
+    #[test]
+    fn weaker_than_default_kdf_is_not_reused_for_saving() {
+        let encrypted =
+            encrypt_vault_v2_with_params(&sample_plaintext(), "correct horse", None, test_params())
+                .unwrap();
+        let value = serde_json::to_value(encrypted).unwrap();
+        let (plaintext, key) = unlock_vault_file(&value, "correct horse").unwrap();
+        assert_eq!(plaintext, sample_plaintext());
+        assert!(
+            key.is_none(),
+            "a chave fraca nao pode seguir cifrando o cofre"
+        );
+        assert!(meets_default_strength(default_argon2id_params()));
     }
 
     #[test]

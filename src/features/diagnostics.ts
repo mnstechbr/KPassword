@@ -1,4 +1,4 @@
-import { isWeakStrength, type PasswordStrength } from "../password-strength";
+import { isWeakStrength, STRENGTH_POLICY, type PasswordStrength } from "../password-strength";
 import type { CredentialRecord } from "../types";
 import { translate } from "../i18n";
 import { isCredentialItem, daysBetween, getCredentialPasswordChangedAt, getPasswordExpiryInfo } from "./credentials";
@@ -73,6 +73,26 @@ export function getAssistantIssueTone(issue: DiagnosticIssue): "danger" | "warni
   if (issue === "reused" || issue === "expired") return "danger";
   if (issue === "weak" || issue === "missingTotp" || issue === "expiring") return "warning";
   return "neutral";
+}
+
+/**
+ * Ordem do aviso exibido na lista do cofre. Ficam de fora "fraca", que a barra
+ * de força ao lado já mostra, e "Sem TOTP", comum demais para disputar a única
+ * etiqueta da linha (os dois continuam nos filtros e no Assistente).
+ */
+export const ROW_STATUS_PRIORITY: DiagnosticIssue[] = ["expired", "reused", "expiring", "old", "incomplete"];
+
+export function getRowStatusTone(issue: DiagnosticIssue): "danger" | "warning" | "neutral" {
+  if (issue === "expired" || issue === "weak" || issue === "reused") return "danger";
+  if (issue === "expiring" || issue === "old") return "warning";
+  return "neutral";
+}
+
+/** Cor da barra de força na lista, pelas mesmas faixas dos rótulos. */
+export function getStrengthTone(score: number): "danger" | "warning" | "success" {
+  if (score < STRENGTH_POLICY.mediumMinScore) return "danger";
+  if (score < STRENGTH_POLICY.strongMinScore) return "warning";
+  return "success";
 }
 
 export function getAssistantActionKind(issue: DiagnosticIssue): AssistantActionKind {
